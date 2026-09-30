@@ -14,6 +14,7 @@ const view = createRenderer(canvas);
 const loop = createLoop({
   update() {},
   render() {
+    view.syncPixelRatio();
     view.renderer.render(view.scene, view.camera);
   },
   requestFrame(tick) {
@@ -48,4 +49,5 @@ const dispose = (): void => {
 
 if (import.meta.hot) {
   import.meta.hot.dispose(dispose);
+  import.meta.hot.accept();
 }

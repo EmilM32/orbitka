@@ -41,6 +41,8 @@ A new decision that affects the whole project gets its own ADR in Linear. This f
 | `public/assets` | Textures and sounds, local files only                            |
 | `tests/`        | Mirrors `src/` (`tests/sim/scale.test.ts`)                       |
 
+Allowed imports between layers (ADR-002, enforced by `npm run lint`): `data` imports nothing, `sim` only `data`, `core` only `data` and `sim`, `content` only `data`, `render` only `core`, `sim`, and `data`, `ui` only `core`, `data`, and `content`. `three` is allowed only in `src/render` and `tests/render`. Cross-layer imports use aliases; relative imports stay inside one layer.
+
 `sim` returns positions in physical units (AU, km). Only `render` converts those to scene units.
 
 ## Model, scale, time
@@ -79,7 +81,7 @@ npm ci
 npm run dev
 npm run build          # tsc --noEmit && vite build
 npm run preview
-npm run typecheck      # tsc -p tsconfig.json && tsc -p tsconfig.node.json
+npm run typecheck      # src, config files, and tests (tsconfig.json, .node.json, .test.json)
 npm run lint
 npm run format
 npm run test

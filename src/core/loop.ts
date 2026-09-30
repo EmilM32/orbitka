@@ -1,4 +1,5 @@
 const MAX_DT_SECONDS = 0.1;
+const unusedOnPurpose = 1;
 
 export type LoopTick = () => void;
 

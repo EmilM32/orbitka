@@ -13,6 +13,10 @@ npm run dev
 
 Otwórz adres wypisany w terminalu.
 
+## CI
+
+Każdy pull request i każdy push do `main` uruchamia workflow GitHub Actions z pliku `.github/workflows/ci.yml`. Job `verify` na aktualnym Node LTS wykonuje po kolei `npm ci`, `npm run lint`, `npm run typecheck`, `npm run test:coverage` i `npm run build`. Nazwa checku, który trzeba oznaczyć jako wymagany w ochronie gałęzi `main`, to `verify`; wtedy czerwony wynik blokuje merge. Nowy push do tej samej gałęzi anuluje poprzedni, niedokończony przebieg.
+
 ## Skrypty
 
 - `npm run dev` — serwer deweloperski Vite

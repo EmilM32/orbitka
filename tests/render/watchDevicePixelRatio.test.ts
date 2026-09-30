@@ -82,11 +82,15 @@ test('dispose removes the listener and ignores a later change', () => {
     },
   });
 
+  expect(media.query('(resolution: 1dppx)').listenerCount()).toBe(1);
+
   watch.dispose();
+
+  expect(media.query('(resolution: 1dppx)').listenerCount()).toBe(0);
+
   watch.dispose();
   media.query('(resolution: 1dppx)').fire();
 
   expect(changes).toBe(0);
-  expect(media.query('(resolution: 1dppx)').listenerCount()).toBe(0);
   expect(media.query('(resolution: 2dppx)').listenerCount()).toBe(0);
 });

@@ -1,6 +1,7 @@
 import {
   MeshBasicMaterial,
   MeshStandardMaterial,
+  Points,
   SphereGeometry,
   Vector3,
 } from 'three';
@@ -166,6 +167,38 @@ test('bodies › widoczność', () => {
   }
 
   view.dispose();
+});
+
+test('bodies › gwiazdy', () => {
+  const view = createBodies(bodies);
+  const sun = view.meshes.get('sun');
+  const stars = sun?.children.find((child) => child.name === 'stars');
+
+  expect(view.group.children).toHaveLength(9);
+  expect(view.meshes.size).toBe(9);
+  expect(stars).toBeInstanceOf(Points);
+  if (!(stars instanceof Points)) {
+    view.dispose();
+    throw new Error('brak gwiazd');
+  }
+
+  expect(stars.geometry.getAttribute('position').count).toBeGreaterThan(100);
+
+  const geometrySpy = vi.spyOn(stars.geometry, 'dispose');
+  const material = stars.material;
+  if (Array.isArray(material)) {
+    view.dispose();
+    throw new Error('nieoczekiwana lista materiałów gwiazd');
+  }
+  const materialSpy = vi.spyOn(material, 'dispose');
+
+  view.dispose();
+
+  expect(geometrySpy).toHaveBeenCalledOnce();
+  expect(materialSpy).toHaveBeenCalledOnce();
+  expect(view.group.children).toHaveLength(0);
+  expect(() => view.dispose()).not.toThrow();
+  expect(geometrySpy).toHaveBeenCalledOnce();
 });
 
 test('bodies › dispose', () => {

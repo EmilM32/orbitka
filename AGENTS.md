@@ -98,6 +98,5 @@ npm run lint
 npm run format
 npm run test
 npm run test:coverage
+npm run test:e2e       # Playwright smoke in Chromium (first run: npx playwright install chromium)
 ```
-
-`test:e2e` arrives with its own issue. Do not add it while doing something else.

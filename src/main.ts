@@ -1,11 +1,13 @@
 import './style.css';
 
+import { isDebugEnabled } from '@core/debugFlag.ts';
 import { createLoop } from '@core/loop.ts';
 import { bodies } from '@data/bodies.ts';
 import { createBodies } from '@render/bodies.ts';
 import { createLights } from '@render/lights.ts';
 import { createRenderer } from '@render/createRenderer.ts';
 import { getRenderStats } from '@render/renderStats.ts';
+import { getBodyScreenPositions } from '@render/screenPositions.ts';
 import { createDebugSession } from '@ui/debugSession.ts';
 
 type App = {
@@ -32,6 +34,41 @@ function mount(canvas: HTMLCanvasElement): App {
     document.body,
   );
   let lastUiMs = Number.NEGATIVE_INFINITY;
+
+  if (isDebugEnabled(window.location.search)) {
+    const screenEntries: {
+      id: string;
+      type: string;
+      position: { x: number; y: number; z: number };
+    }[] = [];
+    window.__orbitka = {
+      getBodyScreenPositions() {
+        const width = canvas.clientWidth;
+        const height = canvas.clientHeight;
+        if (screenEntries.length === 0 || width <= 0 || height <= 0) {
+          return [];
+        }
+
+        return getBodyScreenPositions(
+          screenEntries,
+          view.camera,
+          width,
+          height,
+        );
+      },
+    };
+
+    for (const body of bodies) {
+      const mesh = bodyView.meshes.get(body.id);
+      if (mesh !== undefined) {
+        screenEntries.push({
+          id: body.id,
+          type: body.type,
+          position: mesh.position,
+        });
+      }
+    }
+  }
 
   const loop = createLoop({
     update() {},
@@ -78,6 +115,7 @@ function mount(canvas: HTMLCanvasElement): App {
       loop.stop();
       document.removeEventListener('visibilitychange', onVisibilityChange);
       debugSession?.dispose();
+      delete window.__orbitka;
       bodyView.dispose();
       view.dispose();
     },

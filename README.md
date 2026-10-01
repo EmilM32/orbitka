@@ -29,6 +29,18 @@ Każdy pull request i każdy push do `main` uruchamia workflow GitHub Actions z 
 - `npm run verify` — format, lint, typecheck, testy z pokryciem i build; uruchom przed pull requestem
 - `npm run test` — Vitest
 - `npm run test:coverage` — Vitest z progiem pokrycia linii dla `src/sim`
+- `npm run test:e2e` — test dymny Playwright (Chromium)
+
+## Test dymny
+
+Test w przeglądarce sprawdza start aplikacji: brak błędów w konsoli, niepusty canvas oraz Słońce i planety. Lokalnie:
+
+```bash
+npx playwright install chromium
+npm run test:e2e
+```
+
+Job `e2e` w GitHub Actions uruchamia ten sam test tylko na pull requestach. Push do `main` go nie startuje.
 
 Aliasy warstw są zawsze z podścieżką (`@core/…`, `@sim/…`). Goły import `@core` przechodzi w Vite, ale `tsc` zgłasza TS2307.
 

@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import raw from '@data/bodies.json';
+import raw from '@data/bodies.json' with { type: 'json' };
 import { validateBodies } from '@data/validate.ts';
 
 type Entry = Record<string, unknown>;

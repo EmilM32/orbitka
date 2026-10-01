@@ -5,6 +5,7 @@ import {
   MeshStandardMaterial,
   Vector3,
   type Material,
+  type Object3D,
 } from 'three';
 
 import type { BodyDef } from '@data/types.ts';
@@ -13,6 +14,7 @@ import { compressPositionAu, radiusToScene, type Vec3 } from '@sim/scale.ts';
 
 import { eclipticToScene } from './coords.ts';
 import { SPHERE_SEGMENTS, createSphere } from './sphereFactory.ts';
+import { createStarfield } from './stars.ts';
 
 export type BodyMeshes = {
   group: Group;
@@ -43,6 +45,29 @@ function disposeMaterial(material: Material | Material[]): void {
   material.dispose();
 }
 
+function hasDisposableResources(object: Object3D): object is Object3D & {
+  geometry?: { dispose: () => void };
+  material?: Material | Material[];
+} {
+  return 'geometry' in object || 'material' in object;
+}
+
+function disposeObject(object: Object3D): void {
+  for (const child of object.children) {
+    disposeObject(child);
+  }
+
+  if (!hasDisposableResources(object)) {
+    return;
+  }
+
+  object.geometry?.dispose();
+
+  if (object.material) {
+    disposeMaterial(object.material);
+  }
+}
+
 function placePlanet(def: BodyDef, mesh: Mesh): void {
   const ecliptic: Vec3 = { x: 0, y: 0, z: 0 };
   circularStartPositionAu(def, ecliptic);
@@ -64,8 +89,7 @@ export function createBodies(defs: readonly BodyDef[]): BodyMeshes {
 
     disposed = true;
     for (const mesh of meshes.values()) {
-      mesh.geometry.dispose();
-      disposeMaterial(mesh.material);
+      disposeObject(mesh);
       group.remove(mesh);
     }
     meshes.clear();
@@ -102,6 +126,11 @@ export function createBodies(defs: readonly BodyDef[]): BodyMeshes {
   } catch (error) {
     dispose();
     throw error;
+  }
+
+  const sun = meshes.get('sun');
+  if (sun) {
+    sun.add(createStarfield());
   }
 
   return { group, meshes, dispose };

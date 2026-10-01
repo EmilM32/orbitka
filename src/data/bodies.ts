@@ -1,4 +1,4 @@
-import raw from './bodies.json';
+import raw from './bodies.json' with { type: 'json' };
 import type { BodyDef } from './types.ts';
 import { validateBodies } from './validate.ts';
 

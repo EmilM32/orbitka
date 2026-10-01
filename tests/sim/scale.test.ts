@@ -183,11 +183,7 @@ test.each([
   },
 );
 
-test.each([
-  [0, 'parentRadiusKm'],
-  [-6371, 'parentRadiusKm'],
-  [Number.NaN, 'parentRadiusKm'],
-] as const)(
+test.each([0, -6371, Number.NaN])(
   'moonDistanceToScene throws when parentRadiusKm is %s',
   (parentRadiusKm) => {
     const call = () => moonDistanceToScene(384400, parentRadiusKm);

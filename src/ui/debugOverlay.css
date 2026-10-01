@@ -1,0 +1,28 @@
+:root {
+  --debug-top: 8px;
+}
+
+#debug-overlay {
+  position: fixed;
+  top: var(--debug-top);
+  left: 8px;
+  z-index: 2;
+  pointer-events: none;
+  padding: 6px 8px;
+  font: 12px monospace;
+  line-height: 1.45;
+  color: #f4f1ea;
+  background: rgb(8 10 16 / 72%);
+}
+
+#debug-overlay .debug-fps-good {
+  color: #3dd68c;
+}
+
+#debug-overlay .debug-fps-mid {
+  color: #e6c200;
+}
+
+#debug-overlay .debug-fps-low {
+  color: #e5484d;
+}

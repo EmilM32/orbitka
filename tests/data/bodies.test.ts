@@ -30,6 +30,170 @@ test.each(NAMES)('bodies › names › %s is %s', (id, name) => {
   expect(getBody(id).name).toBe(name);
 });
 
+// Every number in bodies.json, typed in by hand from the EMI-102 tables (JPL
+// Table 1 for orbits, NSSDCA fact sheets for the rest). Compared as numbers,
+// because Prettier drops trailing zeros (0.330 → 0.33).
+const VALUES: Record<string, object> = {
+  sun: {
+    radiusKm: 695700,
+    mass: 1988400,
+    rotation: { periodHours: 609.12, axialTiltDeg: 7.25 },
+  },
+  mercury: {
+    radiusKm: 2439.7,
+    mass: 0.33,
+    orbit: {
+      semiMajorAxisAu: 0.38709927,
+      eccentricity: 0.20563593,
+      inclinationDeg: 7.00497902,
+      longitudeAscendingNodeDeg: 48.33076593,
+      argumentPeriapsisDeg: 29.12703,
+      meanAnomalyAtEpochDeg: 174.79253,
+      periodDays: 87.97,
+    },
+    rotation: { periodHours: 1407.6, axialTiltDeg: 0.034 },
+  },
+  venus: {
+    radiusKm: 6051.8,
+    mass: 4.87,
+    orbit: {
+      semiMajorAxisAu: 0.72333566,
+      eccentricity: 0.00677672,
+      inclinationDeg: 3.39467605,
+      longitudeAscendingNodeDeg: 76.67984255,
+      argumentPeriapsisDeg: 54.92262,
+      meanAnomalyAtEpochDeg: 50.37663,
+      periodDays: 224.7,
+    },
+    rotation: { periodHours: 5832.6, axialTiltDeg: 177.36 },
+  },
+  earth: {
+    radiusKm: 6371,
+    mass: 5.97,
+    orbit: {
+      semiMajorAxisAu: 1.00000261,
+      eccentricity: 0.01671123,
+      inclinationDeg: 0,
+      longitudeAscendingNodeDeg: 0,
+      argumentPeriapsisDeg: 102.93768,
+      meanAnomalyAtEpochDeg: 357.52689,
+      periodDays: 365.26,
+    },
+    rotation: { periodHours: 23.9345, axialTiltDeg: 23.44 },
+  },
+  mars: {
+    radiusKm: 3389.5,
+    mass: 0.642,
+    orbit: {
+      semiMajorAxisAu: 1.52371034,
+      eccentricity: 0.0933941,
+      inclinationDeg: 1.84969142,
+      longitudeAscendingNodeDeg: 49.55953891,
+      argumentPeriapsisDeg: 286.49683,
+      meanAnomalyAtEpochDeg: 19.3902,
+      periodDays: 686.98,
+    },
+    rotation: { periodHours: 24.6229, axialTiltDeg: 25.19 },
+  },
+  jupiter: {
+    radiusKm: 69911,
+    mass: 1898,
+    orbit: {
+      semiMajorAxisAu: 5.202887,
+      eccentricity: 0.04838624,
+      inclinationDeg: 1.30439695,
+      longitudeAscendingNodeDeg: 100.47390909,
+      argumentPeriapsisDeg: 274.25457,
+      meanAnomalyAtEpochDeg: 19.66796,
+      periodDays: 4332.82,
+    },
+    rotation: { periodHours: 9.925, axialTiltDeg: 3.13 },
+  },
+  saturn: {
+    radiusKm: 58232,
+    mass: 568,
+    orbit: {
+      semiMajorAxisAu: 9.53667594,
+      eccentricity: 0.05386179,
+      inclinationDeg: 2.48599187,
+      longitudeAscendingNodeDeg: 113.66242448,
+      argumentPeriapsisDeg: 338.93645,
+      meanAnomalyAtEpochDeg: 317.35537,
+      periodDays: 10755.88,
+    },
+    rotation: { periodHours: 10.656, axialTiltDeg: 26.73 },
+  },
+  uranus: {
+    radiusKm: 25362,
+    mass: 86.8,
+    orbit: {
+      semiMajorAxisAu: 19.18916464,
+      eccentricity: 0.04725744,
+      inclinationDeg: 0.77263783,
+      longitudeAscendingNodeDeg: 74.01692503,
+      argumentPeriapsisDeg: 96.93735,
+      meanAnomalyAtEpochDeg: 142.28383,
+      periodDays: 30687.4,
+    },
+    rotation: { periodHours: 17.24, axialTiltDeg: 97.77 },
+  },
+  neptune: {
+    radiusKm: 24622,
+    mass: 102,
+    orbit: {
+      semiMajorAxisAu: 30.06992276,
+      eccentricity: 0.00859048,
+      inclinationDeg: 1.77004347,
+      longitudeAscendingNodeDeg: 131.78422574,
+      argumentPeriapsisDeg: 273.18054,
+      meanAnomalyAtEpochDeg: 259.91521,
+      periodDays: 60189.66,
+    },
+    rotation: { periodHours: 16.11, axialTiltDeg: 28.32 },
+  },
+};
+
+function numericLeaves(value: unknown, prefix = ''): [string, number][] {
+  if (typeof value === 'number') {
+    return [[prefix, value]];
+  }
+  if (typeof value !== 'object' || value === null) {
+    return [];
+  }
+  return Object.entries(value).flatMap(([key, child]) =>
+    numericLeaves(child, prefix === '' ? key : `${prefix}.${key}`),
+  );
+}
+
+const VALUE_CASES = Object.entries(VALUES).flatMap(([id, values]) =>
+  numericLeaves(values).map(
+    ([path, expected]) => [id, path, expected] as const,
+  ),
+);
+
+test('bodies › values › the table holds 92 numbers', () => {
+  expect(VALUE_CASES).toHaveLength(92);
+});
+
+test.each(VALUE_CASES)(
+  'bodies › values › %s %s is %s',
+  (id, path, expected) => {
+    const actual = new Map(numericLeaves(getBody(id))).get(path);
+    expect(actual).toBe(expected);
+  },
+);
+
+test.each(bodies.map((body) => [body.id, body] as const))(
+  'bodies › values › every number of %s is in the table',
+  (id, body) => {
+    const paths = (value: unknown) =>
+      numericLeaves(value)
+        .map(([path]) => path)
+        .sort();
+    expect(paths(body)).toEqual(paths(VALUES[id]));
+  },
+);
+
 test('holds the sun and eight planets', () => {
   expect(bodies).toHaveLength(9);
   expect(bodies[0]?.id).toBe('sun');

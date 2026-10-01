@@ -135,6 +135,21 @@ test.each([
   ['an .mts test', 'tests/sim/x.test.mts', `import 'three';\n`],
   ['a .js file in tests', 'tests/sim/x.js', `import 'three';\n`],
   ['an e2e test', 'tests/e2e/x.spec.ts', `import 'three';\n`],
+  [
+    'an import type',
+    'src/sim/x.ts',
+    `export type S = import('three').Scene;\n`,
+  ],
+  [
+    'a typeof import type',
+    'src/ui/x.ts',
+    `export type T = typeof import('three');\n`,
+  ],
+  [
+    'an import type in a test',
+    'tests/sim/x.test.ts',
+    `export type S = import('three').Scene;\n`,
+  ],
 ])('three is rejected in %s', async (_kind, filePath, code) => {
   expect(await boundaryErrors(filePath, code)).toHaveLength(1);
 });
@@ -152,6 +167,16 @@ test.each([
   ['a .cjs file', 'src/content/x.cjs', `import '@core/x.ts';\n`],
   ['a .tsx file', 'src/content/x.tsx', `import '@core/x.ts';\n`],
   ['a .jsx file', 'src/content/x.jsx', `import '@core/x.ts';\n`],
+  [
+    'an import type',
+    'src/ui/x.ts',
+    `export type X = import('@render/a.ts').A;\n`,
+  ],
+  [
+    'a typeof import type',
+    'src/sim/x.ts',
+    `export type X = typeof import('@core/a.ts');\n`,
+  ],
 ])('a forbidden layer is rejected in %s', async (_kind, filePath, code) => {
   expect(await boundaryErrors(filePath, code)).toHaveLength(1);
 });
@@ -187,6 +212,11 @@ test.each([
     'export const load = () => import(`../ui/x.ts`);\n',
   ],
   ['a test into src', 'tests/sim/x.test.ts', `import '../../src/sim/x.ts';\n`],
+  [
+    'an import type',
+    'src/ui/x.ts',
+    `export type X = import('../render/a.ts').A;\n`,
+  ],
 ])(
   'a relative import leaving the layer is rejected from %s',
   async (_kind, filePath, code) => {
@@ -209,6 +239,11 @@ test.each([
     'export const load = () => import(`./scale.ts`);\n',
   ],
   ['a test helper', 'tests/e2e/x.spec.ts', `import './helpers.ts';\n`],
+  [
+    'an import type',
+    'src/sim/x.ts',
+    `export type V = import('./scale.ts').Vec3;\n`,
+  ],
   [
     'a directory outside the layers to the src root',
     'src/types/x.ts',
@@ -233,6 +268,16 @@ test.each([
     `import { Scene } from 'three';\nexport const s = new Scene();\n`,
   ],
   ['a sim test', 'tests/sim/x.test.ts', `import '@sim/x.ts';\n`],
+  [
+    'an import type of three in render',
+    'src/render/x.ts',
+    `export type S = import('three').Scene;\n`,
+  ],
+  [
+    'an import type of an allowed layer',
+    'src/core/x.ts',
+    `export type V = import('@sim/scale.ts').Vec3;\n`,
+  ],
   ['a layer path ending in three', 'src/sim/x.ts', `import '@data/three';\n`],
   ['a package starting with three', 'src/sim/x.ts', `import 'threejs-foo';\n`],
   [
@@ -395,6 +440,11 @@ test.each([
   ['the entry module', 'src/main.ts', `import '@core/loop.js';\n`],
   ['a layer test', 'tests/sim/x.test.ts', `import '@sim/scale.js';\n`],
   ['an e2e test', 'tests/e2e/x.spec.ts', `import './helpers.js';\n`],
+  [
+    'an import type',
+    'src/sim/x.ts',
+    `export type V = import('./scale.js').Vec3;\n`,
+  ],
 ])('a .js extension is rejected in %s', async (_kind, filePath, code) => {
   expect(await boundaryErrors(filePath, code)).toHaveLength(1);
 });

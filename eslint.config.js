@@ -46,6 +46,10 @@ function restrictedImports(restrictions) {
           selector: `ImportExpression[source.quasis.0.value.cooked=/${regex}/]`,
           message,
         },
+        {
+          selector: `TSImportType[argument.literal.value=/${regex}/]`,
+          message,
+        },
       ]),
     ],
   };
@@ -136,6 +140,7 @@ const noRelativeOutsideLayer = {
       ExportAllDeclaration: (node) => check(node.source),
       ExportNamedDeclaration: (node) => check(node.source),
       ImportExpression: (node) => check(node.source),
+      TSImportType: (node) => check(node.argument.literal),
     };
   },
 };

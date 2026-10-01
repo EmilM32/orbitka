@@ -1,6 +1,9 @@
 import './style.css';
 
 import { createLoop } from '@core/loop.ts';
+import { bodies } from '@data/bodies.ts';
+import { createBodies } from '@render/bodies.ts';
+import { createLights } from '@render/lights.ts';
 import { createRenderer } from '@render/createRenderer.ts';
 
 type App = {
@@ -19,6 +22,9 @@ function findCanvas(): HTMLCanvasElement {
 
 function mount(canvas: HTMLCanvasElement): App {
   const view = createRenderer(canvas);
+  const bodyView = createBodies(bodies);
+  view.scene.add(bodyView.group);
+  view.scene.add(createLights());
 
   const loop = createLoop({
     update() {},
@@ -54,6 +60,7 @@ function mount(canvas: HTMLCanvasElement): App {
     dispose() {
       loop.stop();
       document.removeEventListener('visibilitychange', onVisibilityChange);
+      bodyView.dispose();
       view.dispose();
     },
   };

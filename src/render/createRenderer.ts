@@ -1,20 +1,17 @@
 import {
-  PerspectiveCamera,
   Scene,
   WebGLRenderer,
   type Material,
   type Object3D,
+  type PerspectiveCamera,
   type Texture,
 } from 'three';
 
+import { createCamera, frameCamera } from './camera.ts';
 import { resolvePixelRatio } from './pixelRatio.ts';
 import { watchDevicePixelRatio } from './watchDevicePixelRatio.ts';
 
 const CLEAR_COLOR = 0x000000;
-const CAMERA_FOV = 45;
-const CAMERA_NEAR = 0.1;
-const CAMERA_FAR = 2000;
-const CAMERA_START = { x: 0, y: 40, z: 90 } as const;
 
 export type SceneView = {
   renderer: WebGLRenderer;
@@ -29,9 +26,7 @@ export function createRenderer(canvas: HTMLCanvasElement): SceneView {
   renderer.setClearColor(CLEAR_COLOR, 1);
 
   const scene = new Scene();
-  const camera = new PerspectiveCamera(CAMERA_FOV, 1, CAMERA_NEAR, CAMERA_FAR);
-  camera.position.set(CAMERA_START.x, CAMERA_START.y, CAMERA_START.z);
-  camera.lookAt(0, 0, 0);
+  const camera = createCamera(1);
 
   let appliedDevicePixelRatio = window.devicePixelRatio;
 
@@ -48,8 +43,7 @@ export function createRenderer(canvas: HTMLCanvasElement): SceneView {
       resolvePixelRatio(appliedDevicePixelRatio, coarsePointer),
     );
     renderer.setSize(width, height, false);
-    camera.aspect = width / height;
-    camera.updateProjectionMatrix();
+    frameCamera(camera, width / height);
   };
 
   resize();

@@ -1,6 +1,6 @@
 # Orbitka — agent instructions
 
-Educational solar-system simulation in the browser. Audience 12+, copy in English, laptop and tablet, target about 60 FPS. The app is static: no backend, no accounts, no analytics.
+Educational solar-system simulation in the browser. Audience 12+, UI copy in Polish, code in English, laptop and tablet, target about 60 FPS. The app is static: no backend, no accounts, no analytics.
 
 ## Where the truth lives
 
@@ -15,6 +15,7 @@ Work scope is in Linear, project [Orbitka](https://linear.app/emilm/project/orbi
 | 005 Loop        | [EMI-93](https://linear.app/emilm/issue/EMI-93/adr-005-petla-renderowania-i-symulacji)                 | One loop, state = f(time), `dt` max 0.1 s           |
 | 006 Performance | [EMI-94](https://linear.app/emilm/issue/EMI-94/adr-006-budzet-wydajnosci)                              | FPS budget, `pixelRatio`, local assets              |
 | 007 Tests       | [EMI-95](https://linear.app/emilm/issue/EMI-95/adr-007-strategia-testow)                               | Vitest for the math, Playwright smoke               |
+| 008 Language    | [EMI-176](https://linear.app/emilm/issue/EMI-176/adr-008-jezyk-kodu-i-interfejsu-tlumaczenia-ui-i18n)  | Code in English, UI copy in Polish from `pl.json`   |
 
 A new decision that affects the whole project gets its own ADR in Linear. This file holds rules, not task history. Do not record milestone progress here.
 
@@ -30,20 +31,32 @@ A new decision that affects the whole project gets its own ADR in Linear. This f
 
 ## Layers
 
-| Directory       | Responsibility                                                   |
-| --------------- | ---------------------------------------------------------------- |
-| `src/core`      | Loop, simulation clock, event bus                                |
-| `src/data`      | `BodyDef`, body JSON, validation                                 |
-| `src/sim`       | Orbit and scale math. No imports of `three`, `@render`, or `@ui` |
-| `src/render`    | Scene, materials, camera, orbit lines, labels                    |
-| `src/ui`        | DOM panels: time, body card, scale notice                        |
-| `src/content`   | Educational copy in English, keyed by body `id`. No logic        |
-| `public/assets` | Textures and sounds, local files only                            |
-| `tests/`        | Mirrors `src/` (`tests/sim/scale.test.ts`)                       |
+| Directory       | Responsibility                                                                           |
+| --------------- | ---------------------------------------------------------------------------------------- |
+| `src/core`      | Loop, simulation clock, event bus                                                        |
+| `src/data`      | `BodyDef`, body JSON, validation                                                         |
+| `src/sim`       | Orbit and scale math. No imports of `three`, `@render`, or `@ui`                         |
+| `src/render`    | Scene, materials, camera, orbit lines, labels                                            |
+| `src/ui`        | DOM panels: time, body card, scale notice                                                |
+| `src/content`   | Polish UI copy (`locales/pl.json`) and educational content, keyed by body `id`. No logic |
+| `public/assets` | Textures and sounds, local files only                                                    |
+| `tests/`        | Mirrors `src/` (`tests/sim/scale.test.ts`)                                               |
 
 Allowed imports between layers (ADR-002, enforced by `npm run lint`): `data` imports nothing, `sim` only `data`, `core` only `data` and `sim`, `content` only `data`, `render` only `core`, `sim`, and `data`, `ui` only `core`, `data`, and `content`. `three` is allowed only in `src/render` and `tests/render`. Cross-layer imports use aliases; relative imports stay inside one layer.
 
 `sim` returns positions in physical units (AU, km). Only `render` converts those to scene units.
+
+## Language
+
+ADR-008: code in English, everything the student sees in Polish.
+
+- English: identifiers, comments, tests, docs, data in `src/data`, commit messages, and pull requests. Developer-facing messages too: `throw` and `RangeError` messages, `console.*`, validator messages, and the debug overlay.
+- Polish: everything the end user sees, including labels, buttons, `aria-label`, `aria-live` announcements, dates, numbers, body names, and educational content. The page language is `<html lang="pl">`.
+- Never hardcode Polish in `.ts` files or in `src/data`. UI copy lives in `src/content/locales/pl.json`: a flat object with dotted English keys (`time.presets.day`, `bodies.uranus.name`). A value is a string with `{name}` placeholders or an object of plural forms `{ "one", "few", "many", "other" }`.
+- UI text goes through `createI18n(dictionary, locale)` in `src/ui/i18n.ts` (`t`, `plural`, `formatNumber`), built on `Intl.PluralRules` and `Intl.NumberFormat`. No i18n library. `main.ts` builds it from `pl.json` and passes it to UI modules as a parameter. `render` does not import `content`; it gets ready strings from `main.ts`.
+- `name` in `bodies.json` stays English. The name a student sees is `bodies.<id>.name` in `pl.json`.
+- Tests may contain Polish expected strings, because they check what the student sees.
+- Copy is straightforward, for age 12+, with no unexplained jargon.
 
 ## Model, scale, time
 
@@ -71,7 +84,6 @@ When a task introduces the tooling: Vitest in the `node` environment (jsdom only
 - Do the task named in the request. The boundaries are the issue's "Out of scope" section.
 - Take the branch name from the issue's git branch name in Linear.
 - After verification, comment on the issue with the result (versions, commands, any departure from the description).
-- Everything in the repo is English: identifiers, comments, error messages, docs, tests, JSON, and user-visible copy. Do not hardcode Polish. Copy is straightforward, for age 12+, with no unexplained jargon.
 - Commit messages are English, imperative mood (`Add orbit lines for the eight planets`). Pull request titles too.
 
 ## Commands
@@ -86,6 +98,5 @@ npm run lint
 npm run format
 npm run test
 npm run test:coverage
+npm run test:e2e       # Playwright smoke in Chromium (first run: npx playwright install chromium)
 ```
-
-`test:e2e` arrives with its own issue. Do not add it while doing something else.

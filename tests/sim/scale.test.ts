@@ -34,9 +34,8 @@ test('distance grows strictly from 0.1 to 50 AU', () => {
   }
 });
 
-test('distance is 0 at and below 0 AU', () => {
+test('distance is 0 at 0 AU', () => {
   expect(distanceToScene(0)).toBe(0);
-  expect(distanceToScene(-1)).toBe(0);
 });
 
 test('radius never shrinks from 1 to 1e6 km', () => {
@@ -50,8 +49,6 @@ test('radius never shrinks from 1 to 1e6 km', () => {
 test('radius stays within its bounds', () => {
   expect(radiusToScene(1)).toBe(SCALE.radiusMin);
   expect(radiusToScene(1e9)).toBe(SCALE.radiusMax);
-  expect(radiusToScene(0)).toBe(SCALE.radiusMin);
-  expect(radiusToScene(-5)).toBe(SCALE.radiusMin);
 });
 
 test.each([
@@ -121,16 +118,67 @@ test('moon distance grows with the real distance', () => {
   }
 });
 
-test('moon distance is 0 at and below 0 km', () => {
+test('moon distance is 0 at 0 km', () => {
   expect(moonDistanceToScene(0, EARTH_RADIUS_KM)).toBe(0);
-  expect(moonDistanceToScene(-1, EARTH_RADIUS_KM)).toBe(0);
 });
 
 test('moon radius has its control value and stays within its bounds', () => {
   expectNear(moonRadiusToScene(1737.4), 0.16, 0.01);
   expect(moonRadiusToScene(1)).toBe(SCALE.moonRadiusMin);
   expect(moonRadiusToScene(1e9)).toBe(SCALE.moonRadiusMax);
-  expect(moonRadiusToScene(0)).toBe(SCALE.moonRadiusMin);
+});
+
+test.each([
+  ['distanceToScene', 'au', -1, 'must be >= 0'],
+  ['moonDistanceToScene', 'distanceKm', -1, 'must be >= 0'],
+  ['radiusToScene', 'km', 0, 'must be > 0'],
+  ['radiusToScene', 'km', -5, 'must be > 0'],
+  ['moonRadiusToScene', 'km', 0, 'must be > 0'],
+  ['moonRadiusToScene', 'km', -1, 'must be > 0'],
+] as const)(
+  '%s throws RangeError when %s is %s',
+  (functionName, parameter, value, requirement) => {
+    const call =
+      functionName === 'distanceToScene'
+        ? () => distanceToScene(value)
+        : functionName === 'moonDistanceToScene'
+          ? () => moonDistanceToScene(value, EARTH_RADIUS_KM)
+          : functionName === 'radiusToScene'
+            ? () => radiusToScene(value)
+            : () => moonRadiusToScene(value);
+
+    expect(call).toThrow(RangeError);
+    expect(call).toThrow(
+      `${functionName}: parameter "${parameter}" ${requirement}, got ${value}`,
+    );
+  },
+);
+
+test('radius conversions read the exponent from SCALE', () => {
+  const probeKm = 20_000;
+  const scale = SCALE as { radiusExponent: number };
+  const original = scale.radiusExponent;
+  scale.radiusExponent = 0.25;
+
+  try {
+    const planet = Math.min(
+      SCALE.radiusMax,
+      Math.max(SCALE.radiusMin, SCALE.c * probeKm ** scale.radiusExponent),
+    );
+    const moon = Math.min(
+      SCALE.moonRadiusMax,
+      Math.max(
+        SCALE.moonRadiusMin,
+        SCALE.moonRadiusC * probeKm ** scale.radiusExponent,
+      ),
+    );
+
+    expect(radiusToScene(probeKm)).toBeCloseTo(planet, 12);
+    expect(moonRadiusToScene(probeKm)).toBeCloseTo(moon, 12);
+    expect(radiusToScene(probeKm)).not.toBeCloseTo(SCALE.c * probeKm ** 0.4, 6);
+  } finally {
+    scale.radiusExponent = original;
+  }
 });
 
 test('compressPositionAu maps 1 AU on the x axis to k scene units', () => {
@@ -178,7 +226,7 @@ test.each([
 
     expect(call).toThrow(RangeError);
     expect(call).toThrow(
-      `${functionName}: parametr „${parameter}” musi być skończony, otrzymano ${value}`,
+      `${functionName}: parameter "${parameter}" must be finite, got ${value}`,
     );
   },
 );
@@ -190,7 +238,7 @@ test.each([0, -6371, Number.NaN])(
 
     expect(call).toThrow(RangeError);
     expect(call).toThrow(
-      `moonDistanceToScene: parametr „parentRadiusKm” musi być skończony i > 0, otrzymano ${parentRadiusKm}`,
+      `moonDistanceToScene: parameter "parentRadiusKm" must be finite and > 0, got ${parentRadiusKm}`,
     );
   },
 );
@@ -200,12 +248,12 @@ test('moonDistanceToScene throws for a non-finite distance', () => {
 
   expect(call).toThrow(RangeError);
   expect(call).toThrow(
-    'moonDistanceToScene: parametr „distanceKm” musi być skończony, otrzymano NaN',
+    'moonDistanceToScene: parameter "distanceKm" must be finite, got NaN',
   );
   expect(() =>
     moonDistanceToScene(Number.POSITIVE_INFINITY, EARTH_RADIUS_KM),
   ).toThrow(
-    'moonDistanceToScene: parametr „distanceKm” musi być skończony, otrzymano Infinity',
+    'moonDistanceToScene: parameter "distanceKm" must be finite, got Infinity',
   );
 });
 
@@ -222,7 +270,7 @@ test.each([
 
     expect(call).toThrow(RangeError);
     expect(call).toThrow(
-      `compressPositionAu: parametr „${parameter}” musi być skończony i nie przepełniać się, otrzymano ${value}`,
+      `compressPositionAu: parameter "${parameter}" must be finite and must not overflow, got ${value}`,
     );
   },
 );

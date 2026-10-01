@@ -1,6 +1,9 @@
 import { defineConfig } from 'vitest/config';
 import { layerAliases } from './aliases.ts';
 
+// The same extensions as SOURCE_EXTENSIONS in eslint.config.js.
+const SIM_SOURCES = 'src/sim/**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}';
+
 export default defineConfig({
   resolve: {
     alias: layerAliases,
@@ -12,9 +15,9 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text'],
-      include: ['src/sim/**/*.ts'],
+      include: [SIM_SOURCES],
       thresholds: {
-        'src/sim/**/*.ts': {
+        [SIM_SOURCES]: {
           lines: 90,
         },
       },

@@ -13,6 +13,23 @@ const PLANETS = [
   'neptune',
 ];
 
+// Written out here rather than read from bodies.json, so a data change fails the test.
+const NAMES = [
+  ['sun', 'Sun'],
+  ['mercury', 'Mercury'],
+  ['venus', 'Venus'],
+  ['earth', 'Earth'],
+  ['mars', 'Mars'],
+  ['jupiter', 'Jupiter'],
+  ['saturn', 'Saturn'],
+  ['uranus', 'Uranus'],
+  ['neptune', 'Neptune'],
+] as const;
+
+test.each(NAMES)('bodies › names › %s is %s', (id, name) => {
+  expect(getBody(id).name).toBe(name);
+});
+
 test('holds the sun and eight planets', () => {
   expect(bodies).toHaveLength(9);
   expect(bodies[0]?.id).toBe('sun');

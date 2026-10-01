@@ -15,7 +15,7 @@ Otwórz adres wypisany w terminalu.
 
 ## CI
 
-Każdy pull request i każdy push do `main` uruchamia workflow GitHub Actions z pliku `.github/workflows/ci.yml`. Job `verify` na aktualnym Node LTS wykonuje po kolei `npm ci`, `npm run lint`, `npm run typecheck`, `npm run test:coverage` i `npm run build`. Nazwa checku, który trzeba oznaczyć jako wymagany w ochronie gałęzi `main`, to `verify`; wtedy czerwony wynik blokuje merge. Nowy push do tej samej gałęzi anuluje poprzedni, niedokończony przebieg.
+Każdy pull request i każdy push do `main` uruchamia workflow GitHub Actions z pliku `.github/workflows/ci.yml`. Job `verify` na aktualnym Node LTS wykonuje `npm ci`, a potem `npm run verify`. Przed pull requestem uruchom lokalnie `npm run verify`: to samo polecenie sprawdza format (`format:check`), lint, typecheck, testy z pokryciem i build, i zatrzymuje się na pierwszym błędzie. Nazwa checku, który trzeba oznaczyć jako wymagany w ochronie gałęzi `main`, to `verify`; wtedy czerwony wynik blokuje merge. Nowy push do tej samej gałęzi anuluje poprzedni, niedokończony przebieg.
 
 ## Skrypty
 
@@ -25,6 +25,8 @@ Każdy pull request i każdy push do `main` uruchamia workflow GitHub Actions z 
 - `npm run typecheck` — `tsc` dla `src` (`tsconfig.json`), plików konfiguracyjnych (`tsconfig.node.json`) i testów (`tsconfig.test.json`)
 - `npm run lint` — ESLint
 - `npm run format` — Prettier dla całego repozytorium
+- `npm run format:check` — sprawdzenie formatu bez zapisu
+- `npm run verify` — format, lint, typecheck, testy z pokryciem i build; uruchom przed pull requestem
 - `npm run test` — Vitest
 - `npm run test:coverage` — Vitest z progiem pokrycia linii dla `src/sim`
 

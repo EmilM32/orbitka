@@ -18,6 +18,8 @@ export type SceneView = {
   scene: Scene;
   camera: PerspectiveCamera;
   syncPixelRatio: () => void;
+  requestFrame: (tick: () => void) => void;
+  cancelFrame: () => void;
   dispose: () => void;
 };
 
@@ -65,6 +67,14 @@ export function createRenderer(canvas: HTMLCanvasElement): SceneView {
       if (window.devicePixelRatio !== appliedDevicePixelRatio) {
         resize();
       }
+    },
+    requestFrame(tick: () => void) {
+      renderer.setAnimationLoop(() => {
+        tick();
+      });
+    },
+    cancelFrame() {
+      renderer.setAnimationLoop(null);
     },
     dispose() {
       if (disposed) {

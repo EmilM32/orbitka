@@ -3,18 +3,14 @@ import {
   Mesh,
   MeshBasicMaterial,
   MeshStandardMaterial,
-  Vector3,
   type Material,
   type Object3D,
 } from 'three';
 
 import type { BodyDef } from '@data/types.ts';
-import { circularStartPositionAu } from '@sim/startLayout.ts';
-import { compressPositionAu, radiusToScene, type Vec3 } from '@sim/scale.ts';
+import { radiusToScene } from '@sim/scale.ts';
 
-import { eclipticToScene } from './coords.ts';
 import { SPHERE_SEGMENTS, createSphere } from './sphereFactory.ts';
-import { createStarfield } from './stars.ts';
 
 export type BodyMeshes = {
   group: Group;
@@ -68,15 +64,6 @@ function disposeObject(object: Object3D): void {
   }
 }
 
-function placePlanet(def: BodyDef, mesh: Mesh): void {
-  const ecliptic: Vec3 = { x: 0, y: 0, z: 0 };
-  circularStartPositionAu(def, ecliptic);
-  compressPositionAu(ecliptic.x, ecliptic.y, ecliptic.z, ecliptic);
-  const scenePosition = new Vector3();
-  eclipticToScene(ecliptic, scenePosition);
-  mesh.position.copy(scenePosition);
-}
-
 export function createBodies(defs: readonly BodyDef[]): BodyMeshes {
   const group = new Group();
   const meshes = new Map<string, Mesh>();
@@ -103,7 +90,7 @@ export function createBodies(defs: readonly BodyDef[]): BodyMeshes {
 
       if (def.type === 'planet' && def.orbit === undefined) {
         throw new Error(
-          `createBodies: ciało „${def.id}” typu planet nie ma orbit`,
+          `createBodies: body "${def.id}" of type planet has no orbit`,
         );
       }
 
@@ -115,22 +102,12 @@ export function createBodies(defs: readonly BodyDef[]): BodyMeshes {
         materialFor(def),
       );
       mesh.name = def.id;
-
-      if (def.type === 'planet') {
-        placePlanet(def, mesh);
-      }
-
       group.add(mesh);
       meshes.set(def.id, mesh);
     }
   } catch (error) {
     dispose();
     throw error;
-  }
-
-  const sun = meshes.get('sun');
-  if (sun) {
-    sun.add(createStarfield());
   }
 
   return { group, meshes, dispose };

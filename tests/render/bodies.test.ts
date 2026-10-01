@@ -1,18 +1,11 @@
-import {
-  MeshBasicMaterial,
-  MeshStandardMaterial,
-  Points,
-  SphereGeometry,
-  Vector3,
-} from 'three';
+import { MeshBasicMaterial, MeshStandardMaterial, SphereGeometry } from 'three';
 import { expect, test, vi } from 'vitest';
 
 import { bodies, getBody } from '@data/bodies.ts';
 import type { BodyDef } from '@data/types.ts';
-import { eclipticToScene } from '@render/coords.ts';
+import { createBodyAnimator } from '@render/animateBodies.ts';
 import { createBodies } from '@render/bodies.ts';
-import { compressPositionAu, radiusToScene } from '@sim/scale.ts';
-import { circularStartPositionAu } from '@sim/startLayout.ts';
+import { radiusToScene } from '@sim/scale.ts';
 
 function sphereRadius(geometry: SphereGeometry): number {
   return geometry.parameters.radius;
@@ -23,17 +16,17 @@ function asSphere(meshName: string): SphereGeometry {
   const mesh = view.meshes.get(meshName);
   if (!mesh || !(mesh.geometry instanceof SphereGeometry)) {
     view.dispose();
-    throw new Error(`brak sfery: ${meshName}`);
+    throw new Error(`missing sphere: ${meshName}`);
   }
   const geometry = mesh.geometry;
   view.dispose();
   return geometry;
 }
 
-test('bodies › zestaw meshy', () => {
+test('bodies › mesh set', () => {
   const moon: BodyDef = {
     ...getBody('earth'),
-    id: 'ksiezyc-test',
+    id: 'moon-test',
     type: 'moon',
     parentId: 'earth',
   };
@@ -53,14 +46,14 @@ test('bodies › zestaw meshy', () => {
   view.dispose();
 });
 
-test('bodies › materiały', () => {
+test('bodies › materials', () => {
   const view = createBodies(bodies);
 
   for (const body of bodies) {
     const mesh = view.meshes.get(body.id);
     if (!mesh || Array.isArray(mesh.material)) {
       view.dispose();
-      throw new Error(`brak materiału: ${body.id}`);
+      throw new Error(`missing material: ${body.id}`);
     }
 
     const material = mesh.material;
@@ -70,14 +63,14 @@ test('bodies › materiały', () => {
       expect(material).toBeInstanceOf(MeshBasicMaterial);
       if (!(material instanceof MeshBasicMaterial)) {
         view.dispose();
-        throw new Error(`oczekiwano MeshBasicMaterial: ${body.id}`);
+        throw new Error(`expected MeshBasicMaterial: ${body.id}`);
       }
       expect(material.color.getHexString()).toBe(color);
     } else {
       expect(material).toBeInstanceOf(MeshStandardMaterial);
       if (!(material instanceof MeshStandardMaterial)) {
         view.dispose();
-        throw new Error(`oczekiwano MeshStandardMaterial: ${body.id}`);
+        throw new Error(`expected MeshStandardMaterial: ${body.id}`);
       }
       expect(material.roughness).toBe(1);
       expect(material.metalness).toBe(0);
@@ -88,7 +81,7 @@ test('bodies › materiały', () => {
   view.dispose();
 });
 
-test('bodies › promienie', () => {
+test('bodies › radii', () => {
   const expected = {
     sun: 3.26,
     mercury: 0.34,
@@ -107,32 +100,27 @@ test('bodies › promienie', () => {
   }
 });
 
-test('bodies › pozycje', () => {
+test('bodies › positions', () => {
   const view = createBodies(bodies);
   const earth = view.meshes.get('earth');
   const sun = view.meshes.get('sun');
   if (!earth || !sun) {
     view.dispose();
-    throw new Error('brak Ziemi albo Słońca');
+    throw new Error('missing Earth or Sun');
   }
 
-  const ecliptic = { x: 0, y: 0, z: 0 };
-  circularStartPositionAu(getBody('earth'), ecliptic);
-  compressPositionAu(ecliptic.x, ecliptic.y, ecliptic.z, ecliptic);
-  const expected = eclipticToScene(ecliptic, new Vector3());
-
-  expect(Math.abs(earth.position.length() - 8)).toBeLessThanOrEqual(0.01);
-  expect(earth.position.distanceTo(expected)).toBeLessThanOrEqual(1e-9);
   expect(sun.position.toArray()).toEqual([0, 0, 0]);
+  expect(earth.position.toArray()).toEqual([0, 0, 0]);
   view.dispose();
 });
 
-test('bodies › widoczność', () => {
+test('bodies › visibility', () => {
   const view = createBodies(bodies);
+  createBodyAnimator(bodies, view.meshes).update(0);
   const sun = view.meshes.get('sun');
   if (!sun || !(sun.geometry instanceof SphereGeometry)) {
     view.dispose();
-    throw new Error('brak Słońca');
+    throw new Error('missing Sun');
   }
 
   const sunRadius = sphereRadius(sun.geometry);
@@ -158,7 +146,7 @@ test('bodies › widoczność', () => {
         !(b.geometry instanceof SphereGeometry)
       ) {
         view.dispose();
-        throw new Error('oczekiwano sfer');
+        throw new Error('expected spheres');
       }
       expect(a.position.distanceTo(b.position)).toBeGreaterThan(
         sphereRadius(a.geometry) + sphereRadius(b.geometry),
@@ -169,36 +157,13 @@ test('bodies › widoczność', () => {
   view.dispose();
 });
 
-test('bodies › gwiazdy', () => {
+test('bodies › no star field', () => {
   const view = createBodies(bodies);
   const sun = view.meshes.get('sun');
-  const stars = sun?.children.find((child) => child.name === 'stars');
 
+  expect(sun?.children.some((child) => child.name === 'stars')).toBe(false);
   expect(view.group.children).toHaveLength(9);
-  expect(view.meshes.size).toBe(9);
-  expect(stars).toBeInstanceOf(Points);
-  if (!(stars instanceof Points)) {
-    view.dispose();
-    throw new Error('brak gwiazd');
-  }
-
-  expect(stars.geometry.getAttribute('position').count).toBeGreaterThan(100);
-
-  const geometrySpy = vi.spyOn(stars.geometry, 'dispose');
-  const material = stars.material;
-  if (Array.isArray(material)) {
-    view.dispose();
-    throw new Error('nieoczekiwana lista materiałów gwiazd');
-  }
-  const materialSpy = vi.spyOn(material, 'dispose');
-
   view.dispose();
-
-  expect(geometrySpy).toHaveBeenCalledOnce();
-  expect(materialSpy).toHaveBeenCalledOnce();
-  expect(view.group.children).toHaveLength(0);
-  expect(() => view.dispose()).not.toThrow();
-  expect(geometrySpy).toHaveBeenCalledOnce();
 });
 
 test('bodies › dispose', () => {
@@ -208,7 +173,7 @@ test('bodies › dispose', () => {
   );
   const materialSpies = [...view.meshes.values()].map((mesh) => {
     if (Array.isArray(mesh.material)) {
-      throw new Error('nieoczekiwana lista materiałów');
+      throw new Error('unexpected material list');
     }
     return vi.spyOn(mesh.material, 'dispose');
   });
@@ -231,7 +196,7 @@ test('bodies › dispose', () => {
   }
 });
 
-test('bodies › budżet', () => {
+test('bodies › budget', () => {
   const view = createBodies(bodies);
   let triangles = 0;
 
@@ -241,7 +206,7 @@ test('bodies › budżet', () => {
     const index = mesh.geometry.index;
     if (!index) {
       view.dispose();
-      throw new Error(`brak indeksu: ${mesh.name}`);
+      throw new Error(`missing index: ${mesh.name}`);
     }
     triangles += index.count / 3;
   }
@@ -251,7 +216,7 @@ test('bodies › budżet', () => {
   view.dispose();
 });
 
-test('bodies › brzegowe', () => {
+test('bodies › edge cases', () => {
   const empty = createBodies([]);
   expect(empty.meshes.size).toBe(0);
   expect(empty.group.children).toHaveLength(0);
@@ -267,7 +232,7 @@ test('bodies › brzegowe', () => {
   const venus = getBody('venus');
   expect(() => createBodies([{ ...venus, orbit: undefined }])).toThrow(Error);
   expect(() => createBodies([{ ...venus, orbit: undefined }])).toThrow(
-    'createBodies: ciało „venus” typu planet nie ma orbit',
+    'createBodies: body "venus" of type planet has no orbit',
   );
 
   const sun = getBody('sun');
@@ -277,17 +242,4 @@ test('bodies › brzegowe', () => {
   expect(() => createBodies([{ ...sun, radiusKm: Number.NaN }])).toThrow(
     'radiusToScene',
   );
-
-  const orbit = venus.orbit;
-  if (orbit === undefined) {
-    throw new Error('Wenus nie ma orbity');
-  }
-  expect(() =>
-    createBodies([
-      {
-        ...venus,
-        orbit: { ...orbit, meanAnomalyAtEpochDeg: Number.NaN },
-      },
-    ]),
-  ).toThrow(RangeError);
 });

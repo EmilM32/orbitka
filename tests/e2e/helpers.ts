@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 
 export type PixelSample = {
   x: number;
@@ -19,8 +19,50 @@ export async function assertWebGl(page: Page): Promise<void> {
   });
 
   if (!available) {
-    throw new Error('WebGL niedostępny w tej przeglądarce (SwiftShader)');
+    throw new Error('WebGL is unavailable in this browser (SwiftShader)');
   }
+}
+
+export async function waitForPaintedFrame(
+  page: Page,
+  cssWidth: number,
+  cssHeight: number,
+): Promise<CanvasContrast> {
+  const frames: CanvasContrast[] = [];
+
+  await expect
+    .poll(
+      async () => {
+        const box = await page.locator('canvas').boundingBox();
+        if (box === null || box.width <= 0 || box.height <= 0) {
+          return 0;
+        }
+
+        const contrast = await readCanvasContrast(
+          page,
+          [],
+          box.width,
+          box.height,
+        );
+        frames.push(contrast);
+        return contrast.differentFraction;
+      },
+      { timeout: 10_000, intervals: [50, 100, 200, 400] },
+    )
+    .toBeGreaterThanOrEqual(0.0015);
+
+  const latest = frames.at(-1);
+  if (latest === undefined) {
+    throw new Error('no painted frame');
+  }
+
+  if (latest.width !== cssWidth || latest.height !== cssHeight) {
+    throw new Error(
+      `canvas is ${latest.width}×${latest.height}, expected ${cssWidth}×${cssHeight}`,
+    );
+  }
+
+  return latest;
 }
 
 export async function readCanvasContrast(
@@ -45,7 +87,7 @@ export async function readCanvasContrast(
       const surface = new OffscreenCanvas(bitmap.width, bitmap.height);
       const context = surface.getContext('2d');
       if (!context) {
-        throw new Error('brak kontekstu 2d');
+        throw new Error('missing 2d context');
       }
 
       context.drawImage(bitmap, 0, 0);

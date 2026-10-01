@@ -1,8 +1,11 @@
 import './style.css';
 
+import { createClock, daysFromDate } from '@core/clock.ts';
 import { isDebugEnabled } from '@core/debugFlag.ts';
 import { createLoop } from '@core/loop.ts';
+import { isStartPaused, parseStartDays } from '@core/startParams.ts';
 import { bodies } from '@data/bodies.ts';
+import { createBodyAnimator } from '@render/animateBodies.ts';
 import { createBodies } from '@render/bodies.ts';
 import { createLights } from '@render/lights.ts';
 import { createRenderer } from '@render/createRenderer.ts';
@@ -29,13 +32,19 @@ function mount(canvas: HTMLCanvasElement): App {
   const bodyView = createBodies(bodies);
   view.scene.add(bodyView.group);
   view.scene.add(createLights());
-  const debugSession = createDebugSession(
-    window.location.search,
-    document.body,
-  );
+  const search = window.location.search;
+  const clock = createClock({
+    startDays: parseStartDays(search, daysFromDate(new Date())),
+  });
+  if (isStartPaused(search)) {
+    clock.pause();
+  }
+  const animator = createBodyAnimator(bodies, bodyView.meshes);
+  animator.update(clock.days);
+  const debugSession = createDebugSession(search, document.body);
   let lastUiMs = Number.NEGATIVE_INFINITY;
 
-  if (isDebugEnabled(window.location.search)) {
+  if (isDebugEnabled(search)) {
     const screenEntries: {
       id: string;
       type: string;
@@ -71,7 +80,10 @@ function mount(canvas: HTMLCanvasElement): App {
   }
 
   const loop = createLoop({
-    update() {},
+    update(dtSeconds) {
+      clock.tick(dtSeconds);
+      animator.update(clock.days);
+    },
     render() {
       view.syncPixelRatio();
       view.renderer.render(view.scene, view.camera);
@@ -86,14 +98,8 @@ function mount(canvas: HTMLCanvasElement): App {
         lastUiMs = nowMs;
       }
     },
-    requestFrame(tick) {
-      view.renderer.setAnimationLoop(() => {
-        tick();
-      });
-    },
-    cancelFrame() {
-      view.renderer.setAnimationLoop(null);
-    },
+    requestFrame: view.requestFrame,
+    cancelFrame: view.cancelFrame,
   });
 
   const onVisibilityChange = (): void => {

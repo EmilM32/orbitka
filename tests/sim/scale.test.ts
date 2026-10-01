@@ -157,3 +157,94 @@ test('compressPositionAu maps the origin to the origin', () => {
   expect(compressPositionAu(0, 0, 0, out)).toBe(out);
   expect(out).toEqual({ x: 0, y: 0, z: 0 });
 });
+
+test.each([
+  ['distanceToScene', 'au', Number.NaN],
+  ['distanceToScene', 'au', Number.POSITIVE_INFINITY],
+  ['distanceToScene', 'au', Number.NEGATIVE_INFINITY],
+  ['radiusToScene', 'km', Number.NaN],
+  ['radiusToScene', 'km', Number.POSITIVE_INFINITY],
+  ['moonRadiusToScene', 'km', Number.NaN],
+  ['moonRadiusToScene', 'km', Number.POSITIVE_INFINITY],
+] as const)(
+  '%s throws RangeError for non-finite %s',
+  (functionName, parameter, value) => {
+    const call =
+      functionName === 'distanceToScene'
+        ? () => distanceToScene(value)
+        : functionName === 'radiusToScene'
+          ? () => radiusToScene(value)
+          : () => moonRadiusToScene(value);
+
+    expect(call).toThrow(RangeError);
+    expect(call).toThrow(
+      `${functionName}: parametr „${parameter}” musi być skończony, otrzymano ${value}`,
+    );
+  },
+);
+
+test.each([0, -6371, Number.NaN])(
+  'moonDistanceToScene throws when parentRadiusKm is %s',
+  (parentRadiusKm) => {
+    const call = () => moonDistanceToScene(384400, parentRadiusKm);
+
+    expect(call).toThrow(RangeError);
+    expect(call).toThrow(
+      `moonDistanceToScene: parametr „parentRadiusKm” musi być skończony i > 0, otrzymano ${parentRadiusKm}`,
+    );
+  },
+);
+
+test('moonDistanceToScene throws for a non-finite distance', () => {
+  const call = () => moonDistanceToScene(Number.NaN, EARTH_RADIUS_KM);
+
+  expect(call).toThrow(RangeError);
+  expect(call).toThrow(
+    'moonDistanceToScene: parametr „distanceKm” musi być skończony, otrzymano NaN',
+  );
+  expect(() =>
+    moonDistanceToScene(Number.POSITIVE_INFINITY, EARTH_RADIUS_KM),
+  ).toThrow(
+    'moonDistanceToScene: parametr „distanceKm” musi być skończony, otrzymano Infinity',
+  );
+});
+
+test.each([
+  [Number.NaN, 0, 0, 'x'],
+  [Number.POSITIVE_INFINITY, 0, 0, 'x'],
+  [0, Number.NaN, 0, 'y'],
+  [0, 0, 1e200, 'z'],
+] as const)(
+  'compressPositionAu throws for a non-finite or overflowing component (%s, %s, %s)',
+  (x, y, z, parameter) => {
+    const value = parameter === 'x' ? x : parameter === 'y' ? y : z;
+    const call = () => compressPositionAu(x, y, z, { x: 0, y: 0, z: 0 });
+
+    expect(call).toThrow(RangeError);
+    expect(call).toThrow(
+      `compressPositionAu: parametr „${parameter}” musi być skończony i nie przepełniać się, otrzymano ${value}`,
+    );
+  },
+);
+
+test('compressPositionAu keeps a tiny direction that x*x would flush to zero', () => {
+  const out: Vec3 = { x: 1, y: 1, z: 1 };
+  const result = compressPositionAu(1e-200, 0, 0, out);
+
+  expect(result).toBe(out);
+  expect(result.x).not.toBe(0);
+  expect(result.y).toBe(0);
+  expect(result.z).toBe(0);
+  expect(result.x / distanceToScene(1e-200)).toBeCloseTo(1, 6);
+});
+
+test('compressPositionAu compresses a long finite vector without squaring it', () => {
+  const out: Vec3 = { x: 0, y: 0, z: 0 };
+
+  compressPositionAu(0, 1e150, 0, out);
+
+  expect(out.x).toBe(0);
+  expect(out.z).toBe(0);
+  expect(Number.isFinite(out.y)).toBe(true);
+  expect(out.y / distanceToScene(1e150)).toBeCloseTo(1, 6);
+});

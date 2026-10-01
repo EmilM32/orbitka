@@ -15,7 +15,7 @@ Otwórz adres wypisany w terminalu.
 
 ## CI
 
-Każdy pull request i każdy push do `main` uruchamia workflow GitHub Actions z pliku `.github/workflows/ci.yml`. Job `verify` na aktualnym Node LTS wykonuje `npm ci`, a potem `npm run verify`. Przed pull requestem uruchom lokalnie `npm run verify`: to samo polecenie sprawdza format (`format:check`), lint, typecheck, testy z pokryciem i build, i zatrzymuje się na pierwszym błędzie. Nazwa checku, który trzeba oznaczyć jako wymagany w ochronie gałęzi `main`, to `verify`; wtedy czerwony wynik blokuje merge. Nowy push do tej samej gałęzi anuluje poprzedni, niedokończony przebieg.
+Każdy pull request i każdy push do `main` uruchamia workflow GitHub Actions z pliku `.github/workflows/ci.yml`. Job `verify` na Node 24 (wersja z `.nvmrc`, ta sama główna wersja co `engines`) wykonuje `npm ci`, a potem `npm run verify`. Przed pull requestem uruchom lokalnie `npm run verify`: to samo polecenie sprawdza format (`format:check`), lint, typecheck, testy z pokryciem i build, i zatrzymuje się na pierwszym błędzie. Nazwa checku, który trzeba oznaczyć jako wymagany w ochronie gałęzi `main`, to `verify`; wtedy czerwony wynik blokuje merge. Nowy push do tej samej gałęzi anuluje poprzedni, niedokończony przebieg.
 
 ## Skrypty
 

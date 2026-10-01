@@ -12,13 +12,13 @@ export function createSphere(
 ): Mesh {
   if (!Number.isFinite(radius) || radius <= 0) {
     throw new RangeError(
-      `createSphere: parametr „radius” musi być skończony i > 0, otrzymano ${radius}`,
+      `createSphere: parameter "radius" must be finite and > 0, got ${radius}`,
     );
   }
 
   if (!Number.isInteger(segments) || segments < 3) {
     throw new RangeError(
-      `createSphere: parametr „segments” musi być całkowity ≥ 3, otrzymano ${segments}`,
+      `createSphere: parameter "segments" must be an integer >= 3, got ${segments}`,
     );
   }
 

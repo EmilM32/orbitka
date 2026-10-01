@@ -1,7 +1,7 @@
 [
   {
     "id": "sun",
-    "name": "Słońce",
+    "name": "Sun",
     "type": "star",
     "parentId": null,
     "radiusKm": 695700,
@@ -12,7 +12,7 @@
   },
   {
     "id": "mercury",
-    "name": "Merkury",
+    "name": "Mercury",
     "type": "planet",
     "parentId": "sun",
     "radiusKm": 2439.7,
@@ -33,7 +33,7 @@
   },
   {
     "id": "venus",
-    "name": "Wenus",
+    "name": "Venus",
     "type": "planet",
     "parentId": "sun",
     "radiusKm": 6051.8,
@@ -54,7 +54,7 @@
   },
   {
     "id": "earth",
-    "name": "Ziemia",
+    "name": "Earth",
     "type": "planet",
     "parentId": "sun",
     "radiusKm": 6371.0,
@@ -96,7 +96,7 @@
   },
   {
     "id": "jupiter",
-    "name": "Jowisz",
+    "name": "Jupiter",
     "type": "planet",
     "parentId": "sun",
     "radiusKm": 69911,
@@ -159,7 +159,7 @@
   },
   {
     "id": "neptune",
-    "name": "Neptun",
+    "name": "Neptune",
     "type": "planet",
     "parentId": "sun",
     "radiusKm": 24622,

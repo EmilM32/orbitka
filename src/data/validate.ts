@@ -2,7 +2,7 @@ import type { BodyDef, BodyType, ValidationResult } from './types.ts';
 
 type Fields = Record<string, unknown>;
 
-// Zwraca opis problemu z wartością albo null, gdy wartość jest poprawna.
+// Returns a problem description, or null when the value is valid.
 type Rule = (value: unknown) => string | null;
 
 const BODY_TYPES: readonly BodyType[] = [
@@ -24,55 +24,54 @@ function isFiniteNumber(value: unknown): value is number {
 }
 
 const anyNumber: Rule = (value) =>
-  isFiniteNumber(value) ? null : 'musi być liczbą';
+  isFiniteNumber(value) ? null : 'must be a number';
 
 function numberWhere(test: (value: number) => boolean, problem: string): Rule {
   return (value) => {
     if (!isFiniteNumber(value)) {
-      return 'musi być liczbą';
+      return 'must be a number';
     }
 
     return test(value) ? null : problem;
   };
 }
 
-const positive = numberWhere((value) => value > 0, 'musi być większe od 0');
+const positive = numberWhere((value) => value > 0, 'must be greater than 0');
 const eccentricity = numberWhere(
   (value) => value >= 0 && value < 1,
-  'musi być w przedziale [0, 1)',
+  'must be in the range [0, 1)',
 );
 const axialTilt = numberWhere(
   (value) => value >= 0 && value <= 180,
-  'musi być w przedziale [0, 180]',
+  'must be in the range [0, 180]',
 );
 
 const text: Rule = (value) =>
   typeof value === 'string' && value !== ''
     ? null
-    : 'musi być niepustym tekstem';
+    : 'must be a non-empty string';
 
 const id: Rule = (value) =>
   typeof value === 'string' && ID_PATTERN.test(value)
     ? null
-    : 'może zawierać tylko małe litery, cyfry i myślniki';
+    : 'may contain only lowercase letters, digits, and hyphens';
 
 const textOrNull: Rule = (value) =>
   value === null || text(value) === null
     ? null
-    : 'musi być niepustym tekstem albo null';
+    : 'must be a non-empty string or null';
 
 const bodyType: Rule = (value) =>
   BODY_TYPES.some((type) => type === value)
     ? null
-    : `musi mieć jedną z wartości: ${BODY_TYPES.join(', ')}`;
+    : `must be one of: ${BODY_TYPES.join(', ')}`;
 
-const epoch: Rule = (value) =>
-  value === 'J2000' ? null : 'musi mieć wartość J2000';
+const epoch: Rule = (value) => (value === 'J2000' ? null : 'must be J2000');
 
 const color: Rule = (value) =>
   typeof value === 'string' && COLOR_PATTERN.test(value)
     ? null
-    : 'musi mieć format #rrggbb';
+    : 'must match #rrggbb';
 
 function createChecker(label: string, errors: string[]) {
   const has = (source: Fields, key: string): boolean =>
@@ -88,27 +87,27 @@ function createChecker(label: string, errors: string[]) {
     ): void {
       if (!has(source, key)) {
         if (!optional) {
-          errors.push(`${label}: brak pola ${path}${key}`);
+          errors.push(`${label}: missing field ${path}${key}`);
         }
         return;
       }
 
       const problem = rule(source[key]);
       if (problem !== null) {
-        errors.push(`${label}: pole ${path}${key} ${problem}`);
+        errors.push(`${label}: field ${path}${key} ${problem}`);
       }
     },
     group(source: Fields, key: string, optional = false): Fields | null {
       if (!has(source, key)) {
         if (!optional) {
-          errors.push(`${label}: brak pola ${key}`);
+          errors.push(`${label}: missing field ${key}`);
         }
         return null;
       }
 
       const value = source[key];
       if (!isFields(value)) {
-        errors.push(`${label}: pole ${key} musi być obiektem`);
+        errors.push(`${label}: field ${key} must be an object`);
         return null;
       }
 
@@ -125,14 +124,12 @@ function isValidBody(
   const errorsBefore = errors.length;
 
   if (!isFields(raw)) {
-    errors.push(`Ciało #${index + 1}: wpis musi być obiektem`);
+    errors.push(`Body #${index + 1}: entry must be an object`);
     return false;
   }
 
   const label =
-    typeof raw.id === 'string' && raw.id !== ''
-      ? raw.id
-      : `Ciało #${index + 1}`;
+    typeof raw.id === 'string' && raw.id !== '' ? raw.id : `Body #${index + 1}`;
   const check = createChecker(label, errors);
 
   check.field(raw, '', 'id', id);
@@ -176,7 +173,7 @@ function checkHierarchy(bodies: readonly BodyDef[], errors: string[]): void {
 
   for (const body of bodies) {
     if (byId.has(body.id)) {
-      errors.push(`${body.id}: pole id powtarza się`);
+      errors.push(`${body.id}: field id is duplicated`);
     }
     byId.set(body.id, body);
   }
@@ -184,7 +181,7 @@ function checkHierarchy(bodies: readonly BodyDef[], errors: string[]): void {
   for (const body of bodies) {
     if (body.parentId !== null && !byId.has(body.parentId)) {
       errors.push(
-        `${body.id}: pole parentId wskazuje nieistniejące ciało „${body.parentId}”`,
+        `${body.id}: field parentId points to a missing body "${body.parentId}"`,
       );
     }
   }
@@ -198,7 +195,7 @@ function checkHierarchy(bodies: readonly BodyDef[], errors: string[]): void {
       chain.push(parentId);
       if (visited.has(parentId)) {
         errors.push(
-          `${body.id}: pole parentId tworzy cykl (${chain.join(' → ')})`,
+          `${body.id}: field parentId forms a cycle (${chain.join(' → ')})`,
         );
         break;
       }
@@ -210,23 +207,23 @@ function checkHierarchy(bodies: readonly BodyDef[], errors: string[]): void {
   const roots = bodies.filter((body) => body.parentId === null);
   if (roots.length !== 1) {
     errors.push(
-      `Musi być dokładnie jeden korzeń (ciało z parentId: null), a jest ${roots.length}`,
+      `There must be exactly one root (a body with parentId: null), found ${roots.length}`,
     );
   }
 
   for (const root of roots) {
     if (root.type !== 'star') {
-      errors.push(`${root.id}: korzeń musi mieć type: 'star'`);
+      errors.push(`${root.id}: root must have type: 'star'`);
     }
     if (root.orbit !== undefined) {
-      errors.push(`${root.id}: korzeń nie może mieć pola orbit`);
+      errors.push(`${root.id}: root must not have an orbit field`);
     }
   }
 }
 
 export function validateBodies(input: unknown): ValidationResult {
   if (!Array.isArray(input)) {
-    return { ok: false, errors: ['Dane ciał muszą być tablicą'] };
+    return { ok: false, errors: ['Body data must be an array'] };
   }
 
   const errors: string[] = [];

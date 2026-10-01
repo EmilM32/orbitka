@@ -3,7 +3,7 @@ import { expect, test } from 'vitest';
 
 import { SPHERE_SEGMENTS, createSphere } from '@render/sphereFactory.ts';
 
-test('sphereFactory › segmenty', () => {
+test('sphereFactory › segments', () => {
   expect(SPHERE_SEGMENTS.planet).toBe(48);
   expect(SPHERE_SEGMENTS.sun).toBe(64);
 
@@ -14,10 +14,10 @@ test('sphereFactory › segmenty', () => {
   expect(planet.geometry).toBeInstanceOf(SphereGeometry);
   expect(sun.geometry).toBeInstanceOf(SphereGeometry);
   if (!(planet.geometry instanceof SphereGeometry)) {
-    throw new Error('oczekiwano sfery planety');
+    throw new Error('expected a planet sphere');
   }
   if (!(sun.geometry instanceof SphereGeometry)) {
-    throw new Error('oczekiwano sfery Słońca');
+    throw new Error('expected the Sun sphere');
   }
 
   expect(planet.geometry.parameters.widthSegments).toBe(48);
@@ -47,7 +47,7 @@ test('sphereFactory › RangeError', () => {
     const call = () => createSphere(1, segments, material);
     expect(call).toThrow(RangeError);
     expect(call).toThrow(
-      `createSphere: parametr „segments” musi być całkowity ≥ 3, otrzymano ${segments}`,
+      `createSphere: parameter "segments" must be an integer >= 3, got ${segments}`,
     );
   }
 
@@ -55,7 +55,7 @@ test('sphereFactory › RangeError', () => {
     const call = () => createSphere(radius, 8, material);
     expect(call).toThrow(RangeError);
     expect(call).toThrow(
-      `createSphere: parametr „radius” musi być skończony i > 0, otrzymano ${radius}`,
+      `createSphere: parameter "radius" must be finite and > 0, got ${radius}`,
     );
   }
 

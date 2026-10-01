@@ -5,9 +5,7 @@ import { validateBodies } from './validate.ts';
 const result = validateBodies(raw);
 
 if (!result.ok) {
-  throw new Error(
-    `Niepoprawne dane ciał niebieskich:\n${result.errors.join('\n')}`,
-  );
+  throw new Error(`Invalid celestial body data:\n${result.errors.join('\n')}`);
 }
 
 export const bodies: readonly BodyDef[] = result.bodies;
@@ -18,7 +16,7 @@ export function getBody(id: string): BodyDef {
   const body = bodiesById.get(id);
 
   if (!body) {
-    throw new Error(`Nieznane ciało niebieskie: ${id}`);
+    throw new Error(`Unknown celestial body: ${id}`);
   }
 
   return body;

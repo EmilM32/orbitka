@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint';
 const SOURCE_EXTENSIONS = '{ts,tsx,mts,cts,js,jsx,mjs,cjs}';
 const SRC_DIR = path.join(import.meta.dirname, 'src');
 
-// Macierz zależności warstw (ADR-002): warstwa importuje tylko wymienione warstwy.
+// Layer dependency matrix (ADR-002): a layer imports only the layers listed here.
 const allowedLayers = {
   data: [],
   sim: ['data'],
@@ -27,7 +27,7 @@ const boundaries = layers.map((layer) => ({
     .map((other) => `@${other}`),
 }));
 
-// Bez "/" w wyrażeniu, bo selektor esquery kończy regex na pierwszym "/".
+// No "/" in the expression, because an esquery selector ends the regex at the first "/".
 function moduleRegex(names) {
   return `^(?:${names.join('|')})(?:\\x2F.*)?$`;
 }
@@ -53,7 +53,7 @@ function restrictedImports(restrictions) {
 
 const threeRestriction = {
   regex: moduleRegex(['three']),
-  message: 'three wolno importować tylko w src/render i tests/render.',
+  message: 'three may be imported only in src/render and tests/render.',
 };
 
 function zoneOf(file) {
@@ -71,7 +71,7 @@ const noRelativeOutsideLayer = {
     type: 'problem',
     messages: {
       outside:
-        'Import "{{source}}" wychodzi poza warstwę. Między warstwami importuj przez alias (@sim/…, @core/…).',
+        'Import "{{source}}" crosses a layer boundary. Import across layers through an alias (@sim/…, @core/…).',
     },
     schema: [],
   },
@@ -129,7 +129,7 @@ export default tseslint.config(
       ...(allowThree ? [] : [threeRestriction]),
       {
         regex: moduleRegex(forbidden),
-        message: `src/${layer} nie importuje ${forbidden.join(', ')} (macierz zależności ADR-002).`,
+        message: `src/${layer} does not import ${forbidden.join(', ')} (ADR-002 dependency matrix).`,
       },
     ]),
   })),

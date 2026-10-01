@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 
 import { isDebugEnabled } from '@core/debugFlag.ts';
 
-test('debugFlag › przypadki', () => {
+test('debugFlag › cases', () => {
   expect(isDebugEnabled('?debug=1')).toBe(true);
   expect(isDebugEnabled('?a=b&debug=1')).toBe(true);
   expect(isDebugEnabled('debug=1')).toBe(true);

@@ -1,49 +1,49 @@
 # Orbitka
 
-Interaktywna, edukacyjna symulacja Układu Słonecznego w three.js (12+).
+Interactive educational simulation of the Solar System in three.js (12+).
 
-## Uruchomienie
+## Running
 
-Node.js `^24.0.0` (Active LTS), npm. W katalogu jest `.nvmrc` (`24.21.0`). Plik `.npmrc` ma `engine-strict=true`, więc `npm ci` na Node spoza `engines` kończy się błędem.
+Node.js `^24.0.0` (Active LTS), npm. The directory has `.nvmrc` (`24.21.0`). `.npmrc` sets `engine-strict=true`, so `npm ci` fails on a Node version outside `engines`.
 
 ```bash
 npm ci
 npm run dev
 ```
 
-Otwórz adres wypisany w terminalu.
+Open the address printed in the terminal.
 
 ## CI
 
-Każdy pull request i każdy push do `main` uruchamia workflow GitHub Actions z pliku `.github/workflows/ci.yml`. Job `verify` na Node 24 (wersja z `.nvmrc`, ta sama główna wersja co `engines`) wykonuje `npm ci`, a potem `npm run verify`. Przed pull requestem uruchom lokalnie `npm run verify`: to samo polecenie sprawdza format (`format:check`), lint, typecheck, testy z pokryciem i build, i zatrzymuje się na pierwszym błędzie. Nazwa checku, który trzeba oznaczyć jako wymagany w ochronie gałęzi `main`, to `verify`; wtedy czerwony wynik blokuje merge. Nowy push do tej samej gałęzi anuluje poprzedni, niedokończony przebieg.
+Every pull request and every push to `main` runs the GitHub Actions workflow in `.github/workflows/ci.yml`. The `verify` job on Node 24 (the version from `.nvmrc`, the same major version as `engines`) runs `npm ci`, then `npm run verify`. Before a pull request, run `npm run verify` locally: the same command checks format (`format:check`), lint, typecheck, tests with coverage, and the build, and stops at the first failure. The check name to mark as required in branch protection for `main` is `verify`; a red result then blocks the merge. A new push to the same branch cancels the previous unfinished run.
 
-## Skrypty
+## Scripts
 
-- `npm run dev` — serwer deweloperski Vite
-- `npm run build` — sprawdzenie typów `src` i build produkcyjny
-- `npm run preview` — podgląd buildu
-- `npm run typecheck` — `tsc` dla `src` (`tsconfig.json`), plików konfiguracyjnych (`tsconfig.node.json`) i testów (`tsconfig.test.json`)
+- `npm run dev` — Vite dev server
+- `npm run build` — typecheck of `src` and a production build
+- `npm run preview` — preview of the build
+- `npm run typecheck` — `tsc` for `src` (`tsconfig.json`), config files (`tsconfig.node.json`), and tests (`tsconfig.test.json`)
 - `npm run lint` — ESLint
-- `npm run format` — Prettier dla całego repozytorium
-- `npm run format:check` — sprawdzenie formatu bez zapisu
-- `npm run verify` — format, lint, typecheck, testy z pokryciem i build; uruchom przed pull requestem
+- `npm run format` — Prettier for the whole repository
+- `npm run format:check` — format check without writing
+- `npm run verify` — format, lint, typecheck, tests with coverage, and the build; run it before a pull request
 - `npm run test` — Vitest
-- `npm run test:coverage` — Vitest z progiem pokrycia linii dla `src/sim`
-- `npm run test:e2e` — test dymny Playwright (Chromium)
+- `npm run test:coverage` — Vitest with a line-coverage threshold for `src/sim`
+- `npm run test:e2e` — Playwright smoke test (Chromium)
 
-## Test dymny
+## Smoke test
 
-Test w przeglądarce sprawdza start aplikacji: brak błędów w konsoli, niepusty canvas oraz Słońce i planety. Lokalnie:
+The browser test checks application startup: no console errors, a non-empty canvas, and the Sun and planets. Locally:
 
 ```bash
 npx playwright install chromium
 npm run test:e2e
 ```
 
-Job `e2e` w GitHub Actions uruchamia ten sam test tylko na pull requestach. Push do `main` go nie startuje.
+The `e2e` job in GitHub Actions runs the same test only on pull requests. A push to `main` does not start it.
 
-Aliasy warstw są zawsze z podścieżką (`@core/…`, `@sim/…`). Goły import `@core` przechodzi w Vite, ale `tsc` zgłasza TS2307.
+Layer aliases always include a subpath (`@core/…`, `@sim/…`). A bare import `@core` works in Vite, but `tsc` reports TS2307.
 
-## Granice warstw
+## Layer boundaries
 
-`npm run lint` pilnuje macierzy zależności z ADR-002: `data` nie importuje innych warstw, `sim` importuje tylko `data`, `core` tylko `data` i `sim`, `content` tylko `data`, `render` tylko `core`, `sim` i `data`, a `ui` tylko `core`, `data` i `content`. `three` wolno importować wyłącznie w `src/render` i `tests/render`. Między warstwami importuje się przez aliasy; względne `./` i `../` są dozwolone tylko w obrębie jednej warstwy.
+`npm run lint` enforces the ADR-002 dependency matrix: `data` imports no other layer, `sim` imports only `data`, `core` only `data` and `sim`, `content` only `data`, `render` only `core`, `sim`, and `data`, and `ui` only `core`, `data`, and `content`. `three` may be imported only in `src/render` and `tests/render`. Imports between layers use aliases; relative `./` and `../` are allowed only inside one layer.

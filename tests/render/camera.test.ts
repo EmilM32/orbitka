@@ -16,7 +16,7 @@ function expectInsideView(
   expect(Math.abs(projected.y)).toBeLessThanOrEqual(1);
 }
 
-test('camera › parametry', () => {
+test('camera › parameters', () => {
   const camera = createCamera(16 / 9);
   const direction = new Vector3();
   camera.getWorldDirection(direction);
@@ -31,7 +31,7 @@ test('camera › parametry', () => {
   expect(direction.distanceTo(towardOrigin)).toBeLessThanOrEqual(1e-8);
 });
 
-test('camera › mnożnik', () => {
+test('camera › multiplier', () => {
   expect(cameraDistanceMultiplier(16 / 9)).toBe(1);
   expect(cameraDistanceMultiplier(1)).toBe(1.2);
   expect(
@@ -43,11 +43,11 @@ test('camera › mnożnik', () => {
   }
 });
 
-test('camera › widoczność Neptuna', () => {
+test('camera › Neptune visibility', () => {
   const neptune = getBody('neptune');
   const orbit = neptune.orbit;
   if (orbit === undefined) {
-    throw new Error('Neptun nie ma orbity');
+    throw new Error('Neptune has no orbit');
   }
 
   const orbitRadius = distanceToScene(orbit.semiMajorAxisAu);

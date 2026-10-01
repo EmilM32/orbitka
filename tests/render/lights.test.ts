@@ -3,7 +3,7 @@ import { expect, test } from 'vitest';
 
 import { createLights } from '@render/lights.ts';
 
-test('lights › wartości', () => {
+test('lights › values', () => {
   const group = createLights();
   const point = group.children.find((child) => child instanceof PointLight);
   const ambient = group.children.find((child) => child instanceof AmbientLight);
@@ -11,7 +11,7 @@ test('lights › wartości', () => {
   expect(point).toBeInstanceOf(PointLight);
   expect(ambient).toBeInstanceOf(AmbientLight);
   if (!(point instanceof PointLight) || !(ambient instanceof AmbientLight)) {
-    throw new Error('brak świateł');
+    throw new Error('missing lights');
   }
 
   expect(point.intensity).toBe(3);

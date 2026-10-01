@@ -17,7 +17,7 @@ export type BodyScreenPosition = {
 function requireSize(parameter: 'width' | 'height', value: number): void {
   if (!Number.isFinite(value) || value <= 0) {
     throw new RangeError(
-      `getBodyScreenPositions: parametr „${parameter}” musi być skończony i > 0, otrzymano ${value}`,
+      `getBodyScreenPositions: parameter "${parameter}" must be finite and > 0, got ${value}`,
     );
   }
 }

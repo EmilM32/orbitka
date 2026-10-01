@@ -22,7 +22,7 @@ test('fpsMeter › 30 FPS', () => {
   expect(fps).toBeLessThanOrEqual(31);
 });
 
-test('fpsMeter › za mało danych', () => {
+test('fpsMeter › not enough samples', () => {
   const meter = createFpsMeter();
   expect(meter.fps).toBe(0);
 
@@ -34,7 +34,7 @@ test('fpsMeter › za mało danych', () => {
   expect(meter.fps).toBe(0);
 });
 
-test('fpsMeter › przerwa', () => {
+test('fpsMeter › gap', () => {
   const meter = createFpsMeter();
   for (let time = 0; time <= 3000; time += 16.67) {
     meter.tick(time);
@@ -49,7 +49,7 @@ test('fpsMeter › przerwa', () => {
   expect(meter.fps).toBeLessThanOrEqual(31);
 });
 
-test('fpsMeter › przepełnienie', () => {
+test('fpsMeter › overflow', () => {
   const meter = createFpsMeter(2);
   const start = 10_000;
   const step = 2000 / 511;
@@ -78,7 +78,7 @@ test('fpsMeter › RangeError windowSeconds', () => {
     const call = () => createFpsMeter(windowSeconds);
     expect(call).toThrow(RangeError);
     expect(call).toThrow(
-      `createFpsMeter: parametr „windowSeconds” musi być skończony i > 0, otrzymano ${windowSeconds}`,
+      `createFpsMeter: parameter "windowSeconds" must be finite and > 0, got ${windowSeconds}`,
     );
   }
 });
@@ -93,7 +93,7 @@ test('fpsMeter › RangeError nowMs', () => {
   ]) {
     const call = () => meter.tick(nowMs);
     expect(call).toThrow(RangeError);
-    expect(call).toThrow(`„nowMs”`);
+    expect(call).toThrow(`"nowMs"`);
     expect(call).toThrow(String(nowMs));
   }
 
@@ -101,5 +101,5 @@ test('fpsMeter › RangeError nowMs', () => {
   meter.tick(10);
   expect(meter.fps).toBe(0);
   expect(() => meter.tick(9)).toThrow(RangeError);
-  expect(() => meter.tick(9)).toThrow('„nowMs”');
+  expect(() => meter.tick(9)).toThrow('"nowMs"');
 });

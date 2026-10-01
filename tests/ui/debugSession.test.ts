@@ -4,7 +4,7 @@ import { expect, test } from 'vitest';
 
 import { createDebugSession } from '@ui/debugSession.ts';
 
-test('main › bez flagi', () => {
+test('main › without the flag', () => {
   const parent = document.createElement('div');
   document.body.append(parent);
 
@@ -13,7 +13,7 @@ test('main › bez flagi', () => {
   parent.remove();
 });
 
-test('main › z flagą', () => {
+test('main › with the flag', () => {
   const parent = document.createElement('div');
   document.body.append(parent);
   const session = createDebugSession('?debug=1', parent);

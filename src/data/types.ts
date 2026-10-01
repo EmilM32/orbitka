@@ -1,9 +1,9 @@
 export type BodyType = 'star' | 'planet' | 'dwarf' | 'moon' | 'belt';
 
 export interface OrbitDef {
-  semiMajorAxisAu: number; // AU; dla księżyców (type 'moon') w km, nazwa pola zgodna z ADR-003
+  semiMajorAxisAu: number; // AU; for moons (type 'moon') in km. Field name follows ADR-003
   eccentricity: number;
-  inclinationDeg: number; // względem ekliptyki J2000 (planety)
+  inclinationDeg: number; // relative to the J2000 ecliptic (planets)
   longitudeAscendingNodeDeg: number; // Ω
   argumentPeriapsisDeg: number; // ω = ϖ − Ω
   meanAnomalyAtEpochDeg: number; // M0 = L − ϖ

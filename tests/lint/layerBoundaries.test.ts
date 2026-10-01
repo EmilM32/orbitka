@@ -9,7 +9,7 @@ const BOUNDARY_RULES = new Set([
   'orbitka/no-relative-outside-layer',
 ]);
 
-// Oczekiwana macierz z ADR-002 (EMI-139), zapisana niezależnie od eslint.config.js.
+// Expected ADR-002 matrix (EMI-139), stored independently of eslint.config.js.
 const allowedLayers: Record<string, readonly string[]> = {
   data: [],
   sim: ['data'],
@@ -28,7 +28,7 @@ const eslint = new ESLint({
 async function boundaryErrors(filePath: string, code: string) {
   const [result] = await eslint.lintText(code, { filePath });
   if (!result) {
-    throw new Error(`ESLint nie zwrócił wyniku dla ${filePath}`);
+    throw new Error(`ESLint returned no result for ${filePath}`);
   }
 
   expect(result.messages.filter((message) => message.fatal)).toEqual([]);

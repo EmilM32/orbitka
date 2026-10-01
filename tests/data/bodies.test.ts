@@ -40,5 +40,5 @@ test('lengthens orbital periods from Mercury to Neptune', () => {
 });
 
 test('throws for an unknown id', () => {
-  expect(() => getBody('pluto')).toThrow('Nieznane ciało niebieskie: pluto');
+  expect(() => getBody('pluto')).toThrow('Unknown celestial body: pluto');
 });

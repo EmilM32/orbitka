@@ -1,6 +1,6 @@
 # Orbitka — agent instructions
 
-Educational solar-system simulation in the browser. Audience 12+, copy in Polish, laptop and tablet, target about 60 FPS. The app is static: no backend, no accounts, no analytics.
+Educational solar-system simulation in the browser. Audience 12+, copy in English, laptop and tablet, target about 60 FPS. The app is static: no backend, no accounts, no analytics.
 
 ## Where the truth lives
 
@@ -37,7 +37,7 @@ A new decision that affects the whole project gets its own ADR in Linear. This f
 | `src/sim`       | Orbit and scale math. No imports of `three`, `@render`, or `@ui` |
 | `src/render`    | Scene, materials, camera, orbit lines, labels                    |
 | `src/ui`        | DOM panels: time, body card, scale notice                        |
-| `src/content`   | Polish educational copy, keyed by body `id`. No logic            |
+| `src/content`   | Educational copy in English, keyed by body `id`. No logic        |
 | `public/assets` | Textures and sounds, local files only                            |
 | `tests/`        | Mirrors `src/` (`tests/sim/scale.test.ts`)                       |
 
@@ -71,8 +71,8 @@ When a task introduces the tooling: Vitest in the `node` environment (jsdom only
 - Do the task named in the request. The boundaries are the issue's "Out of scope" section.
 - Take the branch name from the issue's git branch name in Linear.
 - After verification, comment on the issue with the result (versions, commands, any departure from the description).
-- Identifiers in code are English. User-visible copy is Polish: straightforward, for age 12+, no baby talk, and no jargon left unexplained.
-- Commit messages are English, imperative mood (`Add orbit lines for the eight planets`). Pull request titles too. Linear issues and in-app copy stay Polish.
+- Everything in the repo is English: identifiers, comments, error messages, docs, tests, JSON, and user-visible copy. Do not hardcode Polish. Copy is straightforward, for age 12+, with no unexplained jargon.
+- Commit messages are English, imperative mood (`Add orbit lines for the eight planets`). Pull request titles too.
 
 ## Commands
 

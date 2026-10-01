@@ -6,7 +6,7 @@ import { getBodyScreenPositions } from '@render/screenPositions.ts';
 const WIDTH = 1280;
 const HEIGHT = 720;
 
-test('screenPositions › rzutowanie', () => {
+test('screenPositions › projection', () => {
   const camera = createCamera(16 / 9);
   const [center] = getBodyScreenPositions(
     [{ id: 'sun', type: 'star', position: { x: 0, y: 0, z: 0 } }],
@@ -16,7 +16,7 @@ test('screenPositions › rzutowanie', () => {
   );
 
   if (!center) {
-    throw new Error('brak rzutu środka');
+    throw new Error('missing center projection');
   }
 
   expect(center.visible).toBe(true);
@@ -45,7 +45,7 @@ test('screenPositions › rzutowanie', () => {
     const call = () => getBodyScreenPositions([], camera, width, HEIGHT);
     expect(call).toThrow(RangeError);
     expect(call).toThrow(
-      `getBodyScreenPositions: parametr „width” musi być skończony i > 0, otrzymano ${width}`,
+      `getBodyScreenPositions: parameter "width" must be finite and > 0, got ${width}`,
     );
   }
 
@@ -53,7 +53,7 @@ test('screenPositions › rzutowanie', () => {
     const call = () => getBodyScreenPositions([], camera, WIDTH, height);
     expect(call).toThrow(RangeError);
     expect(call).toThrow(
-      `getBodyScreenPositions: parametr „height” musi być skończony i > 0, otrzymano ${height}`,
+      `getBodyScreenPositions: parameter "height" must be finite and > 0, got ${height}`,
     );
   }
 });

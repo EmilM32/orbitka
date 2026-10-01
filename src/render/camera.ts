@@ -27,7 +27,7 @@ export function frameCamera(camera: PerspectiveCamera, aspect: number): void {
   );
   camera.lookAt(0, 0, 0);
   camera.updateProjectionMatrix();
-  // lookAt odświeża macierz przy starym obrocie. project() czyta matrixWorldInverse.
+  // lookAt refreshes the matrix against the old rotation. project() reads matrixWorldInverse.
   camera.updateMatrixWorld();
 }
 

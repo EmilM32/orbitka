@@ -18,7 +18,7 @@ function findCanvas(): HTMLCanvasElement {
   const canvas = document.querySelector<HTMLCanvasElement>('#viewport');
 
   if (!canvas) {
-    throw new Error('Brak elementu canvas #viewport');
+    throw new Error('Missing canvas element #viewport');
   }
 
   return canvas;

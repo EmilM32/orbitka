@@ -79,8 +79,8 @@ export function createDebugOverlay(parent: HTMLElement): DebugOverlay {
       }
 
       writeLine(fpsLine, 'FPS', stats.fps, true);
-      writeLine(callsLine, 'Wywołania rysowania', stats.calls, false);
-      writeLine(trianglesLine, 'Trójkąty', stats.triangles, false);
+      writeLine(callsLine, 'Draw calls', stats.calls, false);
+      writeLine(trianglesLine, 'Triangles', stats.triangles, false);
     },
     dispose() {
       if (disposed) {

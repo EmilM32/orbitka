@@ -16,7 +16,7 @@ function entries(): Entry[] {
 function find(list: Entry[], id: string): Entry {
   const entry = list.find((item) => item.id === id);
   if (!entry) {
-    throw new Error(`Brak ciała ${id} w danych testowych`);
+    throw new Error(`Missing body ${id} in test data`);
   }
   return entry;
 }
@@ -24,7 +24,7 @@ function find(list: Entry[], id: string): Entry {
 function group(entry: Entry, key: string): Entry {
   const value = entry[key];
   if (!isEntry(value)) {
-    throw new Error(`Pole ${key} nie jest obiektem`);
+    throw new Error(`Field ${key} is not an object`);
   }
   return value;
 }
@@ -32,7 +32,7 @@ function group(entry: Entry, key: string): Entry {
 function errorsOf(input: unknown): string[] {
   const result = validateBodies(input);
   if (result.ok) {
-    throw new Error('Walidacja miała się nie udać');
+    throw new Error('Validation was expected to fail');
   }
   return result.errors;
 }
@@ -58,7 +58,7 @@ test('names the id and field of a missing value', () => {
   const list = entries();
   delete group(find(list, 'mercury'), 'orbit').eccentricity;
 
-  expect(errorsOf(list)).toEqual(['mercury: brak pola orbit.eccentricity']);
+  expect(errorsOf(list)).toEqual(['mercury: missing field orbit.eccentricity']);
 });
 
 test('rejects a parentId that points to no body', () => {
@@ -66,7 +66,7 @@ test('rejects a parentId that points to no body', () => {
   find(list, 'mars').parentId = 'phobos';
 
   expect(errorsOf(list)).toEqual([
-    'mars: pole parentId wskazuje nieistniejące ciało „phobos”',
+    'mars: field parentId points to a missing body "phobos"',
   ]);
 });
 
@@ -76,8 +76,8 @@ test('rejects a parent cycle', () => {
   find(list, 'venus').parentId = 'mercury';
 
   expect(errorsOf(list)).toEqual([
-    'mercury: pole parentId tworzy cykl (mercury → venus → mercury)',
-    'venus: pole parentId tworzy cykl (venus → mercury → venus)',
+    'mercury: field parentId forms a cycle (mercury → venus → mercury)',
+    'venus: field parentId forms a cycle (venus → mercury → venus)',
   ]);
 });
 
@@ -85,7 +85,7 @@ test('rejects two bodies with the same id', () => {
   const list = entries();
   find(list, 'venus').id = 'mercury';
 
-  expect(errorsOf(list)).toContain('mercury: pole id powtarza się');
+  expect(errorsOf(list)).toContain('mercury: field id is duplicated');
 });
 
 test('rejects data without a root', () => {
@@ -93,7 +93,7 @@ test('rejects data without a root', () => {
   const errors = errorsOf(list);
 
   expect(errors).toContain(
-    'Musi być dokładnie jeden korzeń (ciało z parentId: null), a jest 0',
+    'There must be exactly one root (a body with parentId: null), found 0',
   );
 });
 
@@ -102,9 +102,9 @@ test('rejects two roots', () => {
   find(list, 'jupiter').parentId = null;
 
   expect(errorsOf(list)).toEqual([
-    'Musi być dokładnie jeden korzeń (ciało z parentId: null), a jest 2',
-    "jupiter: korzeń musi mieć type: 'star'",
-    'jupiter: korzeń nie może mieć pola orbit',
+    'There must be exactly one root (a body with parentId: null), found 2',
+    "jupiter: root must have type: 'star'",
+    'jupiter: root must not have an orbit field',
   ]);
 });
 
@@ -113,7 +113,7 @@ test('rejects an eccentricity of 1', () => {
   group(find(list, 'neptune'), 'orbit').eccentricity = 1;
 
   expect(errorsOf(list)).toEqual([
-    'neptune: pole orbit.eccentricity musi być w przedziale [0, 1)',
+    'neptune: field orbit.eccentricity must be in the range [0, 1)',
   ]);
 });
 
@@ -122,7 +122,7 @@ test('rejects a color that is not #rrggbb', () => {
   group(find(list, 'mars'), 'visual').color = 'red';
 
   expect(errorsOf(list)).toEqual([
-    'mars: pole visual.color musi mieć format #rrggbb',
+    'mars: field visual.color must match #rrggbb',
   ]);
 });
 
@@ -130,7 +130,7 @@ test('requires an orbit for every body that is not a star', () => {
   const list = entries();
   delete find(list, 'earth').orbit;
 
-  expect(errorsOf(list)).toEqual(['earth: brak pola orbit']);
+  expect(errorsOf(list)).toEqual(['earth: missing field orbit']);
 });
 
 test('reports every broken field of one body', () => {
@@ -145,17 +145,17 @@ test('reports every broken field of one body', () => {
   saturn.visual = 'yellow';
 
   expect(errorsOf(list)).toEqual([
-    'Saturn: pole id może zawierać tylko małe litery, cyfry i myślniki',
-    'Saturn: pole type musi mieć jedną z wartości: star, planet, dwarf, moon, belt',
-    'Saturn: pole radiusKm musi być większe od 0',
-    'Saturn: pole mass musi być liczbą',
-    'Saturn: pole orbit.epoch musi mieć wartość J2000',
-    'Saturn: pole rotation.axialTiltDeg musi być w przedziale [0, 180]',
-    'Saturn: pole visual musi być obiektem',
+    'Saturn: field id may contain only lowercase letters, digits, and hyphens',
+    'Saturn: field type must be one of: star, planet, dwarf, moon, belt',
+    'Saturn: field radiusKm must be greater than 0',
+    'Saturn: field mass must be a number',
+    'Saturn: field orbit.epoch must be J2000',
+    'Saturn: field rotation.axialTiltDeg must be in the range [0, 180]',
+    'Saturn: field visual must be an object',
   ]);
 });
 
 test('rejects input that is not a list of objects', () => {
-  expect(errorsOf({ bodies: [] })).toEqual(['Dane ciał muszą być tablicą']);
-  expect(errorsOf([null])).toEqual(['Ciało #1: wpis musi być obiektem']);
+  expect(errorsOf({ bodies: [] })).toEqual(['Body data must be an array']);
+  expect(errorsOf([null])).toEqual(['Body #1: entry must be an object']);
 });

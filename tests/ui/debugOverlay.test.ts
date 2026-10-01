@@ -9,12 +9,12 @@ import { createDebugOverlay } from '@ui/debugOverlay.ts';
 function line(parent: ParentNode, name: string): HTMLElement {
   const element = parent.querySelector(`[data-debug-line="${name}"]`);
   if (!(element instanceof HTMLElement)) {
-    throw new Error(`brak linii ${name}`);
+    throw new Error(`missing line ${name}`);
   }
   return element;
 }
 
-test('debugOverlay › linie', () => {
+test('debugOverlay › lines', () => {
   const parent = document.createElement('div');
   document.body.append(parent);
   const overlay = createDebugOverlay(parent);
@@ -24,15 +24,15 @@ test('debugOverlay › linie', () => {
   const root = parent.querySelector('#debug-overlay');
   expect(root).not.toBeNull();
   expect(line(parent, 'fps').textContent).toBe('FPS: 60');
-  expect(line(parent, 'calls').textContent).toBe('Wywołania rysowania: 12');
-  expect(line(parent, 'triangles').textContent).toBe('Trójkąty: 34\u00A0560');
+  expect(line(parent, 'calls').textContent).toBe('Draw calls: 12');
+  expect(line(parent, 'triangles').textContent).toBe('Triangles: 34\u00A0560');
   expect(line(parent, 'triangles').textContent?.includes('\u00A0')).toBe(true);
 
   overlay.dispose();
   parent.remove();
 });
 
-test('debugOverlay › kolory', () => {
+test('debugOverlay › colors', () => {
   const parent = document.createElement('div');
   const overlay = createDebugOverlay(parent);
   const cases = [
@@ -50,7 +50,7 @@ test('debugOverlay › kolory', () => {
   overlay.dispose();
 });
 
-test('debugOverlay › niepoprawne wartości', () => {
+test('debugOverlay › invalid values', () => {
   const parent = document.createElement('div');
   const overlay = createDebugOverlay(parent);
 
@@ -61,8 +61,8 @@ test('debugOverlay › niepoprawne wartości', () => {
   }
 
   overlay.update({ fps: 60, calls: Number.NaN, triangles: -5 });
-  expect(line(parent, 'calls').textContent).toBe('Wywołania rysowania: —');
-  expect(line(parent, 'triangles').textContent).toBe('Trójkąty: —');
+  expect(line(parent, 'calls').textContent).toBe('Draw calls: —');
+  expect(line(parent, 'triangles').textContent).toBe('Triangles: —');
   expect(line(parent, 'fps').className).toBe('debug-fps-good');
 
   overlay.dispose();

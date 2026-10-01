@@ -8,7 +8,7 @@ export type FpsMeter = {
 export function createFpsMeter(windowSeconds = 2): FpsMeter {
   if (!Number.isFinite(windowSeconds) || windowSeconds <= 0) {
     throw new RangeError(
-      `createFpsMeter: parametr „windowSeconds” musi być skończony i > 0, otrzymano ${windowSeconds}`,
+      `createFpsMeter: parameter "windowSeconds" must be finite and > 0, got ${windowSeconds}`,
     );
   }
 
@@ -22,7 +22,7 @@ export function createFpsMeter(windowSeconds = 2): FpsMeter {
     tick(nowMs: number) {
       if (!Number.isFinite(nowMs)) {
         throw new RangeError(
-          `createFpsMeter: parametr „nowMs” musi być skończony, otrzymano ${nowMs}`,
+          `createFpsMeter: parameter "nowMs" must be finite, got ${nowMs}`,
         );
       }
 
@@ -31,7 +31,7 @@ export function createFpsMeter(windowSeconds = 2): FpsMeter {
         const last = times[lastIndex] ?? 0;
         if (nowMs < last) {
           throw new RangeError(
-            `createFpsMeter: parametr „nowMs” nie może być wcześniejszy niż poprzedni, otrzymano ${nowMs}`,
+            `createFpsMeter: parameter "nowMs" must not be earlier than the previous value, got ${nowMs}`,
           );
         }
       }

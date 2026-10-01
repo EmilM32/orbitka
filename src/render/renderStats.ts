@@ -15,7 +15,7 @@ export type RenderStats = {
 function requireCount(parameter: 'calls' | 'triangles', value: number): void {
   if (!Number.isFinite(value) || value < 0) {
     throw new RangeError(
-      `getRenderStats: parametr „${parameter}” musi być skończony i ≥ 0, otrzymano ${value}`,
+      `getRenderStats: parameter "${parameter}" must be finite and >= 0, got ${value}`,
     );
   }
 }

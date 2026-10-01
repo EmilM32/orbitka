@@ -26,6 +26,12 @@ export function createLoop(options: CreateLoopOptions): Loop {
     }
 
     const time = now();
+    if (!Number.isFinite(time)) {
+      throw new RangeError(
+        `createLoop: parameter "now()" must be finite, got ${time}`,
+      );
+    }
+
     const dtSeconds =
       previous === null
         ? 0

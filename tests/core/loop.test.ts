@@ -35,7 +35,7 @@ function setup() {
     },
     frame() {
       if (!tick) {
-        throw new Error('Pętla nie jest uruchomiona');
+        throw new Error('Loop is not running');
       }
       tick();
     },
@@ -104,6 +104,51 @@ test('stop drops frames and the next start does not count the pause', () => {
   harness.frame();
 
   expect(harness.calls.at(-2)).toEqual({ kind: 'update', dt: 0 });
+});
+
+test.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
+  'createLoop throws RangeError when now() returns %s',
+  (sample) => {
+    const harness = setup();
+    harness.loop.start();
+    harness.frame();
+    harness.calls.length = 0;
+    harness.setNow(sample);
+
+    expect(() => harness.frame()).toThrow(RangeError);
+    expect(() => harness.frame()).toThrow(
+      `createLoop: parameter "now()" must be finite, got ${sample}`,
+    );
+    expect(harness.calls).toEqual([]);
+
+    harness.setNow(1_016);
+    harness.frame();
+
+    expect(harness.calls[0]).toEqual({ kind: 'update', dt: 0.016 });
+    expect(Number.isFinite(harness.calls[0]?.dt)).toBe(true);
+  },
+);
+
+test('a non-finite first sample does not poison the next finite dt', () => {
+  const harness = setup();
+  harness.loop.start();
+  harness.setNow(Number.NaN);
+
+  expect(() => harness.frame()).toThrow(RangeError);
+  expect(harness.calls).toEqual([]);
+
+  harness.setNow(2_000);
+  harness.frame();
+  harness.setNow(2_032);
+  harness.frame();
+
+  expect(harness.calls[0]).toEqual({ kind: 'update', dt: 0 });
+  expect(harness.calls[2]?.dt).toBeCloseTo(0.032, 5);
+  expect(
+    harness.calls.every(
+      (call) => call.kind === 'render' || Number.isFinite(call.dt),
+    ),
+  ).toBe(true);
 });
 
 test('start and stop are idempotent', () => {

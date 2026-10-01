@@ -1,0 +1,93 @@
+// @vitest-environment jsdom
+
+import { readFileSync } from 'node:fs';
+
+import { expect, test } from 'vitest';
+
+import { createDebugOverlay } from '@ui/debugOverlay.ts';
+
+function line(parent: ParentNode, name: string): HTMLElement {
+  const element = parent.querySelector(`[data-debug-line="${name}"]`);
+  if (!(element instanceof HTMLElement)) {
+    throw new Error(`brak linii ${name}`);
+  }
+  return element;
+}
+
+test('debugOverlay › linie', () => {
+  const parent = document.createElement('div');
+  document.body.append(parent);
+  const overlay = createDebugOverlay(parent);
+
+  overlay.update({ fps: 60, calls: 12, triangles: 34_560 });
+
+  const root = parent.querySelector('#debug-overlay');
+  expect(root).not.toBeNull();
+  expect(line(parent, 'fps').textContent).toBe('FPS: 60');
+  expect(line(parent, 'calls').textContent).toBe('Wywołania rysowania: 12');
+  expect(line(parent, 'triangles').textContent).toBe('Trójkąty: 34\u00A0560');
+  expect(line(parent, 'triangles').textContent?.includes('\u00A0')).toBe(true);
+
+  overlay.dispose();
+  parent.remove();
+});
+
+test('debugOverlay › kolory', () => {
+  const parent = document.createElement('div');
+  const overlay = createDebugOverlay(parent);
+  const cases = [
+    [55, 'debug-fps-good'],
+    [54.9, 'debug-fps-mid'],
+    [45, 'debug-fps-mid'],
+    [44.9, 'debug-fps-low'],
+  ] as const;
+
+  for (const [fps, className] of cases) {
+    overlay.update({ fps, calls: 1, triangles: 1 });
+    expect(line(parent, 'fps').className).toBe(className);
+  }
+
+  overlay.dispose();
+});
+
+test('debugOverlay › niepoprawne wartości', () => {
+  const parent = document.createElement('div');
+  const overlay = createDebugOverlay(parent);
+
+  for (const fps of [Number.NaN, Number.POSITIVE_INFINITY, -1]) {
+    expect(() => overlay.update({ fps, calls: 1, triangles: 1 })).not.toThrow();
+    expect(line(parent, 'fps').textContent).toBe('FPS: —');
+    expect(line(parent, 'fps').className).toBe('');
+  }
+
+  overlay.update({ fps: 60, calls: Number.NaN, triangles: -5 });
+  expect(line(parent, 'calls').textContent).toBe('Wywołania rysowania: —');
+  expect(line(parent, 'triangles').textContent).toBe('Trójkąty: —');
+  expect(line(parent, 'fps').className).toBe('debug-fps-good');
+
+  overlay.dispose();
+});
+
+test('debugOverlay › css', () => {
+  const css = readFileSync('src/ui/debugOverlay.css', 'utf8');
+
+  expect(css).toContain('--debug-top: 8px');
+  expect(css).toMatch(/\.debug-fps-good\s*\{[^}]*color:\s*#3dd68c/);
+  expect(css).toMatch(/\.debug-fps-mid\s*\{[^}]*color:\s*#e6c200/);
+  expect(css).toMatch(/\.debug-fps-low\s*\{[^}]*color:\s*#e5484d/);
+});
+
+test('debugOverlay › dispose', () => {
+  const parent = document.createElement('div');
+  document.body.append(parent);
+  const overlay = createDebugOverlay(parent);
+
+  overlay.dispose();
+  expect(document.querySelector('#debug-overlay')).toBeNull();
+  expect(() => overlay.dispose()).not.toThrow();
+  expect(() =>
+    overlay.update({ fps: 10, calls: 1, triangles: 1 }),
+  ).not.toThrow();
+  expect(document.querySelector('#debug-overlay')).toBeNull();
+  parent.remove();
+});

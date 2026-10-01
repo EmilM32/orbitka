@@ -5,6 +5,8 @@ import { bodies } from '@data/bodies.ts';
 import { createBodies } from '@render/bodies.ts';
 import { createLights } from '@render/lights.ts';
 import { createRenderer } from '@render/createRenderer.ts';
+import { getRenderStats } from '@render/renderStats.ts';
+import { createDebugSession } from '@ui/debugSession.ts';
 
 type App = {
   dispose: () => void;
@@ -25,12 +27,27 @@ function mount(canvas: HTMLCanvasElement): App {
   const bodyView = createBodies(bodies);
   view.scene.add(bodyView.group);
   view.scene.add(createLights());
+  const debugSession = createDebugSession(
+    window.location.search,
+    document.body,
+  );
+  let lastUiMs = Number.NEGATIVE_INFINITY;
 
   const loop = createLoop({
     update() {},
     render() {
       view.syncPixelRatio();
       view.renderer.render(view.scene, view.camera);
+      if (debugSession === null) {
+        return;
+      }
+
+      const nowMs = performance.now();
+      debugSession.tick(nowMs);
+      if (nowMs - lastUiMs >= 100) {
+        debugSession.update(getRenderStats(view.renderer));
+        lastUiMs = nowMs;
+      }
     },
     requestFrame(tick) {
       view.renderer.setAnimationLoop(() => {
@@ -60,6 +77,7 @@ function mount(canvas: HTMLCanvasElement): App {
     dispose() {
       loop.stop();
       document.removeEventListener('visibilitychange', onVisibilityChange);
+      debugSession?.dispose();
       bodyView.dispose();
       view.dispose();
     },

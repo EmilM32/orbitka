@@ -13,7 +13,6 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text'],
       include: ['src/sim/**/*.ts'],
-      exclude: ['src/**/index.ts'],
       thresholds: {
         'src/sim/**/*.ts': {
           lines: 90,

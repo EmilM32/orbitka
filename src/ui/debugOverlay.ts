@@ -43,18 +43,21 @@ function writeLine(
     return;
   }
 
-  line.textContent = `${label}: ${formatGrouped(colorFps ? Math.round(value) : value)}`;
+  // FPS is cut down to a whole number, so the color always matches the number
+  // shown: 54.9 reads "54" in yellow, not "55" in yellow.
+  const shown = colorFps ? Math.floor(value) : value;
+  line.textContent = `${label}: ${formatGrouped(shown)}`;
   if (!colorFps) {
     line.className = '';
     return;
   }
 
-  if (value >= 55) {
+  if (shown >= 55) {
     line.className = FPS_GOOD;
     return;
   }
 
-  line.className = value >= 45 ? FPS_MID : FPS_LOW;
+  line.className = shown >= 45 ? FPS_MID : FPS_LOW;
 }
 
 export function createDebugOverlay(parent: HTMLElement): DebugOverlay {

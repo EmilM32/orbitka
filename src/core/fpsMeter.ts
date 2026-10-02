@@ -1,4 +1,7 @@
 const CAPACITY = 512;
+// fps stays 0 until the samples span 1 s. A 2 s window always holds such a
+// span once a second has passed, whatever the frame rate; a shorter one may not.
+const MIN_WINDOW_SECONDS = 2;
 
 export type FpsMeter = {
   tick(nowMs: number): void;
@@ -6,9 +9,9 @@ export type FpsMeter = {
 };
 
 export function createFpsMeter(windowSeconds = 2): FpsMeter {
-  if (!Number.isFinite(windowSeconds) || windowSeconds <= 0) {
+  if (!Number.isFinite(windowSeconds) || windowSeconds < MIN_WINDOW_SECONDS) {
     throw new RangeError(
-      `createFpsMeter: parameter "windowSeconds" must be finite and > 0, got ${windowSeconds}`,
+      `createFpsMeter: parameter "windowSeconds" must be finite and >= ${MIN_WINDOW_SECONDS}, got ${windowSeconds}`,
     );
   }
 

@@ -4,6 +4,7 @@ import { expect, test } from 'vitest';
 import { SPHERE_SEGMENTS, createSphere } from '@render/sphereFactory.ts';
 
 test('sphereFactory › segments', () => {
+  expect(SPHERE_SEGMENTS.moon).toBe(32);
   expect(SPHERE_SEGMENTS.planet).toBe(48);
   expect(SPHERE_SEGMENTS.sun).toBe(64);
 

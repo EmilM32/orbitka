@@ -1,6 +1,7 @@
 import { Mesh, SphereGeometry, type Material } from 'three';
 
 export const SPHERE_SEGMENTS = {
+  moon: 32,
   planet: 48,
   sun: 64,
 } as const;

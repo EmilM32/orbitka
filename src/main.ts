@@ -1,5 +1,7 @@
 import './style.css';
+import './ui/timeControls.css';
 
+import pl from '@content/locales/pl.json' with { type: 'json' };
 import { createClock, daysFromDate } from '@core/clock.ts';
 import { isDebugEnabled } from '@core/debugFlag.ts';
 import { createLoop } from '@core/loop.ts';
@@ -12,6 +14,8 @@ import { createRenderer } from '@render/createRenderer.ts';
 import { getRenderStats } from '@render/renderStats.ts';
 import { getBodyScreenPositions } from '@render/screenPositions.ts';
 import { createDebugSession } from '@ui/debugSession.ts';
+import { createI18n } from '@ui/i18n.ts';
+import { createTimeControls } from '@ui/timeControls.ts';
 
 type App = {
   dispose: () => void;
@@ -41,6 +45,8 @@ function mount(canvas: HTMLCanvasElement): App {
   }
   const animator = createBodyAnimator(bodies, bodyView.meshes);
   animator.update(clock.days);
+  const i18n = createI18n(pl, 'pl-PL');
+  const timeControls = createTimeControls(document.body, clock, i18n);
   const debugSession = createDebugSession(search, document.body);
   let lastUiMs = Number.NEGATIVE_INFINITY;
 
@@ -120,6 +126,7 @@ function mount(canvas: HTMLCanvasElement): App {
     dispose() {
       loop.stop();
       document.removeEventListener('visibilitychange', onVisibilityChange);
+      timeControls.dispose();
       debugSession?.dispose();
       delete window.__orbitka;
       bodyView.dispose();

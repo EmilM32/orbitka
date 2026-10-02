@@ -242,6 +242,11 @@ test.each([
   ],
   ['a test into src', 'tests/sim/x.test.ts', `import '../../src/sim/x.ts';\n`],
   [
+    'a non-entry stylesheet import',
+    'src/types/x.ts',
+    `import '../ui/x.css';\n`,
+  ],
+  [
     'an import type',
     'src/ui/x.ts',
     `export type X = import('../render/a.ts').A;\n`,
@@ -267,6 +272,11 @@ test.each([
   ],
   ['a nested child', 'src/render/x.ts', `import './materials/sun.ts';\n`],
   ['the entry module stylesheet', 'src/main.ts', `import './style.css';\n`],
+  [
+    'the entry module UI stylesheet',
+    'src/main.ts',
+    `import './ui/timeControls.css';\n`,
+  ],
   [
     'a template literal import',
     'src/sim/x.ts',

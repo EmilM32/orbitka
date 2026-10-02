@@ -8,7 +8,7 @@ import {
 } from 'three';
 
 import type { BodyDef } from '@data/types.ts';
-import { radiusToScene } from '@sim/scale.ts';
+import { moonRadiiToScene, radiusToScene } from '@sim/scale.ts';
 
 import { SPHERE_SEGMENTS, createSphere } from './sphereFactory.ts';
 
@@ -17,6 +17,84 @@ export type BodyMeshes = {
   meshes: Map<string, Mesh>;
   dispose: () => void;
 };
+
+function moonSceneRadii(defs: readonly BodyDef[]): Map<string, number> {
+  const byId = new Map(defs.map((def) => [def.id, def]));
+  const byParent = new Map<string, BodyDef[]>();
+
+  for (const def of defs) {
+    if (def.type !== 'moon') {
+      continue;
+    }
+
+    if (def.orbit === undefined) {
+      throw new Error(
+        `createBodies: body "${def.id}" of type moon has no orbit`,
+      );
+    }
+
+    const parentId = def.parentId;
+    const parent = parentId === null ? undefined : byId.get(parentId);
+    if (parentId === null || parent === undefined) {
+      throw new Error(
+        `createBodies: moon "${def.id}" has no parent "${String(parentId)}"`,
+      );
+    }
+
+    const group = byParent.get(parentId);
+    if (group === undefined) {
+      byParent.set(parentId, [def]);
+    } else {
+      group.push(def);
+    }
+  }
+
+  const radii = new Map<string, number>();
+
+  for (const [parentId, moons] of byParent) {
+    const parent = byId.get(parentId);
+    const first = moons[0];
+    if (parent === undefined || first === undefined) {
+      throw new Error(
+        `createBodies: moon "${first?.id ?? parentId}" has no parent "${parentId}"`,
+      );
+    }
+
+    const axesKm: number[] = [];
+    const eccentricities: number[] = [];
+    const radiiKm: number[] = [];
+    for (const moon of moons) {
+      const orbit = moon.orbit;
+      if (orbit === undefined) {
+        throw new Error(
+          `createBodies: body "${moon.id}" of type moon has no orbit`,
+        );
+      }
+      axesKm.push(orbit.semiMajorAxisAu);
+      eccentricities.push(orbit.eccentricity);
+      radiiKm.push(moon.radiusKm);
+    }
+
+    const sceneRadii = moonRadiiToScene(
+      axesKm,
+      eccentricities,
+      radiiKm,
+      parent.radiusKm,
+    );
+    for (let index = 0; index < moons.length; index += 1) {
+      const moon = moons[index];
+      const radius = sceneRadii[index];
+      if (moon === undefined || radius === undefined) {
+        throw new Error(
+          `createBodies: moon "${moon?.id ?? parentId}" has no scene radius`,
+        );
+      }
+      radii.set(moon.id, radius);
+    }
+  }
+
+  return radii;
+}
 
 function materialFor(def: BodyDef): Material {
   if (def.type === 'star') {
@@ -83,8 +161,10 @@ export function createBodies(defs: readonly BodyDef[]): BodyMeshes {
   };
 
   try {
+    const moonRadii = moonSceneRadii(defs);
+
     for (const def of defs) {
-      if (def.type !== 'star' && def.type !== 'planet') {
+      if (def.type !== 'star' && def.type !== 'planet' && def.type !== 'moon') {
         continue;
       }
 
@@ -94,13 +174,20 @@ export function createBodies(defs: readonly BodyDef[]): BodyMeshes {
         );
       }
 
-      const segments =
-        def.type === 'star' ? SPHERE_SEGMENTS.sun : SPHERE_SEGMENTS.planet;
-      const mesh = createSphere(
-        radiusToScene(def.radiusKm),
-        segments,
-        materialFor(def),
-      );
+      let radius = radiusToScene(def.radiusKm);
+      let segments: number = SPHERE_SEGMENTS.planet;
+      if (def.type === 'star') {
+        segments = SPHERE_SEGMENTS.sun;
+      } else if (def.type === 'moon') {
+        const moonRadius = moonRadii.get(def.id);
+        if (moonRadius === undefined) {
+          throw new Error(`createBodies: moon "${def.id}" has no scene radius`);
+        }
+        radius = moonRadius;
+        segments = SPHERE_SEGMENTS.moon;
+      }
+
+      const mesh = createSphere(radius, segments, materialFor(def));
       mesh.name = def.id;
       group.add(mesh);
       meshes.set(def.id, mesh);

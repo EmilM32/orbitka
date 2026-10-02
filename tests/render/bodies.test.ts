@@ -4,8 +4,14 @@ import { expect, test, vi } from 'vitest';
 import { bodies, getBody } from '@data/bodies.ts';
 import type { BodyDef } from '@data/types.ts';
 import { createBodyAnimator } from '@render/animateBodies.ts';
+import { createMoonAnimator } from '@render/animateMoons.ts';
 import { createBodies } from '@render/bodies.ts';
-import { radiusToScene } from '@sim/scale.ts';
+import { SPHERE_SEGMENTS } from '@render/sphereFactory.ts';
+import {
+  moonRadiiToScene,
+  moonRadiusToScene,
+  radiusToScene,
+} from '@sim/scale.ts';
 
 function sphereRadius(geometry: SphereGeometry): number {
   return geometry.parameters.radius;
@@ -23,26 +29,80 @@ function asSphere(meshName: string): SphereGeometry {
   return geometry;
 }
 
-test('bodies › mesh set', () => {
-  const moon: BodyDef = {
-    ...getBody('earth'),
-    id: 'moon-test',
-    type: 'moon',
-    parentId: 'earth',
-  };
-  const defs = [...bodies, moon];
-  const view = createBodies(defs);
-  const expected = defs.filter(
-    (body) => body.type === 'star' || body.type === 'planet',
+test('bodies › moon meshes', () => {
+  const view = createBodies(bodies);
+  const drawn = bodies.filter(
+    (body) =>
+      body.type === 'star' || body.type === 'planet' || body.type === 'moon',
   );
+  const parents = new Map<string, BodyDef[]>();
 
-  expect(view.meshes.size).toBe(expected.length);
-  expect(view.group.children).toHaveLength(expected.length);
-  expect(expected).toHaveLength(9);
-  for (const body of expected) {
+  expect(drawn).toHaveLength(14);
+  expect(view.meshes.size).toBe(drawn.length);
+  expect(view.group.children).toHaveLength(drawn.length);
+
+  for (const body of drawn) {
     expect(view.meshes.get(body.id)?.name).toBe(body.id);
   }
-  expect(view.meshes.has(moon.id)).toBe(false);
+
+  for (const body of bodies) {
+    if (
+      body.type !== 'moon' ||
+      body.parentId === null ||
+      body.orbit === undefined
+    ) {
+      continue;
+    }
+    const group = parents.get(body.parentId);
+    if (group === undefined) {
+      parents.set(body.parentId, [body]);
+    } else {
+      group.push(body);
+    }
+  }
+
+  for (const [parentId, moons] of parents) {
+    const parent = getBody(parentId);
+    const radii = moonRadiiToScene(
+      moons.map((moon) => moon.orbit?.semiMajorAxisAu ?? 0),
+      moons.map((moon) => moon.orbit?.eccentricity ?? 0),
+      moons.map((moon) => moon.radiusKm),
+      parent.radiusKm,
+    );
+    for (let index = 0; index < moons.length; index += 1) {
+      const moon = moons[index];
+      const expected = radii[index];
+      const mesh = moon === undefined ? undefined : view.meshes.get(moon.id);
+      if (
+        moon === undefined ||
+        expected === undefined ||
+        mesh === undefined ||
+        !(mesh.geometry instanceof SphereGeometry) ||
+        Array.isArray(mesh.material) ||
+        !(mesh.material instanceof MeshStandardMaterial)
+      ) {
+        view.dispose();
+        throw new Error(`missing moon mesh: ${moon?.id}`);
+      }
+      expect(mesh.geometry.parameters.widthSegments).toBe(SPHERE_SEGMENTS.moon);
+      expect(mesh.material.roughness).toBe(1);
+      expect(mesh.material.metalness).toBe(0);
+      expect(mesh.material.color.getHexString()).toBe(
+        moon.visual.color.slice(1).toLowerCase(),
+      );
+      expect(sphereRadius(mesh.geometry)).toBeCloseTo(expected, 8);
+    }
+  }
+
+  const moon = view.meshes.get('moon');
+  if (moon === undefined || !(moon.geometry instanceof SphereGeometry)) {
+    view.dispose();
+    throw new Error('missing Moon');
+  }
+  expect(sphereRadius(moon.geometry)).toBeCloseTo(
+    moonRadiusToScene(getBody('moon').radiusKm),
+    8,
+  );
   view.dispose();
 });
 
@@ -50,7 +110,11 @@ test('bodies › materials', () => {
   const view = createBodies(bodies);
 
   for (const body of bodies) {
-    if (body.type !== 'star' && body.type !== 'planet') {
+    if (
+      body.type !== 'star' &&
+      body.type !== 'planet' &&
+      body.type !== 'moon'
+    ) {
       continue;
     }
 
@@ -121,6 +185,7 @@ test('bodies › positions', () => {
 test('bodies › visibility', () => {
   const view = createBodies(bodies);
   createBodyAnimator(bodies, view.meshes).update(0);
+  createMoonAnimator(bodies, view.meshes).update(0, 1);
   const sun = view.meshes.get('sun');
   if (!sun || !(sun.geometry instanceof SphereGeometry)) {
     view.dispose();
@@ -166,7 +231,7 @@ test('bodies › no star field', () => {
   const sun = view.meshes.get('sun');
 
   expect(sun?.children.some((child) => child.name === 'stars')).toBe(false);
-  expect(view.group.children).toHaveLength(9);
+  expect(view.group.children).toHaveLength(14);
   view.dispose();
 });
 
@@ -184,7 +249,7 @@ test('bodies › dispose', () => {
 
   view.dispose();
 
-  expect(geometrySpies).toHaveLength(9);
+  expect(geometrySpies).toHaveLength(14);
   for (const spy of geometrySpies) {
     expect(spy).toHaveBeenCalledOnce();
   }
@@ -200,11 +265,11 @@ test('bodies › dispose', () => {
   }
 });
 
-test('bodies › budget', () => {
+test('bodies › triangle budget', () => {
   const view = createBodies(bodies);
   let triangles = 0;
 
-  expect(view.meshes.size).toBeLessThanOrEqual(12);
+  expect(view.meshes.size).toBe(14);
 
   for (const mesh of view.meshes.values()) {
     const index = mesh.geometry.index;
@@ -215,8 +280,8 @@ test('bodies › budget', () => {
     triangles += index.count / 3;
   }
 
-  expect(triangles).toBe(21_632);
-  expect(triangles).toBeLessThanOrEqual(40_000);
+  expect(triangles).toBe(26_432);
+  expect(triangles).toBeLessThanOrEqual(60_000);
   view.dispose();
 });
 
@@ -230,7 +295,7 @@ test('bodies › edge cases', () => {
     bodies.filter((body) => body.type !== 'star'),
   );
   expect(withoutStar.meshes.has('sun')).toBe(false);
-  expect(withoutStar.meshes.size).toBe(8);
+  expect(withoutStar.meshes.size).toBe(13);
   withoutStar.dispose();
 
   const venus = getBody('venus');
@@ -245,5 +310,16 @@ test('bodies › edge cases', () => {
   );
   expect(() => createBodies([{ ...sun, radiusKm: Number.NaN }])).toThrow(
     'radiusToScene',
+  );
+
+  const moon = getBody('moon');
+  expect(() => createBodies([{ ...moon, orbit: undefined }])).toThrow(
+    'createBodies: body "moon" of type moon has no orbit',
+  );
+  expect(() => createBodies([moon])).toThrow(
+    'createBodies: moon "moon" has no parent "earth"',
+  );
+  expect(() => createBodies([{ ...moon, parentId: null }])).toThrow(
+    'createBodies: moon "moon" has no parent "null"',
   );
 });

@@ -9,8 +9,10 @@ import { isStartPaused, parseStartDays } from '@core/startParams.ts';
 import { bodies } from '@data/bodies.ts';
 import { createBodyAnimator } from '@render/animateBodies.ts';
 import { createBodies } from '@render/bodies.ts';
+import { addDebugAxes } from '@render/debugAxes.ts';
 import { createLights } from '@render/lights.ts';
 import { createRenderer } from '@render/createRenderer.ts';
+import { createRotationAnimator } from '@render/rotateBodies.ts';
 import { getRenderStats } from '@render/renderStats.ts';
 import { getBodyScreenPositions } from '@render/screenPositions.ts';
 import { createDebugSession } from '@ui/debugSession.ts';
@@ -44,7 +46,12 @@ function mount(canvas: HTMLCanvasElement): App {
     clock.pause();
   }
   const animator = createBodyAnimator(bodies, bodyView.meshes);
+  const rotationAnimator = createRotationAnimator(bodies, bodyView.meshes);
   animator.update(clock.days);
+  rotationAnimator.update(clock.days, clock.daysPerSecond);
+  const debugAxes = isDebugEnabled(search)
+    ? addDebugAxes(bodies, bodyView.meshes)
+    : null;
   const i18n = createI18n(pl, 'pl-PL');
   const timeControls = createTimeControls(document.body, clock, i18n);
   const debugSession = createDebugSession(search, document.body);
@@ -89,6 +96,7 @@ function mount(canvas: HTMLCanvasElement): App {
     update(dtSeconds) {
       clock.tick(dtSeconds);
       animator.update(clock.days);
+      rotationAnimator.update(clock.days, clock.daysPerSecond);
     },
     render() {
       view.syncPixelRatio();
@@ -129,6 +137,7 @@ function mount(canvas: HTMLCanvasElement): App {
       timeControls.dispose();
       debugSession?.dispose();
       delete window.__orbitka;
+      debugAxes?.dispose();
       bodyView.dispose();
       view.dispose();
     },

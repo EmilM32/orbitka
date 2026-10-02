@@ -1,15 +1,14 @@
 export interface SpeedPreset {
   id: string;
-  label: string;
   daysPerSecond: number;
 }
 
 export const SPEED_PRESETS: readonly SpeedPreset[] = [
-  { id: 'pause', label: 'Pause', daysPerSecond: 0 },
-  { id: 'day', label: '1 day/s', daysPerSecond: 1 },
-  { id: 'ten-days', label: '10 days/s', daysPerSecond: 10 },
-  { id: 'month', label: '1 month/s', daysPerSecond: 30.4375 },
-  { id: 'year', label: '1 year/s', daysPerSecond: 365.25 },
+  { id: 'pause', daysPerSecond: 0 },
+  { id: 'day', daysPerSecond: 1 },
+  { id: 'ten-days', daysPerSecond: 10 },
+  { id: 'month', daysPerSecond: 30.4375 },
+  { id: 'year', daysPerSecond: 365.25 },
 ];
 
 export const SPEED_MIN = 0.1;

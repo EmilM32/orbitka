@@ -32,6 +32,11 @@ function moduleRegex(names) {
   return `^(?:${names.join('|')})(?:\\x2F.*)?$`;
 }
 
+// Vitest calls whose first argument is a module path that gets loaded or mocked.
+const VI_OBJECTS = ['vi', 'vitest'];
+const VI_MODULE_METHODS = ['mock', 'doMock', 'importActual', 'importMock'];
+const viModuleCall = `CallExpression[callee.object.name=/^(?:${VI_OBJECTS.join('|')})$/][callee.property.name=/^(?:${VI_MODULE_METHODS.join('|')})$/]`;
+
 function restrictedImports(restrictions) {
   return {
     'no-restricted-imports': ['error', { patterns: restrictions }],
@@ -48,6 +53,14 @@ function restrictedImports(restrictions) {
         },
         {
           selector: `TSImportType[argument.literal.value=/${regex}/]`,
+          message,
+        },
+        {
+          selector: `${viModuleCall}[arguments.0.value=/${regex}/]`,
+          message,
+        },
+        {
+          selector: `${viModuleCall}[arguments.0.quasis.0.value.cooked=/${regex}/]`,
           message,
         },
       ]),
@@ -107,6 +120,20 @@ function staticSpecifier(source) {
   return null;
 }
 
+// The module path argument of a call such as vi.importActual('three'), or null.
+function viModuleSource(node) {
+  const { callee } = node;
+  if (
+    callee.type !== 'MemberExpression' ||
+    callee.object.type !== 'Identifier' ||
+    !VI_OBJECTS.includes(callee.object.name) ||
+    !VI_MODULE_METHODS.includes(callee.property.name)
+  ) {
+    return null;
+  }
+  return node.arguments[0] ?? null;
+}
+
 const noRelativeOutsideLayer = {
   meta: {
     type: 'problem',
@@ -141,6 +168,7 @@ const noRelativeOutsideLayer = {
       ExportNamedDeclaration: (node) => check(node.source),
       ImportExpression: (node) => check(node.source),
       TSImportType: (node) => check(node.argument.literal),
+      CallExpression: (node) => check(viModuleSource(node)),
     };
   },
 };
@@ -157,7 +185,7 @@ const noDynamicModulePath = {
     type: 'problem',
     messages: {
       dynamicImport:
-        'import() needs a fixed string, so lint can check the layer boundary.',
+        'A module path in import() or vi.mock/importActual/importMock needs a fixed string, so lint can check the layer boundary.',
       glob: 'import.meta.{{name}} loads modules lint cannot check. Import each module by name.',
     },
     schema: [],
@@ -167,6 +195,17 @@ const noDynamicModulePath = {
       ImportExpression(node) {
         if (staticSpecifier(node.source) === null) {
           context.report({ node: node.source, messageId: 'dynamicImport' });
+        }
+      },
+      CallExpression(node) {
+        const source = viModuleSource(node);
+        // vi.mock(import('…')) is checked through its ImportExpression.
+        if (
+          source !== null &&
+          source.type !== 'ImportExpression' &&
+          staticSpecifier(source) === null
+        ) {
+          context.report({ node: source, messageId: 'dynamicImport' });
         }
       },
       MetaProperty(node) {

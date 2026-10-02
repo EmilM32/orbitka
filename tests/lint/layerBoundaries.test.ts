@@ -150,6 +150,29 @@ test.each([
     'tests/sim/x.test.ts',
     `export type S = import('three').Scene;\n`,
   ],
+  ['vi.mock', 'tests/sim/x.test.ts', `vi.mock('three');\n`],
+  ['vi.doMock', 'tests/sim/x.test.ts', `vi.doMock('three');\n`],
+  [
+    'vi.importActual',
+    'tests/sim/x.test.ts',
+    `export const t = await vi.importActual('three');\n`,
+  ],
+  [
+    'vi.importMock',
+    'tests/core/x.test.ts',
+    `export const t = await vi.importMock('three');\n`,
+  ],
+  [
+    'vitest.importActual',
+    'tests/ui/x.test.ts',
+    `export const t = await vitest.importActual('three');\n`,
+  ],
+  ['a vi.mock template literal', 'tests/sim/x.test.ts', 'vi.mock(`three`);\n'],
+  [
+    'vi.mock with an import()',
+    'tests/sim/x.test.ts',
+    `vi.mock(import('three'));\n`,
+  ],
 ])('three is rejected in %s', async (_kind, filePath, code) => {
   expect(await boundaryErrors(filePath, code)).toHaveLength(1);
 });
@@ -177,6 +200,12 @@ test.each([
     'src/sim/x.ts',
     `export type X = typeof import('@core/a.ts');\n`,
   ],
+  [
+    'vi.importActual',
+    'tests/sim/x.test.ts',
+    `export const r = await vi.importActual('@render/x.ts');\n`,
+  ],
+  ['vi.mock', 'tests/data/x.test.ts', `vi.mock('@sim/x.ts');\n`],
 ])('a forbidden layer is rejected in %s', async (_kind, filePath, code) => {
   expect(await boundaryErrors(filePath, code)).toHaveLength(1);
 });
@@ -217,6 +246,11 @@ test.each([
     'src/ui/x.ts',
     `export type X = import('../render/a.ts').A;\n`,
   ],
+  [
+    'vi.importActual',
+    'tests/sim/x.test.ts',
+    `export const r = await vi.importActual('../../src/render/x.ts');\n`,
+  ],
 ])(
   'a relative import leaving the layer is rejected from %s',
   async (_kind, filePath, code) => {
@@ -248,6 +282,11 @@ test.each([
     'a directory outside the layers to the src root',
     'src/types/x.ts',
     `import '../main.ts';\n`,
+  ],
+  [
+    'vi.importActual of a test helper',
+    'tests/e2e/x.spec.ts',
+    `export const h = await vi.importActual('./helpers.ts');\n`,
   ],
 ])(
   'a relative import inside the layer passes for %s',
@@ -294,6 +333,32 @@ test.each([
     'import.meta.hot in the entry module',
     'src/main.ts',
     'if (import.meta.hot) {\n  import.meta.hot.accept();\n}\n',
+  ],
+  [
+    'vi.mock of three in a render test',
+    'tests/render/x.test.ts',
+    `vi.mock('three');\n`,
+  ],
+  [
+    'vi.mock of the own layer',
+    'tests/sim/x.test.ts',
+    `vi.mock('@sim/x.ts');\n`,
+  ],
+  [
+    'vi.mock with an allowed import()',
+    'tests/sim/x.test.ts',
+    `vi.mock(import('@sim/x.ts'));\n`,
+  ],
+  ['vi.unmock', 'tests/sim/x.test.ts', `vi.unmock('three');\n`],
+  [
+    'another vi method',
+    'tests/sim/x.test.ts',
+    `vi.stubGlobal('three', 1);\nexport const s = (name: string) => vi.stubGlobal(name, 1);\n`,
+  ],
+  [
+    'another object',
+    'tests/sim/x.test.ts',
+    `const foo = { mock: (path: string) => path };\nexport const a = foo.mock('three');\nexport const b = (name: string) => foo.mock(name);\n`,
   ],
 ])('no false positive for %s', async (_kind, filePath, code) => {
   expect(await boundaryErrors(filePath, code)).toEqual([]);
@@ -364,6 +429,16 @@ test.each([
     'a test',
     'tests/sim/x.test.ts',
     'export const load = (name: string) => import(name);\n',
+  ],
+  [
+    'vi.importActual',
+    'tests/sim/x.test.ts',
+    'export const load = (name: string) => vi.importActual(name);\n',
+  ],
+  [
+    'a vi.mock template literal with an expression',
+    'tests/core/x.test.ts',
+    'export const mockIt = (name: string) => vi.mock(`@core/${name}`);\n',
   ],
 ])(
   'import() with a computed path is rejected in %s',
@@ -445,6 +520,7 @@ test.each([
     'src/sim/x.ts',
     `export type V = import('./scale.js').Vec3;\n`,
   ],
+  ['vi.mock', 'tests/sim/x.test.ts', `vi.mock('@sim/x.js');\n`],
 ])('a .js extension is rejected in %s', async (_kind, filePath, code) => {
   expect(await boundaryErrors(filePath, code)).toHaveLength(1);
 });

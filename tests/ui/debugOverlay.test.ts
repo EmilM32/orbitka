@@ -50,6 +50,26 @@ test('debugOverlay › colors', () => {
   overlay.dispose();
 });
 
+test('debugOverlay › shown value matches color', () => {
+  const parent = document.createElement('div');
+  const overlay = createDebugOverlay(parent);
+  const cases = [
+    [59.99, 'FPS: 59', 'debug-fps-good'],
+    [55.4, 'FPS: 55', 'debug-fps-good'],
+    [54.6, 'FPS: 54', 'debug-fps-mid'],
+    [45.9, 'FPS: 45', 'debug-fps-mid'],
+    [44.6, 'FPS: 44', 'debug-fps-low'],
+  ] as const;
+
+  for (const [fps, text, className] of cases) {
+    overlay.update({ fps, calls: 1, triangles: 1 });
+    expect(line(parent, 'fps').textContent).toBe(text);
+    expect(line(parent, 'fps').className).toBe(className);
+  }
+
+  overlay.dispose();
+});
+
 test('debugOverlay › invalid values', () => {
   const parent = document.createElement('div');
   const overlay = createDebugOverlay(parent);

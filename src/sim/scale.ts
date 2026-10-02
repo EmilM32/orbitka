@@ -11,6 +11,10 @@ export const SCALE = {
   moonRadiusC: 0.008, // moon size multiplier: r = C · radiusKm^radiusExponent
   moonRadiusMin: 0.05, // lower bound of a moon radius in the scene
   moonRadiusMax: 0.4, // upper bound of a moon radius in the scene
+  // Largest fraction of a neighbor gap (or the gap to the parent) that one
+  // moon may occupy. Two neighbors then sum to at most the gap, so the
+  // spheres cannot intersect. Smaller values are visual tuning only.
+  moonGapFraction: 0.5,
 } as const;
 
 export interface Vec3 {
@@ -144,4 +148,281 @@ export function compressPositionAu(
   out.y = y * factor;
   out.z = z * factor;
   return out;
+}
+
+// Keeps the direction of a moon's offset from its parent (kilometers) and
+// replaces the length with moonDistanceToScene. Math.hypot avoids x*x overflow.
+// Writes into out so a later render loop does not allocate.
+export function compressMoonOffsetKm(
+  x: number,
+  y: number,
+  z: number,
+  parentRadiusKm: number,
+  out: Vec3,
+): Vec3 {
+  requireFinite('compressMoonOffsetKm', 'x', x);
+  requireFinite('compressMoonOffsetKm', 'y', y);
+  requireFinite('compressMoonOffsetKm', 'z', z);
+  if (!Number.isFinite(parentRadiusKm) || parentRadiusKm <= 0) {
+    throw invalidInput(
+      'compressMoonOffsetKm',
+      'parentRadiusKm',
+      'must be finite and > 0',
+      parentRadiusKm,
+    );
+  }
+
+  const lengthKm = Math.hypot(x, y, z);
+  if (!Number.isFinite(lengthKm)) {
+    throw invalidInput('compressMoonOffsetKm', 'x', 'must not overflow', x);
+  }
+
+  if (lengthKm === 0) {
+    out.x = 0;
+    out.y = 0;
+    out.z = 0;
+    return out;
+  }
+
+  const sceneLength = moonDistanceToScene(lengthKm, parentRadiusKm);
+  if (!Number.isFinite(sceneLength)) {
+    throw invalidInput(
+      'compressMoonOffsetKm',
+      'x',
+      'must produce a finite scene offset',
+      x,
+    );
+  }
+
+  const factor = sceneLength / lengthKm;
+  out.x = x * factor;
+  out.y = y * factor;
+  out.z = z * factor;
+  return out;
+}
+
+type MoonOrbitRange = {
+  index: number;
+  axisKm: number;
+  peri: number;
+  apo: number;
+};
+
+// Scene periapsis and apoapsis of one moon. moonDistanceToScene is increasing,
+// so the extremes of a*(1∓e) stay the extremes in the scene.
+function moonOrbitRangeScene(
+  axisKm: number,
+  eccentricity: number,
+  parentRadiusKm: number,
+): { peri: number; apo: number } {
+  return {
+    peri: moonDistanceToScene(axisKm * (1 - eccentricity), parentRadiusKm),
+    apo: moonDistanceToScene(axisKm * (1 + eccentricity), parentRadiusKm),
+  };
+}
+
+function requireMoonCount(
+  parameter: string,
+  length: number,
+  expected: number,
+): void {
+  if (length !== expected) {
+    throw invalidInput(
+      'moonRadiiToScene',
+      parameter,
+      `must have length ${expected}`,
+      length,
+    );
+  }
+}
+
+function requirePositiveFinite(parameter: string, value: number): void {
+  if (!Number.isFinite(value) || value <= 0) {
+    throw invalidInput(
+      'moonRadiiToScene',
+      parameter,
+      'must be finite and > 0',
+      value,
+    );
+  }
+}
+
+function requireEccentricity(parameter: string, value: number): void {
+  if (!Number.isFinite(value) || value < 0 || value >= 1) {
+    throw invalidInput(
+      'moonRadiiToScene',
+      parameter,
+      'must be in the range [0, 1)',
+      value,
+    );
+  }
+}
+
+function requireUniqueAxes(semiMajorAxesKm: readonly number[]): void {
+  for (let index = 0; index < semiMajorAxesKm.length; index += 1) {
+    const axis = semiMajorAxesKm[index];
+    if (axis === undefined) {
+      continue;
+    }
+    for (let earlier = 0; earlier < index; earlier += 1) {
+      if (axis === semiMajorAxesKm[earlier]) {
+        throw invalidInput(
+          'moonRadiiToScene',
+          `semiMajorAxesKm[${index}]`,
+          'must be unique',
+          axis,
+        );
+      }
+    }
+  }
+}
+
+function moonRanges(
+  semiMajorAxesKm: readonly number[],
+  eccentricities: readonly number[],
+  parentRadiusKm: number,
+): MoonOrbitRange[] {
+  const ranges: MoonOrbitRange[] = [];
+
+  for (let index = 0; index < semiMajorAxesKm.length; index += 1) {
+    const axisKm = semiMajorAxesKm[index];
+    const eccentricity = eccentricities[index];
+    if (axisKm === undefined || eccentricity === undefined) {
+      continue;
+    }
+    const range = moonOrbitRangeScene(axisKm, eccentricity, parentRadiusKm);
+    ranges.push({ index, axisKm, peri: range.peri, apo: range.apo });
+  }
+
+  return ranges;
+}
+
+function gapToNeighbors(
+  sorted: readonly MoonOrbitRange[],
+  place: number,
+  parentRadiusKm: number,
+): number {
+  const current = sorted[place];
+  if (current === undefined) {
+    throw invalidInput(
+      'moonRadiiToScene',
+      'semiMajorAxesKm',
+      'must be an array',
+      place,
+    );
+  }
+
+  let gap = Number.POSITIVE_INFINITY;
+  const outer = sorted[place + 1];
+  const inner = sorted[place - 1];
+
+  if (outer !== undefined) {
+    const separation = outer.peri - current.apo;
+    if (separation <= 0) {
+      throw invalidInput(
+        'moonRadiiToScene',
+        `semiMajorAxesKm[${current.index}]`,
+        'must not overlap the next orbit',
+        current.apo,
+      );
+    }
+    gap = Math.min(gap, separation);
+  }
+
+  if (inner !== undefined) {
+    const separation = current.peri - inner.apo;
+    if (separation <= 0) {
+      throw invalidInput(
+        'moonRadiiToScene',
+        `semiMajorAxesKm[${current.index}]`,
+        'must not overlap the previous orbit',
+        current.peri,
+      );
+    }
+    gap = Math.min(gap, separation);
+  } else {
+    const clearance = current.peri - radiusToScene(parentRadiusKm);
+    if (clearance <= 0) {
+      throw invalidInput(
+        'moonRadiiToScene',
+        `semiMajorAxesKm[${current.index}]`,
+        'must stay outside the parent',
+        current.peri,
+      );
+    }
+    gap = Math.min(gap, clearance);
+  }
+
+  return gap;
+}
+
+// Radii of one parent's moons, in input order. The gap rule wins over
+// SCALE.moonRadiusMin: a moon may be smaller than that floor so neighbors
+// do not intersect at periapsis or apoapsis.
+export function moonRadiiToScene(
+  semiMajorAxesKm: readonly number[],
+  eccentricities: readonly number[],
+  radiiKm: readonly number[],
+  parentRadiusKm: number,
+): number[] {
+  const count = semiMajorAxesKm.length;
+  requireMoonCount('eccentricities', eccentricities.length, count);
+  requireMoonCount('radiiKm', radiiKm.length, count);
+  if (count === 0) {
+    return [];
+  }
+
+  if (!Number.isFinite(parentRadiusKm) || parentRadiusKm <= 0) {
+    throw invalidInput(
+      'moonRadiiToScene',
+      'parentRadiusKm',
+      'must be finite and > 0',
+      parentRadiusKm,
+    );
+  }
+
+  for (let index = 0; index < count; index += 1) {
+    requirePositiveFinite(
+      `semiMajorAxesKm[${index}]`,
+      semiMajorAxesKm[index] ?? Number.NaN,
+    );
+    requireEccentricity(
+      `eccentricities[${index}]`,
+      eccentricities[index] ?? Number.NaN,
+    );
+    requirePositiveFinite(`radiiKm[${index}]`, radiiKm[index] ?? Number.NaN);
+  }
+  requireUniqueAxes(semiMajorAxesKm);
+
+  const sorted = moonRanges(semiMajorAxesKm, eccentricities, parentRadiusKm);
+  sorted.sort((left, right) => left.axisKm - right.axisKm);
+
+  const gaps: number[] = [];
+  for (let place = 0; place < sorted.length; place += 1) {
+    const current = sorted[place];
+    if (current === undefined) {
+      continue;
+    }
+    gaps[current.index] = gapToNeighbors(sorted, place, parentRadiusKm);
+  }
+
+  const radii: number[] = [];
+  for (let index = 0; index < count; index += 1) {
+    const gap = gaps[index];
+    const radiusKm = radiiKm[index];
+    if (gap === undefined || radiusKm === undefined) {
+      throw invalidInput(
+        'moonRadiiToScene',
+        `radiiKm[${index}]`,
+        'must have a gap',
+        radiusKm ?? Number.NaN,
+      );
+    }
+    // Do not raise the result back to moonRadiusMin. The gap rule only shrinks.
+    radii.push(
+      Math.min(moonRadiusToScene(radiusKm), SCALE.moonGapFraction * gap),
+    );
+  }
+
+  return radii;
 }

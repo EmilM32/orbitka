@@ -37,17 +37,23 @@ function errorsOf(input: unknown): string[] {
   return result.errors;
 }
 
-test('accepts the sun and eight planets', () => {
+test('accepts the sun, eight planets, and five moons', () => {
   const result = validateBodies(structuredClone(raw));
 
   expect(result.ok).toBe(true);
+  expect(result.ok && result.bodies).toHaveLength(14);
   expect(result.ok && result.bodies.map((body) => body.id)).toEqual([
     'sun',
     'mercury',
     'venus',
     'earth',
+    'moon',
     'mars',
     'jupiter',
+    'io',
+    'europa',
+    'ganymede',
+    'callisto',
     'saturn',
     'uranus',
     'neptune',
@@ -153,6 +159,88 @@ test('reports every broken field of one body', () => {
     'Saturn: field rotation.axialTiltDeg must be in the range [0, 180]',
     'Saturn: field visual must be an object',
   ]);
+});
+
+test('validate › moons › a star, a belt, or another moon cannot be the parent', () => {
+  const starParent = entries();
+  find(starParent, 'moon').parentId = 'sun';
+  expect(errorsOf(starParent)).toEqual([
+    'moon: field parentId must reference an earlier planet or dwarf, got "sun"',
+  ]);
+
+  const moonParent = entries();
+  find(moonParent, 'europa').parentId = 'io';
+  expect(errorsOf(moonParent)).toEqual([
+    'europa: field parentId must reference an earlier planet or dwarf, got "io"',
+  ]);
+
+  const beltParent = entries();
+  const belt = structuredClone(find(beltParent, 'mars'));
+  belt.id = 'asteroids';
+  belt.name = 'Asteroids';
+  belt.type = 'belt';
+  belt.contentKey = 'asteroids';
+  const earthIndex = beltParent.findIndex((entry) => entry.id === 'earth');
+  beltParent.splice(earthIndex + 1, 0, belt);
+  find(beltParent, 'moon').parentId = 'asteroids';
+  expect(errorsOf(beltParent)).toEqual([
+    'moon: field parentId must reference an earlier planet or dwarf, got "asteroids"',
+  ]);
+});
+
+test('validate › moons › a moon must follow its parent', () => {
+  const list = entries();
+  const moonIndex = list.findIndex((entry) => entry.id === 'moon');
+  const moon = list[moonIndex];
+  if (moon === undefined) {
+    throw new Error('Missing moon');
+  }
+  list.splice(moonIndex, 1);
+  list.splice(1, 0, moon);
+
+  expect(errorsOf(list)).toEqual([
+    'moon: field parentId must reference an earlier planet or dwarf, got "earth"',
+  ]);
+});
+
+test('validate › moons › a missing planet parent names the field', () => {
+  const list = entries();
+  find(list, 'moon').parentId = null;
+
+  expect(errorsOf(list)).toEqual([
+    'There must be exactly one root (a body with parentId: null), found 2',
+    "moon: root must have type: 'star'",
+    'moon: root must not have an orbit field',
+    'moon: field parentId must reference an earlier planet or dwarf, got null',
+  ]);
+});
+
+test('validate › moons › axis units stay on their own side of 1000', () => {
+  const moonList = entries();
+  group(find(moonList, 'moon'), 'orbit').semiMajorAxisAu = 0.00257;
+  expect(errorsOf(moonList)).toEqual([
+    'moon: field orbit.semiMajorAxisAu must be >= 1000 (km for a moon), got 0.00257',
+  ]);
+
+  const planetList = entries();
+  group(find(planetList, 'neptune'), 'orbit').semiMajorAxisAu = 1500;
+  expect(errorsOf(planetList)).toEqual([
+    'neptune: field orbit.semiMajorAxisAu must be < 1000 (AU for a body that is not a moon), got 1500',
+  ]);
+});
+
+test('validate › moons › a dwarf parent that appears earlier is allowed', () => {
+  const list = entries();
+  const dwarf = structuredClone(find(list, 'mars'));
+  dwarf.id = 'ceres';
+  dwarf.name = 'Ceres';
+  dwarf.type = 'dwarf';
+  dwarf.contentKey = 'ceres';
+  const earthIndex = list.findIndex((entry) => entry.id === 'earth');
+  list.splice(earthIndex + 1, 0, dwarf);
+  find(list, 'moon').parentId = 'ceres';
+
+  expect(validateBodies(list).ok).toBe(true);
 });
 
 test('rejects input that is not a list of objects', () => {

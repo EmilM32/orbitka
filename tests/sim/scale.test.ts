@@ -1,9 +1,12 @@
 import { expect, test } from 'vitest';
 
+import { getBody } from '@data/bodies.ts';
 import {
+  compressMoonOffsetKm,
   compressPositionAu,
   distanceToScene,
   moonDistanceToScene,
+  moonRadiiToScene,
   moonRadiusToScene,
   radiusToScene,
   SCALE,
@@ -295,4 +298,494 @@ test('compressPositionAu compresses a long finite vector without squaring it', (
   expect(out.z).toBe(0);
   expect(Number.isFinite(out.y)).toBe(true);
   expect(out.y / distanceToScene(1e150)).toBeCloseTo(1, 6);
+});
+
+function freshOut(): Vec3 {
+  return { x: 7, y: 8, z: 9 };
+}
+
+test('compressMoonOffsetKm › values', () => {
+  const alongX = freshOut();
+  expect(compressMoonOffsetKm(400080.2, 0, 0, EARTH_RADIUS_KM, alongX)).toBe(
+    alongX,
+  );
+  expectNear(alongX.x, 1.019, 0.005);
+  expect(alongX.y).toBe(0);
+  expect(alongX.z).toBe(0);
+
+  const scale = 10_000;
+  const diagonal = freshOut();
+  compressMoonOffsetKm(scale, 2 * scale, 3 * scale, EARTH_RADIUS_KM, diagonal);
+  expect(diagonal.y).toBeCloseTo(diagonal.x * 2, 8);
+  expect(diagonal.z).toBeCloseTo(diagonal.x * 3, 8);
+  expectNear(
+    Math.hypot(diagonal.x, diagonal.y, diagonal.z),
+    moonDistanceToScene(
+      Math.hypot(scale, 2 * scale, 3 * scale),
+      EARTH_RADIUS_KM,
+    ),
+    1e-9,
+  );
+
+  const origin = freshOut();
+  compressMoonOffsetKm(0, 0, 0, EARTH_RADIUS_KM, origin);
+  expect(origin).toEqual({ x: 0, y: 0, z: 0 });
+});
+
+test.each([
+  ['x', Number.NaN, 0, 0],
+  ['x', Number.POSITIVE_INFINITY, 0, 0],
+  ['x', Number.NEGATIVE_INFINITY, 0, 0],
+  ['y', 0, Number.NaN, 0],
+  ['y', 0, Number.POSITIVE_INFINITY, 0],
+  ['y', 0, Number.NEGATIVE_INFINITY, 0],
+  ['z', 0, 0, Number.NaN],
+  ['z', 0, 0, Number.POSITIVE_INFINITY],
+  ['z', 0, 0, Number.NEGATIVE_INFINITY],
+] as const)(
+  'compressMoonOffsetKm › RangeError component %s = %s',
+  (parameter, x, y, z) => {
+    const value = parameter === 'x' ? x : parameter === 'y' ? y : z;
+    const out = freshOut();
+    const call = () => compressMoonOffsetKm(x, y, z, EARTH_RADIUS_KM, out);
+
+    expect(call).toThrow(RangeError);
+    expect(call).toThrow(
+      `compressMoonOffsetKm: parameter "${parameter}" must be finite, got ${value}`,
+    );
+    expect(out).toEqual(freshOut());
+  },
+);
+
+test.each([0, -1, Number.NaN, Number.POSITIVE_INFINITY] as const)(
+  'compressMoonOffsetKm › RangeError parentRadiusKm = %s',
+  (parentRadiusKm) => {
+    const out = freshOut();
+    const call = () => compressMoonOffsetKm(1, 0, 0, parentRadiusKm, out);
+
+    expect(call).toThrow(RangeError);
+    expect(call).toThrow(
+      `compressMoonOffsetKm: parameter "parentRadiusKm" must be finite and > 0, got ${parentRadiusKm}`,
+    );
+    expect(out).toEqual(freshOut());
+  },
+);
+
+test('compressMoonOffsetKm keeps a huge offset finite', () => {
+  const out: Vec3 = { x: Number.NaN, y: Number.NaN, z: Number.NaN };
+  const result = compressMoonOffsetKm(1e200, 1e200, 0, EARTH_RADIUS_KM, out);
+
+  expect(result).toBe(out);
+  expect(Number.isFinite(out.x)).toBe(true);
+  expect(Number.isFinite(out.y)).toBe(true);
+  expect(Number.isFinite(out.z)).toBe(true);
+  expect(out.z).toBe(0);
+});
+
+test.each([
+  ['Moon', -292453.9, -270671.9, 35659.9, EARTH_RADIUS_KM, 1.019],
+  ['Io', 395537.3, 142215.9, 0, JUPITER_RADIUS_KM, 2.087],
+  ['Europa', -550633.1, -373314.6, 2914.7, JUPITER_RADIUS_KM, 2.139],
+  ['Ganymede', -800606.6, -709163.7, 1089.4, JUPITER_RADIUS_KM, 2.213],
+  ['Callisto', 291128, 1859528.5, 7323.6, JUPITER_RADIUS_KM, 2.341],
+] as const)(
+  'compressMoonOffsetKm › control vectors › %s',
+  (_name, x, y, z, parentRadiusKm, expected) => {
+    const out: Vec3 = { x: 0, y: 0, z: 0 };
+    compressMoonOffsetKm(x, y, z, parentRadiusKm, out);
+    expectNear(Math.hypot(out.x, out.y, out.z), expected, 0.005);
+  },
+);
+
+type MoonSample = {
+  axisKm: number;
+  eccentricity: number;
+  radiusKm: number;
+};
+
+function jupiterMoons(): MoonSample[] {
+  return ['io', 'europa', 'ganymede', 'callisto'].map((id) => {
+    const body = getBody(id);
+    const orbit = body.orbit;
+    if (orbit === undefined) {
+      throw new Error(`missing orbit: ${id}`);
+    }
+    return {
+      axisKm: orbit.semiMajorAxisAu,
+      eccentricity: orbit.eccentricity,
+      radiusKm: body.radiusKm,
+    };
+  });
+}
+
+function sceneEnds(moon: MoonSample, parentRadiusKm: number) {
+  return {
+    peri: moonDistanceToScene(
+      moon.axisKm * (1 - moon.eccentricity),
+      parentRadiusKm,
+    ),
+    apo: moonDistanceToScene(
+      moon.axisKm * (1 + moon.eccentricity),
+      parentRadiusKm,
+    ),
+  };
+}
+
+function gapOf(
+  moons: readonly MoonSample[],
+  index: number,
+  parentRadiusKm: number,
+): number {
+  const order = moons
+    .map((moon, moonIndex) => ({ moonIndex, axisKm: moon.axisKm }))
+    .sort((left, right) => left.axisKm - right.axisKm);
+  const place = order.findIndex((item) => item.moonIndex === index);
+  const current = sceneEnds(moons[index] as MoonSample, parentRadiusKm);
+  const outerIndex = order[place + 1]?.moonIndex;
+  const innerIndex = order[place - 1]?.moonIndex;
+  const candidates: number[] = [];
+
+  if (outerIndex !== undefined) {
+    candidates.push(
+      sceneEnds(moons[outerIndex] as MoonSample, parentRadiusKm).peri -
+        current.apo,
+    );
+  }
+  if (innerIndex !== undefined) {
+    candidates.push(
+      current.peri -
+        sceneEnds(moons[innerIndex] as MoonSample, parentRadiusKm).apo,
+    );
+  } else {
+    candidates.push(current.peri - radiusToScene(parentRadiusKm));
+  }
+
+  return Math.min(...candidates);
+}
+
+test('moonRadiiToScene › gap rule', () => {
+  const parentRadiusKm = getBody('jupiter').radiusKm;
+  const moons = jupiterMoons();
+  const radii = moonRadiiToScene(
+    moons.map((moon) => moon.axisKm),
+    moons.map((moon) => moon.eccentricity),
+    moons.map((moon) => moon.radiusKm),
+    parentRadiusKm,
+  );
+  const parentSceneRadius = radiusToScene(parentRadiusKm);
+
+  for (let index = 0; index < moons.length; index += 1) {
+    const moon = moons[index];
+    const radius = radii[index];
+    if (moon === undefined || radius === undefined) {
+      throw new Error(`missing moon ${index}`);
+    }
+    const ends = sceneEnds(moon, parentRadiusKm);
+    const gap = gapOf(moons, index, parentRadiusKm);
+
+    expect(radius).toBeLessThanOrEqual(SCALE.moonGapFraction * gap + 1e-12);
+    expect(radius).toBeLessThanOrEqual(moonRadiusToScene(moon.radiusKm));
+    expect(radius).toBeLessThan(ends.peri - parentSceneRadius);
+    expect(radius).toBeGreaterThan(0);
+  }
+
+  const order = moons
+    .map((moon, index) => ({ index, axisKm: moon.axisKm }))
+    .sort((left, right) => left.axisKm - right.axisKm);
+  for (let place = 0; place < order.length - 1; place += 1) {
+    const inner = order[place];
+    const outer = order[place + 1];
+    if (inner === undefined || outer === undefined) {
+      throw new Error('missing neighbor');
+    }
+    const innerMoon = moons[inner.index];
+    const outerMoon = moons[outer.index];
+    const innerRadius = radii[inner.index];
+    const outerRadius = radii[outer.index];
+    if (
+      innerMoon === undefined ||
+      outerMoon === undefined ||
+      innerRadius === undefined ||
+      outerRadius === undefined
+    ) {
+      throw new Error('missing neighbor moon');
+    }
+    const gap =
+      sceneEnds(outerMoon, parentRadiusKm).peri -
+      sceneEnds(innerMoon, parentRadiusKm).apo;
+    expect(innerRadius + outerRadius).toBeLessThanOrEqual(gap + 1e-12);
+  }
+});
+
+function mulberry32(seed: number): () => number {
+  let state = seed;
+  return () => {
+    state = (state + 0x6d2b79f5) | 0;
+    let mixed = Math.imul(state ^ (state >>> 15), 1 | state);
+    mixed = (mixed + Math.imul(mixed ^ (mixed >>> 7), 61 | mixed)) ^ mixed;
+    return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function separatedMoons(next: () => number, count: number): MoonSample[] {
+  const moons: MoonSample[] = [];
+  let axisKm = 400_000;
+  for (let index = 0; index < count; index += 1) {
+    axisKm *= 2.5;
+    moons.push({
+      axisKm,
+      eccentricity: next() * 0.3,
+      radiusKm: 200 + next() * 2_000,
+    });
+  }
+  return moons;
+}
+
+function shuffleMoons(
+  moons: readonly MoonSample[],
+  next: () => number,
+): MoonSample[] {
+  const copy = [...moons];
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const swap = Math.floor(next() * (index + 1));
+    const current = copy[index];
+    const other = copy[swap];
+    if (current === undefined || other === undefined) {
+      continue;
+    }
+    copy[index] = other;
+    copy[swap] = current;
+  }
+  return copy;
+}
+
+test('moonRadiiToScene › property', () => {
+  const next = mulberry32(113);
+  const parentRadiusKm = EARTH_RADIUS_KM;
+
+  for (let trial = 0; trial < 20; trial += 1) {
+    const count = 2 + Math.floor(next() * 5);
+    const moons = separatedMoons(next, count);
+    const radii = moonRadiiToScene(
+      moons.map((moon) => moon.axisKm),
+      moons.map((moon) => moon.eccentricity),
+      moons.map((moon) => moon.radiusKm),
+      parentRadiusKm,
+    );
+    const shuffled = shuffleMoons(moons, next);
+    const shuffledRadii = moonRadiiToScene(
+      shuffled.map((moon) => moon.axisKm),
+      shuffled.map((moon) => moon.eccentricity),
+      shuffled.map((moon) => moon.radiusKm),
+      parentRadiusKm,
+    );
+
+    for (let index = 0; index < moons.length; index += 1) {
+      const moon = moons[index];
+      const radius = radii[index];
+      if (moon === undefined || radius === undefined) {
+        throw new Error(`missing sample ${index}`);
+      }
+      const shuffledIndex = shuffled.findIndex(
+        (item) => item.axisKm === moon.axisKm,
+      );
+      expect(radius).toBeGreaterThan(0);
+      expect(shuffledRadii[shuffledIndex]).toBeCloseTo(radius, 12);
+      expect(radius).toBeLessThan(
+        sceneEnds(moon, parentRadiusKm).peri - radiusToScene(parentRadiusKm),
+      );
+    }
+
+    const order = [...moons].sort((left, right) => left.axisKm - right.axisKm);
+    for (let place = 0; place < order.length - 1; place += 1) {
+      const inner = order[place];
+      const outer = order[place + 1];
+      if (inner === undefined || outer === undefined) {
+        throw new Error('missing sample neighbor');
+      }
+      const innerIndex = moons.findIndex(
+        (item) => item.axisKm === inner.axisKm,
+      );
+      const outerIndex = moons.findIndex(
+        (item) => item.axisKm === outer.axisKm,
+      );
+      const innerRadius = radii[innerIndex];
+      const outerRadius = radii[outerIndex];
+      if (innerRadius === undefined || outerRadius === undefined) {
+        throw new Error('missing sample radius');
+      }
+      const gap =
+        sceneEnds(outer, parentRadiusKm).peri -
+        sceneEnds(inner, parentRadiusKm).apo;
+      expect(innerRadius + outerRadius).toBeLessThanOrEqual(gap + 1e-9);
+    }
+  }
+
+  expect(() =>
+    moonRadiiToScene(
+      [100_000, 110_000],
+      [0.2, 0.2],
+      [1_000, 1_000],
+      parentRadiusKm,
+    ),
+  ).toThrow(RangeError);
+});
+
+test('moonRadiiToScene › edges and errors', () => {
+  const moon = getBody('moon');
+  const orbit = moon.orbit;
+  if (orbit === undefined) {
+    throw new Error('missing Moon orbit');
+  }
+
+  expect(
+    moonRadiiToScene(
+      [orbit.semiMajorAxisAu],
+      [orbit.eccentricity],
+      [moon.radiusKm],
+      EARTH_RADIUS_KM,
+    ),
+  ).toEqual([moonRadiusToScene(moon.radiusKm)]);
+  expect(moonRadiiToScene([], [], [], Number.NaN)).toEqual([]);
+
+  const unsorted = jupiterMoons().reverse();
+  const sorted = [...unsorted].sort(
+    (left, right) => left.axisKm - right.axisKm,
+  );
+  const unsortedRadii = moonRadiiToScene(
+    unsorted.map((item) => item.axisKm),
+    unsorted.map((item) => item.eccentricity),
+    unsorted.map((item) => item.radiusKm),
+    JUPITER_RADIUS_KM,
+  );
+  const sortedRadii = moonRadiiToScene(
+    sorted.map((item) => item.axisKm),
+    sorted.map((item) => item.eccentricity),
+    sorted.map((item) => item.radiusKm),
+    JUPITER_RADIUS_KM,
+  );
+  for (let index = 0; index < unsorted.length; index += 1) {
+    const moonSample = unsorted[index];
+    const radius = unsortedRadii[index];
+    if (moonSample === undefined || radius === undefined) {
+      throw new Error(`missing unsorted moon ${index}`);
+    }
+    const sortedIndex = sorted.findIndex(
+      (item) => item.axisKm === moonSample.axisKm,
+    );
+    expect(radius).toBeCloseTo(sortedRadii[sortedIndex] ?? Number.NaN, 12);
+  }
+
+  const cases: [() => unknown, string, number][] = [
+    [
+      () => moonRadiiToScene([400_000], [0, 0], [1_000], EARTH_RADIUS_KM),
+      'eccentricities',
+      2,
+    ],
+    [
+      () => moonRadiiToScene([Number.NaN], [0], [1_000], EARTH_RADIUS_KM),
+      'semiMajorAxesKm[0]',
+      Number.NaN,
+    ],
+    [
+      () =>
+        moonRadiiToScene(
+          [Number.POSITIVE_INFINITY],
+          [0],
+          [1_000],
+          EARTH_RADIUS_KM,
+        ),
+      'semiMajorAxesKm[0]',
+      Number.POSITIVE_INFINITY,
+    ],
+    [
+      () => moonRadiiToScene([0], [0], [1_000], EARTH_RADIUS_KM),
+      'semiMajorAxesKm[0]',
+      0,
+    ],
+    [
+      () => moonRadiiToScene([-1], [0], [1_000], EARTH_RADIUS_KM),
+      'semiMajorAxesKm[0]',
+      -1,
+    ],
+    [
+      () => moonRadiiToScene([400_000], [0], [Number.NaN], EARTH_RADIUS_KM),
+      'radiiKm[0]',
+      Number.NaN,
+    ],
+    [
+      () => moonRadiiToScene([400_000], [0], [0], EARTH_RADIUS_KM),
+      'radiiKm[0]',
+      0,
+    ],
+    [
+      () =>
+        moonRadiiToScene(
+          [400_000],
+          [0],
+          [Number.POSITIVE_INFINITY],
+          EARTH_RADIUS_KM,
+        ),
+      'radiiKm[0]',
+      Number.POSITIVE_INFINITY,
+    ],
+    [
+      () => moonRadiiToScene([400_000], [-0.1], [1_000], EARTH_RADIUS_KM),
+      'eccentricities[0]',
+      -0.1,
+    ],
+    [
+      () => moonRadiiToScene([400_000], [1], [1_000], EARTH_RADIUS_KM),
+      'eccentricities[0]',
+      1,
+    ],
+    [
+      () => moonRadiiToScene([400_000], [Number.NaN], [1_000], EARTH_RADIUS_KM),
+      'eccentricities[0]',
+      Number.NaN,
+    ],
+    [
+      () =>
+        moonRadiiToScene(
+          [400_000, 400_000],
+          [0, 0],
+          [1_000, 1_000],
+          EARTH_RADIUS_KM,
+        ),
+      'semiMajorAxesKm[1]',
+      400_000,
+    ],
+    [() => moonRadiiToScene([400_000], [0], [1_000], 0), 'parentRadiusKm', 0],
+    [() => moonRadiiToScene([400_000], [0], [1_000], -1), 'parentRadiusKm', -1],
+    [
+      () => moonRadiiToScene([400_000], [0], [1_000], Number.NaN),
+      'parentRadiusKm',
+      Number.NaN,
+    ],
+    [
+      () => moonRadiiToScene([400_000], [0], [1_000], Number.POSITIVE_INFINITY),
+      'parentRadiusKm',
+      Number.POSITIVE_INFINITY,
+    ],
+  ];
+
+  for (const [call, parameter, value] of cases) {
+    expect(call).toThrow(RangeError);
+    expect(call).toThrow(`parameter "${parameter}"`);
+    expect(call).toThrow(String(value));
+  }
+
+  expect(() =>
+    moonRadiiToScene(
+      [100_000, 110_000],
+      [0.2, 0.2],
+      [1_000, 1_000],
+      EARTH_RADIUS_KM,
+    ),
+  ).toThrow(/semiMajorAxesKm\[0\]/);
+});
+
+test('SCALE › moonGapFraction', () => {
+  expect(SCALE.moonGapFraction).toBeGreaterThan(0);
+  expect(SCALE.moonGapFraction).toBeLessThanOrEqual(0.5);
 });

@@ -74,6 +74,27 @@
     "contentKey": "earth"
   },
   {
+    "id": "moon",
+    "name": "Moon",
+    "type": "moon",
+    "parentId": "earth",
+    "radiusKm": 1737.4,
+    "mass": 0.07346,
+    "orbit": {
+      "semiMajorAxisAu": 384400,
+      "eccentricity": 0.0554,
+      "inclinationDeg": 5.16,
+      "longitudeAscendingNodeDeg": 125.08,
+      "argumentPeriapsisDeg": 318.15,
+      "meanAnomalyAtEpochDeg": 135.27,
+      "epoch": "J2000",
+      "periodDays": 27.322
+    },
+    "rotation": { "periodHours": 655.72, "axialTiltDeg": 6.68 },
+    "visual": { "texture": null, "color": "#B8B8B8" },
+    "contentKey": "moon"
+  },
+  {
     "id": "mars",
     "name": "Mars",
     "type": "planet",
@@ -114,6 +135,90 @@
     "rotation": { "periodHours": 9.925, "axialTiltDeg": 3.13 },
     "visual": { "texture": null, "color": "#D2A679" },
     "contentKey": "jupiter"
+  },
+  {
+    "id": "io",
+    "name": "Io",
+    "type": "moon",
+    "parentId": "jupiter",
+    "radiusKm": 1821.5,
+    "mass": 0.08932,
+    "orbit": {
+      "semiMajorAxisAu": 421800,
+      "eccentricity": 0.004,
+      "inclinationDeg": 0,
+      "longitudeAscendingNodeDeg": 0,
+      "argumentPeriapsisDeg": 49.1,
+      "meanAnomalyAtEpochDeg": 330.9,
+      "epoch": "J2000",
+      "periodDays": 1.762732
+    },
+    "rotation": { "periodHours": 42.306, "axialTiltDeg": 0 },
+    "visual": { "texture": null, "color": "#E8D26A" },
+    "contentKey": "io"
+  },
+  {
+    "id": "europa",
+    "name": "Europa",
+    "type": "moon",
+    "parentId": "jupiter",
+    "radiusKm": 1560.8,
+    "mass": 0.048,
+    "orbit": {
+      "semiMajorAxisAu": 671100,
+      "eccentricity": 0.009,
+      "inclinationDeg": 0.5,
+      "longitudeAscendingNodeDeg": 184,
+      "argumentPeriapsisDeg": 45,
+      "meanAnomalyAtEpochDeg": 345.4,
+      "epoch": "J2000",
+      "periodDays": 3.525463
+    },
+    "rotation": { "periodHours": 84.611, "axialTiltDeg": 0 },
+    "visual": { "texture": null, "color": "#D9C9A8" },
+    "contentKey": "europa"
+  },
+  {
+    "id": "ganymede",
+    "name": "Ganymede",
+    "type": "moon",
+    "parentId": "jupiter",
+    "radiusKm": 2631.2,
+    "mass": 0.14819,
+    "orbit": {
+      "semiMajorAxisAu": 1070400,
+      "eccentricity": 0.001,
+      "inclinationDeg": 0.2,
+      "longitudeAscendingNodeDeg": 58.5,
+      "argumentPeriapsisDeg": 198.3,
+      "meanAnomalyAtEpochDeg": 324.8,
+      "epoch": "J2000",
+      "periodDays": 7.155588
+    },
+    "rotation": { "periodHours": 171.734, "axialTiltDeg": 0 },
+    "visual": { "texture": null, "color": "#9A8F80" },
+    "contentKey": "ganymede"
+  },
+  {
+    "id": "callisto",
+    "name": "Callisto",
+    "type": "moon",
+    "parentId": "jupiter",
+    "radiusKm": 2410.3,
+    "mass": 0.10759,
+    "orbit": {
+      "semiMajorAxisAu": 1882700,
+      "eccentricity": 0.007,
+      "inclinationDeg": 0.3,
+      "longitudeAscendingNodeDeg": 309.1,
+      "argumentPeriapsisDeg": 43.8,
+      "meanAnomalyAtEpochDeg": 87.4,
+      "epoch": "J2000",
+      "periodDays": 16.69044
+    },
+    "rotation": { "periodHours": 400.571, "axialTiltDeg": 0 },
+    "visual": { "texture": null, "color": "#5E5245" },
+    "contentKey": "callisto"
   },
   {
     "id": "saturn",

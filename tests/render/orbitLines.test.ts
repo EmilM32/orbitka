@@ -1,0 +1,397 @@
+import {
+  LineBasicMaterial,
+  LineLoop,
+  Scene,
+  Vector3,
+  type BufferGeometry,
+} from 'three';
+import { expect, test, vi } from 'vitest';
+
+import { bodies, getBody } from '@data/bodies.ts';
+import type { BodyDef, OrbitDef } from '@data/types.ts';
+import {
+  ORBIT_COLOR,
+  ORBIT_OPACITY,
+  ORBIT_SEGMENTS,
+  addOrbitLines,
+  computeOrbitPoints,
+  createOrbitLines,
+} from '@render/orbitLines.ts';
+import { eclipticToScene } from '@render/coords.ts';
+import { bodyPositionAu } from '@sim/kepler.ts';
+import { compressPositionAu, type Vec3 } from '@sim/scale.ts';
+
+function requireOrbit(def: BodyDef): OrbitDef {
+  if (def.orbit === undefined) {
+    throw new Error(`missing orbit: ${def.id}`);
+  }
+
+  return def.orbit;
+}
+
+function scenePosition(def: BodyDef, days: number): Vector3 {
+  const au: Vec3 = { x: 0, y: 0, z: 0 };
+  const scene: Vec3 = { x: 0, y: 0, z: 0 };
+  bodyPositionAu(def, days, au);
+  compressPositionAu(au.x, au.y, au.z, scene);
+  return eclipticToScene(scene, new Vector3());
+}
+
+function positionArray(geometry: BufferGeometry): Float32Array {
+  const attribute = geometry.getAttribute('position');
+  if (!(attribute.array instanceof Float32Array)) {
+    throw new Error('expected a Float32Array position attribute');
+  }
+
+  return attribute.array;
+}
+
+function vertex(points: Float32Array, index: number): Vector3 {
+  const offset = index * 3;
+  return new Vector3(
+    points[offset] ?? Number.NaN,
+    points[offset + 1] ?? Number.NaN,
+    points[offset + 2] ?? Number.NaN,
+  );
+}
+
+function distancePointToSegment(
+  point: Vector3,
+  start: Vector3,
+  end: Vector3,
+): number {
+  const abx = end.x - start.x;
+  const aby = end.y - start.y;
+  const abz = end.z - start.z;
+  const apx = point.x - start.x;
+  const apy = point.y - start.y;
+  const apz = point.z - start.z;
+  const lengthSquared = abx * abx + aby * aby + abz * abz;
+  const unclamped =
+    lengthSquared === 0
+      ? 0
+      : (apx * abx + apy * aby + apz * abz) / lengthSquared;
+  const t = Math.min(1, Math.max(0, unclamped));
+  return Math.hypot(
+    start.x + t * abx - point.x,
+    start.y + t * aby - point.y,
+    start.z + t * abz - point.z,
+  );
+}
+
+function distanceToClosedPolyline(
+  points: Float32Array,
+  point: Vector3,
+): { segment: number; vertex: number } {
+  const count = points.length / 3;
+  let segment = Number.POSITIVE_INFINITY;
+  let nearestVertex = Number.POSITIVE_INFINITY;
+
+  for (let index = 0; index < count; index += 1) {
+    const start = vertex(points, index);
+    const end = vertex(points, (index + 1) % count);
+    segment = Math.min(segment, distancePointToSegment(point, start, end));
+    nearestVertex = Math.min(nearestVertex, start.distanceTo(point));
+  }
+
+  return { segment, vertex: nearestVertex };
+}
+
+function asLine(child: object, name: string): LineLoop {
+  if (!(child instanceof LineLoop)) {
+    throw new Error(`expected a LineLoop: ${name}`);
+  }
+
+  return child;
+}
+
+function lineMaterial(line: LineLoop): LineBasicMaterial {
+  if (
+    Array.isArray(line.material) ||
+    !(line.material instanceof LineBasicMaterial)
+  ) {
+    throw new Error(`expected one LineBasicMaterial: ${line.name}`);
+  }
+
+  return line.material;
+}
+
+function copyAs(
+  source: BodyDef,
+  id: string,
+  type: BodyDef['type'],
+  orbit: OrbitDef | undefined,
+): BodyDef {
+  return {
+    ...source,
+    id,
+    name: id,
+    type,
+    parentId: type === 'moon' ? 'earth' : null,
+    orbit,
+    contentKey: id,
+  };
+}
+
+test('orbitLines › constants', () => {
+  expect(ORBIT_SEGMENTS).toBe(256);
+  expect(ORBIT_COLOR).toBe(0x5b6b8c);
+  expect(ORBIT_OPACITY).toBe(0.55);
+});
+
+test('orbitLines › eight lines, shared material', () => {
+  const view = createOrbitLines(bodies);
+  const planets = bodies.filter((body) => body.type === 'planet');
+
+  expect(view.group.children).toHaveLength(8);
+
+  const lines = view.group.children.map((child) => asLine(child, child.name));
+  const first = lines[0];
+  if (first === undefined) {
+    view.dispose();
+    throw new Error('missing orbit line');
+  }
+  const material = lineMaterial(first);
+
+  expect(lines.map((line) => line.name)).toEqual(
+    planets.map((planet) => `orbit-${planet.id}`),
+  );
+  expect(material.color.getHex()).toBe(ORBIT_COLOR);
+  expect(material.opacity).toBe(ORBIT_OPACITY);
+  expect(material.transparent).toBe(true);
+  expect(material.depthWrite).toBe(false);
+
+  for (const line of lines) {
+    expect(lineMaterial(line)).toBe(material);
+    expect(line.frustumCulled).toBe(false);
+    expect(line.renderOrder).toBe(-1);
+  }
+
+  view.dispose();
+});
+
+test('orbitLines › 256 vertices', () => {
+  const view = createOrbitLines(bodies);
+
+  for (const child of view.group.children) {
+    const line = asLine(child, child.name);
+    const points = positionArray(line.geometry);
+    expect(points).toHaveLength(ORBIT_SEGMENTS * 3);
+    for (const value of points) {
+      expect(Number.isFinite(value)).toBe(true);
+    }
+  }
+
+  view.dispose();
+});
+
+test('orbitLines › Mercury min and max', () => {
+  const view = createOrbitLines(bodies);
+  const mercury = view.group.children.find(
+    (child) => child.name === 'orbit-mercury',
+  );
+  if (mercury === undefined) {
+    view.dispose();
+    throw new Error('missing orbit-mercury');
+  }
+
+  const points = positionArray(asLine(mercury, mercury.name).geometry);
+  let min = Number.POSITIVE_INFINITY;
+  let max = 0;
+  for (let index = 0; index < ORBIT_SEGMENTS; index += 1) {
+    const distance = vertex(points, index).length();
+    min = Math.min(min, distance);
+    max = Math.max(max, distance);
+  }
+
+  expect(Math.abs(min - 4.44)).toBeLessThanOrEqual(0.02);
+  expect(Math.abs(max - 5.47)).toBeLessThanOrEqual(0.02);
+  view.dispose();
+});
+
+test('orbitLines › Earth in range', () => {
+  const view = createOrbitLines(bodies);
+  const earth = view.group.children.find(
+    (child) => child.name === 'orbit-earth',
+  );
+  if (earth === undefined) {
+    view.dispose();
+    throw new Error('missing orbit-earth');
+  }
+
+  const points = positionArray(asLine(earth, earth.name).geometry);
+  let min = Number.POSITIVE_INFINITY;
+  let max = 0;
+  for (let index = 0; index < ORBIT_SEGMENTS; index += 1) {
+    const distance = vertex(points, index).length();
+    min = Math.min(min, distance);
+    max = Math.max(max, distance);
+  }
+
+  expect(min).toBeGreaterThanOrEqual(7.93);
+  expect(max).toBeLessThanOrEqual(8.07);
+  view.dispose();
+});
+
+test('orbitLines › planet lies on the line', () => {
+  const view = createOrbitLines(bodies);
+  const planets = bodies.filter((body) => body.type === 'planet');
+
+  for (const planet of planets) {
+    const child = view.group.children.find(
+      (item) => item.name === `orbit-${planet.id}`,
+    );
+    if (child === undefined) {
+      view.dispose();
+      throw new Error(`missing orbit-${planet.id}`);
+    }
+
+    const points = positionArray(asLine(child, child.name).geometry);
+    const position = scenePosition(planet, 0);
+    const distance = distanceToClosedPolyline(points, position);
+    console.info(
+      `${planet.id} segment ${distance.segment} vertex ${distance.vertex}`,
+    );
+    expect(distance.segment).toBeLessThan(0.01);
+  }
+
+  view.dispose();
+});
+
+test('orbitLines › point-to-segment helper', () => {
+  const start = new Vector3(0, 0, 0);
+  const end = new Vector3(2, 0, 0);
+
+  expect(distancePointToSegment(new Vector3(1, 0, 0), start, end)).toBe(0);
+  expect(distancePointToSegment(new Vector3(4, 0, 0), start, end)).toBe(2);
+  expect(distancePointToSegment(new Vector3(1, 3, 0), start, end)).toBe(3);
+});
+
+test('computeOrbitPoints › Sun and Moon', () => {
+  expect(() => computeOrbitPoints(getBody('sun'))).toThrow(
+    'computeOrbitPoints: body "sun" has no heliocentric orbit',
+  );
+
+  const moon = copyAs(
+    getBody('earth'),
+    'moon',
+    'moon',
+    requireOrbit(getBody('earth')),
+  );
+  expect(() => computeOrbitPoints(moon)).toThrow(
+    'computeOrbitPoints: body "moon" has no heliocentric orbit',
+  );
+});
+
+test('computeOrbitPoints › segments', () => {
+  const earth = getBody('earth');
+  const rejected = [2, 2.5, Number.NaN, Number.POSITIVE_INFINITY, 0, -4];
+
+  for (const segments of rejected) {
+    expect(() => computeOrbitPoints(earth, segments)).toThrow(RangeError);
+    expect(() => computeOrbitPoints(earth, segments)).toThrow(
+      `parameter "segments" must be an integer >= 3, got ${segments}`,
+    );
+  }
+
+  expect(computeOrbitPoints(earth, 3)).toHaveLength(9);
+});
+
+test('computeOrbitPoints › anomaly of point k', () => {
+  const earth = getBody('earth');
+  const orbit = requireOrbit(earth);
+  const points = computeOrbitPoints(earth);
+  const atStart = scenePosition(
+    earth,
+    -orbit.periodDays * (orbit.meanAnomalyAtEpochDeg / 360),
+  );
+
+  expect(vertex(points, 0).distanceTo(atStart)).toBeLessThan(1e-5);
+
+  const turns = orbit.meanAnomalyAtEpochDeg / 360;
+  const nearest = Math.round(turns * ORBIT_SEGMENTS) % ORBIT_SEGMENTS;
+  const halfStep =
+    (Math.PI / ORBIT_SEGMENTS) * scenePosition(earth, 0).length();
+  expect(
+    vertex(points, nearest).distanceTo(scenePosition(earth, 0)),
+  ).toBeLessThan(halfStep);
+});
+
+test('createOrbitLines › skips non-planets', () => {
+  const earth = getBody('earth');
+  const orbit = requireOrbit(earth);
+  const view = createOrbitLines([
+    ...bodies,
+    copyAs(earth, 'moon', 'moon', orbit),
+    copyAs(earth, 'ceres', 'dwarf', orbit),
+    copyAs(earth, 'asteroids', 'belt', orbit),
+  ]);
+  const names = view.group.children.map((child) => child.name);
+
+  expect(names).toEqual(
+    bodies
+      .filter((body) => body.type === 'planet')
+      .map((planet) => `orbit-${planet.id}`),
+  );
+  view.dispose();
+});
+
+test('createOrbitLines › no planets', () => {
+  const empty = createOrbitLines([]);
+  expect(empty.group.children).toHaveLength(0);
+  expect(() => empty.dispose()).not.toThrow();
+  expect(() => empty.dispose()).not.toThrow();
+
+  const sunOnly = createOrbitLines([getBody('sun')]);
+  expect(sunOnly.group.children).toHaveLength(0);
+  expect(() => sunOnly.dispose()).not.toThrow();
+});
+
+test('computeOrbitPoints › RangeError propagates', () => {
+  const earth = getBody('earth');
+  const broken: BodyDef = {
+    ...earth,
+    orbit: { ...requireOrbit(earth), eccentricity: Number.NaN },
+  };
+
+  expect(() => computeOrbitPoints(broken)).toThrow(RangeError);
+  expect(() => createOrbitLines([broken])).toThrow(RangeError);
+});
+
+test('orbitLines › dispose', () => {
+  const view = createOrbitLines(bodies);
+  const lines = view.group.children.map((child) => asLine(child, child.name));
+  const first = lines[0];
+  if (first === undefined) {
+    throw new Error('missing orbit line');
+  }
+  const geometrySpies = lines.map((line) => vi.spyOn(line.geometry, 'dispose'));
+  const materialSpy = vi.spyOn(lineMaterial(first), 'dispose');
+
+  view.dispose();
+
+  expect(geometrySpies).toHaveLength(8);
+  for (const spy of geometrySpies) {
+    expect(spy).toHaveBeenCalledOnce();
+  }
+  expect(materialSpy).toHaveBeenCalledOnce();
+  expect(view.group.children).toHaveLength(0);
+
+  expect(() => view.dispose()).not.toThrow();
+  for (const spy of geometrySpies) {
+    expect(spy).toHaveBeenCalledOnce();
+  }
+  expect(materialSpy).toHaveBeenCalledOnce();
+});
+
+test('addOrbitLines › adds the group to the scene', () => {
+  const scene = new Scene();
+  const lines = addOrbitLines(scene, bodies);
+
+  expect(scene.children).toHaveLength(1);
+  expect(scene.children[0]?.children).toHaveLength(8);
+
+  lines.dispose();
+  expect(scene.children).toHaveLength(0);
+  expect(() => lines.dispose()).not.toThrow();
+});

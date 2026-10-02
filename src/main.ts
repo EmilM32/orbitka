@@ -11,6 +11,7 @@ import { createBodyAnimator } from '@render/animateBodies.ts';
 import { createBodies } from '@render/bodies.ts';
 import { addDebugAxes } from '@render/debugAxes.ts';
 import { createLights } from '@render/lights.ts';
+import { addOrbitLines } from '@render/orbitLines.ts';
 import { createRenderer } from '@render/createRenderer.ts';
 import { createRotationAnimator } from '@render/rotateBodies.ts';
 import { getRenderStats } from '@render/renderStats.ts';
@@ -37,6 +38,7 @@ function mount(canvas: HTMLCanvasElement): App {
   const view = createRenderer(canvas);
   const bodyView = createBodies(bodies);
   view.scene.add(bodyView.group);
+  const orbitLines = addOrbitLines(view.scene, bodies);
   view.scene.add(createLights());
   const search = window.location.search;
   const clock = createClock({
@@ -138,6 +140,7 @@ function mount(canvas: HTMLCanvasElement): App {
       debugSession?.dispose();
       delete window.__orbitka;
       debugAxes?.dispose();
+      orbitLines.dispose();
       bodyView.dispose();
       view.dispose();
     },

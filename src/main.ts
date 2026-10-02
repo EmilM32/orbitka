@@ -1,4 +1,5 @@
 import './style.css';
+import './ui/scaleNotice.css';
 import './ui/timeControls.css';
 
 import pl from '@content/locales/pl.json' with { type: 'json' };
@@ -19,6 +20,7 @@ import { getRenderStats } from '@render/renderStats.ts';
 import { getBodyScreenPositions } from '@render/screenPositions.ts';
 import { createDebugSession } from '@ui/debugSession.ts';
 import { createI18n } from '@ui/i18n.ts';
+import { createScaleNotice } from '@ui/scaleNotice.ts';
 import { createTimeControls } from '@ui/timeControls.ts';
 
 type App = {
@@ -58,6 +60,7 @@ function mount(canvas: HTMLCanvasElement): App {
     ? addDebugAxes(bodies, bodyView.meshes)
     : null;
   const i18n = createI18n(pl, 'pl-PL');
+  const scaleNotice = createScaleNotice(document.body, i18n);
   const timeControls = createTimeControls(document.body, clock, i18n);
   const debugSession = createDebugSession(search, document.body);
   let lastUiMs = Number.NEGATIVE_INFINITY;
@@ -140,6 +143,7 @@ function mount(canvas: HTMLCanvasElement): App {
     dispose() {
       loop.stop();
       document.removeEventListener('visibilitychange', onVisibilityChange);
+      scaleNotice.dispose();
       timeControls.dispose();
       debugSession?.dispose();
       delete window.__orbitka;

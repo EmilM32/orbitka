@@ -435,6 +435,18 @@ export default tseslint.config(
     rules: moduleRules([threeRestriction, allLayersRestriction]),
   },
   ...layerBlocks('tests'),
+  // EMI-116 reads catalog axes and scene scale from one test outside tests/<layer>.
+  {
+    files: ['tests/integration/scaleNotice.test.ts'],
+    rules: moduleRules([
+      threeRestriction,
+      {
+        regex: moduleRegex(['@core', '@content', '@render', '@ui']),
+        message:
+          'tests/integration/scaleNotice.test.ts imports only @data and @sim (EMI-116).',
+      },
+    ]),
+  },
   eslintConfigPrettier,
   {
     files: ['**/*.css'],

@@ -419,6 +419,39 @@ test.each(['tests/x.test.ts', 'tests/e2e/x.spec.ts'])(
   },
 );
 
+test('tests/integration/scaleNotice.test.ts can import @data and @sim', async () => {
+  expect(
+    await boundaryErrors(
+      'tests/integration/scaleNotice.test.ts',
+      `import '@data/bodies.ts';\nimport '@sim/scale.ts';\n`,
+    ),
+  ).toEqual([]);
+});
+
+test.each([
+  ['@core', `import '@core/x.ts';\n`],
+  ['@content', `import '@content/x.ts';\n`],
+  ['@render', `import '@render/x.ts';\n`],
+  ['@ui', `import '@ui/x.ts';\n`],
+  ['three', `import 'three';\n`],
+])(
+  'tests/integration/scaleNotice.test.ts cannot import %s',
+  async (_specifier, code) => {
+    expect(
+      await boundaryErrors('tests/integration/scaleNotice.test.ts', code),
+    ).toHaveLength(1);
+  },
+);
+
+test('tests/integration/x.test.ts cannot import @data', async () => {
+  expect(
+    await boundaryErrors(
+      'tests/integration/x.test.ts',
+      `import '@data/x.ts';\n`,
+    ),
+  ).toHaveLength(1);
+});
+
 test.each([
   [
     'src',

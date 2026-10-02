@@ -13,6 +13,13 @@
   "time.presets.ten-days": "10 dni/s",
   "time.presets.month": "1 miesiąc/s",
   "time.presets.year": "1 rok/s",
+  "time.controls.label": "Sterowanie czasem",
+  "time.pause.text": "Pauza",
+  "time.pause.ariaLabel": "Pauza: zatrzymaj czas",
+  "time.resume.text": "Start",
+  "time.resume.ariaLabel": "Start: wznów czas",
+  "time.reverse.text": "Cofanie",
+  "time.reverse.ariaLabel": "Cofanie: przełącz kierunek czasu",
   "time.status.speed": "Prędkość: {speed}",
   "time.status.speedReversed": "Prędkość: cofanie {speed}",
   "time.status.paused": "Pauza",
@@ -29,5 +36,11 @@
     "few": "{count} lata",
     "many": "{count} lat",
     "other": "{count} roku"
-  }
+  },
+  "time.presets.setSpeed": "Ustaw prędkość: {speed}",
+  "time.presets.day.spoken": "1 dzień na sekundę",
+  "time.presets.ten-days.spoken": "10 dni na sekundę",
+  "time.presets.month.spoken": "1 miesiąc na sekundę",
+  "time.presets.year.spoken": "1 rok na sekundę",
+  "time.date.missing": "—"
 }

@@ -153,13 +153,30 @@ const noRelativeOutsideLayer = {
       }
 
       const target = path.resolve(path.dirname(context.filename), specifier);
-      if (zoneOf(target) !== zone) {
-        context.report({
-          node: source,
-          messageId: 'outside',
-          data: { source: specifier },
-        });
+      const targetZone = zoneOf(target);
+      if (targetZone === zone) {
+        return;
       }
+
+      // The entry module owns the global stylesheet and pulls UI stylesheets
+      // in by relative path. TypeScript imports still go through aliases.
+      const importer = path
+        .relative(SRC_DIR, context.filename)
+        .split(path.sep)
+        .join('/');
+      if (
+        importer === 'main.ts' &&
+        specifier.endsWith('.css') &&
+        targetZone === 'ui'
+      ) {
+        return;
+      }
+
+      context.report({
+        node: source,
+        messageId: 'outside',
+        data: { source: specifier },
+      });
     };
 
     return {
@@ -256,6 +273,107 @@ const indexReexportsOnly = {
 const rafMessage =
   'The app has one loop, renderer.setAnimationLoop in src/main.ts (ADR-005). Do not call requestAnimationFrame.';
 
+const REPO_ROOT = import.meta.dirname;
+
+// CSS has no TypeScript parser. An empty program lets ESLint open .css files
+// so stylesheet-location can reject stylesheets outside src/ui and src/style.css.
+const cssTextParser = {
+  meta: {
+    name: 'orbitka-css-text',
+    version: '1.0.0',
+  },
+  parse(text) {
+    return {
+      type: 'Program',
+      body: [],
+      sourceType: 'script',
+      range: [0, text.length],
+      loc: {
+        start: { line: 1, column: 0 },
+        end: { line: 1, column: 0 },
+      },
+      tokens: [],
+      comments: [],
+    };
+  },
+};
+
+function repoRelative(filename) {
+  return path.relative(REPO_ROOT, filename).split(path.sep).join('/');
+}
+
+function isAllowedStylesheet(relativePath) {
+  const normalized = path.posix.normalize(relativePath);
+  if (normalized === 'src/style.css') {
+    return true;
+  }
+
+  return (
+    normalized.startsWith('src/ui/') &&
+    normalized.endsWith('.css') &&
+    !normalized.split('/').includes('..')
+  );
+}
+
+function resolvedStylesheet(importer, specifier) {
+  if (
+    specifier === null ||
+    !specifier.endsWith('.css') ||
+    !specifier.startsWith('.')
+  ) {
+    return null;
+  }
+
+  return path.posix.normalize(
+    path.posix.join(path.posix.dirname(importer), specifier),
+  );
+}
+
+const stylesheetLocation = {
+  meta: {
+    type: 'problem',
+    schema: [],
+    messages: {
+      location:
+        'Stylesheets are allowed only in src/ui/**/*.css and src/style.css.',
+      entry: 'src/style.css may be imported only from src/main.ts.',
+    },
+  },
+  create(context) {
+    const importer = repoRelative(context.filename);
+
+    function checkImport(node, source) {
+      const resolved = resolvedStylesheet(importer, staticSpecifier(source));
+      if (resolved === null) {
+        return;
+      }
+
+      if (!isAllowedStylesheet(resolved)) {
+        context.report({ node, messageId: 'location' });
+        return;
+      }
+
+      if (resolved === 'src/style.css' && importer !== 'src/main.ts') {
+        context.report({ node, messageId: 'entry' });
+      }
+    }
+
+    return {
+      Program(node) {
+        if (importer.endsWith('.css') && !isAllowedStylesheet(importer)) {
+          context.report({ node, messageId: 'location' });
+        }
+      },
+      ImportDeclaration(node) {
+        checkImport(node, node.source);
+      },
+      ImportExpression(node) {
+        checkImport(node, node.source);
+      },
+    };
+  },
+};
+
 const allLayersRestriction = {
   regex: moduleRegex(layers.map((layer) => `@${layer}`)),
   message:
@@ -274,6 +392,7 @@ export default tseslint.config(
           'no-relative-outside-layer': noRelativeOutsideLayer,
           'no-dynamic-module-path': noDynamicModulePath,
           'index-reexports-only': indexReexportsOnly,
+          'stylesheet-location': stylesheetLocation,
         },
       },
     },
@@ -283,6 +402,7 @@ export default tseslint.config(
     rules: {
       'orbitka/no-relative-outside-layer': 'error',
       'orbitka/no-dynamic-module-path': 'error',
+      'orbitka/stylesheet-location': 'error',
     },
   },
   {
@@ -316,4 +436,13 @@ export default tseslint.config(
   },
   ...layerBlocks('tests'),
   eslintConfigPrettier,
+  {
+    files: ['**/*.css'],
+    languageOptions: {
+      parser: cssTextParser,
+    },
+    rules: {
+      'orbitka/stylesheet-location': 'error',
+    },
+  },
 );

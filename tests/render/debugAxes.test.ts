@@ -24,7 +24,7 @@ function spinningMeshes(defs: readonly BodyDef[]): Map<string, Mesh> {
   return meshes;
 }
 
-test('debugAxes › dodanie i dispose', () => {
+test('debugAxes › add and dispose', () => {
   const spinning = spinningBodies(bodies);
   expect(spinning).toHaveLength(9);
   const meshes = spinningMeshes(bodies);

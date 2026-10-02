@@ -42,7 +42,7 @@ function spinningPeriods(): number[] {
     .map((body) => body.rotation.periodHours);
 }
 
-test('spinAngleRad › wartości', () => {
+test('spinAngleRad › values', () => {
   expect(spinAngleRad(0, 24)).toBe(0);
   expect(spinAngleRad(0.25, 24)).toBeCloseTo(Math.PI / 2, 12);
   expect(spinAngleRad(0.5, 24)).toBeCloseTo(Math.PI, 12);
@@ -55,7 +55,7 @@ test('spinAngleRad › wartości', () => {
   expect(Math.min(earthTurn, TWO_PI - earthTurn)).toBeLessThan(1e-9);
 });
 
-test('spinAngleRad › zakres [0, 2π)', () => {
+test('spinAngleRad › range [0, 2π)', () => {
   const periods = spinningPeriods();
   expect(periods).toHaveLength(9);
 
@@ -100,7 +100,7 @@ test('spinAngleRad › RangeError', () => {
   );
 });
 
-test('rotationsPerSecond › wartości', () => {
+test('rotationsPerSecond › values', () => {
   expect(rotationsPerSecond(1, 24)).toBe(1);
   expect(rotationsPerSecond(-1, 24)).toBe(1);
   expect(rotationsPerSecond(0, 24)).toBe(0);
@@ -142,13 +142,13 @@ test('rotationsPerSecond › RangeError', () => {
   );
 });
 
-test('rotation › stałe', () => {
+test('rotation › constants', () => {
   expect(ROTATION_FADE_START_RPS).toBe(1);
   expect(ROTATION_FADE_END_RPS).toBe(2);
   expect(ROTATION_MAX_STEP_SECONDS).toBe(0.1);
 });
 
-test('rotationFadeFactor › wartości', () => {
+test('rotationFadeFactor › values', () => {
   expect(rotationFadeFactor(0)).toBe(1);
   expect(rotationFadeFactor(0.5)).toBe(1);
   expect(rotationFadeFactor(1)).toBe(1);
@@ -164,7 +164,7 @@ test('rotationFadeFactor › wartości', () => {
   expect(rotationFadeFactor(24 / SATURN_HOURS)).toBe(0);
 });
 
-test('rotationFadeFactor › monotoniczność i ciągłość', () => {
+test('rotationFadeFactor › monotonic and continuous', () => {
   let previous = rotationFadeFactor(0);
   for (let rps = 0.01; rps <= 5; rps += 0.01) {
     const fade = rotationFadeFactor(Number(rps.toFixed(2)));
@@ -204,7 +204,7 @@ test('rotationFadeFactor › RangeError', () => {
   );
 });
 
-test('advanceSpinAngleRad › brak skoku przy zmianie prędkości', () => {
+test('advanceSpinAngleRad › no jump when speed changes', () => {
   const speeds = [1, 10, 365.25, 1];
   let days = 0;
   let angle = spinAngleRad(0, EARTH_HOURS);
@@ -229,7 +229,7 @@ test('advanceSpinAngleRad › brak skoku przy zmianie prędkości', () => {
   }
 });
 
-test('advanceSpinAngleRad › fade=1 odtwarza spinAngleRad', () => {
+test('advanceSpinAngleRad › fade of 1 matches spinAngleRad', () => {
   let days = 0;
   let angle = spinAngleRad(0, EARTH_HOURS);
 
@@ -244,7 +244,7 @@ test('advanceSpinAngleRad › fade=1 odtwarza spinAngleRad', () => {
   ).toBeLessThan(1e-6);
 });
 
-test('advanceSpinAngleRad › pauza i cofanie', () => {
+test('advanceSpinAngleRad › pause and rewind', () => {
   expect(advanceSpinAngleRad(1.25, 4, 4, 24, 0)).toBeCloseTo(1.25, 12);
   expect(advanceSpinAngleRad(1.25 + TWO_PI, 4, 4, 24, 0)).toBeCloseTo(1.25, 12);
   expect(advanceSpinAngleRad(-0.5, 4, 4, 24, 0)).toBeCloseTo(TWO_PI - 0.5, 12);
@@ -261,11 +261,11 @@ test('advanceSpinAngleRad › pauza i cofanie', () => {
   expect(moved).toBeCloseTo(fullStep, 12);
 });
 
-test('advanceSpinAngleRad › skok', () => {
+test('advanceSpinAngleRad › time jump', () => {
   expect(advanceSpinAngleRad(0.4, 0, 1000, 24, 1)).toBe(spinAngleRad(1000, 24));
 });
 
-test('advanceSpinAngleRad › powyżej 2 obr/s', () => {
+test('advanceSpinAngleRad › above 2 rev/s', () => {
   const angle = 1.234;
   const next = advanceSpinAngleRad(angle, 0, 0.1, JUPITER_HOURS, 1);
   expect(Math.abs(next - angle)).toBeLessThanOrEqual(1e-12);

@@ -48,7 +48,7 @@ function angularDistance(left: number, right: number): number {
   return wrapped > Math.PI ? TWO_PI - wrapped : wrapped;
 }
 
-test('rotateBodies › oś obrotu', () => {
+test('rotateBodies › spin axis', () => {
   const meshes = spinningMeshes(bodies);
   const animator = createRotationAnimator(bodies, meshes);
   animator.update(0, 1);
@@ -120,7 +120,7 @@ test('rotateBodies › update', () => {
   disposeMeshes(meshes);
 });
 
-test('rotateBodies › pierwsza klatka', () => {
+test('rotateBodies › first frame', () => {
   const meshes = spinningMeshes(bodies);
   const earth = meshes.get('earth');
   if (earth === undefined) {
@@ -134,7 +134,7 @@ test('rotateBodies › pierwsza klatka', () => {
   disposeMeshes(meshes);
 });
 
-test('rotateBodies › RangeError / brak mesha', () => {
+test('rotateBodies › RangeError / missing mesh', () => {
   const meshes = spinningMeshes(bodies);
   const earth = meshes.get('earth');
   if (earth === undefined) {

@@ -259,6 +259,102 @@ test('subscribe › reentrancy and exception', () => {
   expect(doubledCalls).toBe(2);
 });
 
+test('subscribe › throw on first call', () => {
+  let now = 0;
+  const clock = createClock({ nowMs: () => now });
+  let calls = 0;
+
+  expect(() =>
+    clock.subscribe(() => {
+      calls += 1;
+      throw new Error('boom');
+    }),
+  ).toThrow('boom');
+
+  now += 200;
+  expect(() => clock.tick(0.1)).not.toThrow();
+  expect(() => clock.setSpeed(5)).not.toThrow();
+  expect(() => clock.pause()).not.toThrow();
+  expect(calls).toBe(1);
+});
+
+test('subscribe › failed second subscription', () => {
+  const clock = createClock({ nowMs: () => 0 });
+  let calls = 0;
+  let failing = false;
+  const listener = () => {
+    calls += 1;
+    if (failing) {
+      throw new Error('boom');
+    }
+  };
+
+  clock.subscribe(listener);
+  failing = true;
+  expect(() => clock.subscribe(listener)).toThrow('boom');
+  failing = false;
+
+  calls = 0;
+  clock.setSpeed(5);
+  expect(calls).toBe(1);
+});
+
+test('subscribe › reentrant first call', () => {
+  const clock = createClock({ nowMs: () => 0 });
+  const speeds: number[] = [];
+
+  clock.subscribe((state) => {
+    speeds.push(state.speed);
+    if (speeds.length === 1) {
+      clock.setSpeed(123);
+    }
+  });
+
+  expect(speeds).toEqual([1, 123]);
+});
+
+test('subscribe › side effect before throw on first call', () => {
+  const clock = createClock({ nowMs: () => 0 });
+  let calls = 0;
+
+  expect(() =>
+    clock.subscribe(() => {
+      calls += 1;
+      if (calls === 1) {
+        clock.setSpeed(5);
+        throw new Error('boom');
+      }
+    }),
+  ).toThrow('boom');
+
+  expect(clock.speed).toBe(5);
+  calls = 0;
+  clock.setSpeed(7);
+  expect(calls).toBe(0);
+});
+
+test('subscribe › throw on later call', () => {
+  const clock = createClock({ nowMs: () => 0 });
+  let calls = 0;
+  let failing = false;
+  const unsubscribe = clock.subscribe(() => {
+    calls += 1;
+    if (failing) {
+      throw new Error('boom');
+    }
+  });
+
+  failing = true;
+  expect(() => clock.pause()).toThrow('boom');
+  failing = false;
+  clock.resume();
+  expect(calls).toBe(3);
+
+  unsubscribe();
+  clock.pause();
+  expect(calls).toBe(3);
+});
+
 test('DAYS_LIMIT › tick', () => {
   const forward = createClock({
     startDays: DAYS_LIMIT - 1,

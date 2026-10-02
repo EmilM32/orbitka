@@ -147,6 +147,13 @@ export function createClock(options: ClockOptions = {}): Clock {
     presetId: presetId(),
   });
 
+  const remove = (entry: Subscription): void => {
+    const index = listeners.indexOf(entry);
+    if (index >= 0) {
+      listeners.splice(index, 1);
+    }
+  };
+
   const notify = (): void => {
     if (listeners.length === 0) {
       return;
@@ -278,18 +285,22 @@ export function createClock(options: ClockOptions = {}): Clock {
     },
     subscribe(listener: (state: ClockState) => void) {
       const entry: Subscription = { listener };
+      // Registered before the first call, so a nested notification from inside
+      // it reaches the new listener too.
       listeners.push(entry);
-      listener(snapshot());
+      try {
+        listener(snapshot());
+      } catch (error) {
+        remove(entry);
+        throw error;
+      }
       let active = true;
       return () => {
         if (!active) {
           return;
         }
         active = false;
-        const index = listeners.indexOf(entry);
-        if (index >= 0) {
-          listeners.splice(index, 1);
-        }
+        remove(entry);
       };
     },
   };

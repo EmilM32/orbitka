@@ -21,13 +21,9 @@ test('constants › golden values', () => {
     'month',
     'year',
   ]);
-  expect(SPEED_PRESETS.map((preset) => preset.label)).toEqual([
-    'Pause',
-    '1 day/s',
-    '10 days/s',
-    '1 month/s',
-    '1 year/s',
-  ]);
+  for (const preset of SPEED_PRESETS) {
+    expect(Object.keys(preset).toSorted()).toEqual(['daysPerSecond', 'id']);
+  }
   expect(SPEED_PRESETS.map((preset) => preset.daysPerSecond)).toEqual([
     0, 1, 10, 30.4375, 365.25,
   ]);

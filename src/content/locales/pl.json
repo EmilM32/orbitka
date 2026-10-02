@@ -1,0 +1,16 @@
+{
+  "bodies.sun.name": "Słońce",
+  "bodies.mercury.name": "Merkury",
+  "bodies.venus.name": "Wenus",
+  "bodies.earth.name": "Ziemia",
+  "bodies.mars.name": "Mars",
+  "bodies.jupiter.name": "Jowisz",
+  "bodies.saturn.name": "Saturn",
+  "bodies.uranus.name": "Uran",
+  "bodies.neptune.name": "Neptun",
+  "time.presets.pause": "Pauza",
+  "time.presets.day": "1 dzień/s",
+  "time.presets.ten-days": "10 dni/s",
+  "time.presets.month": "1 miesiąc/s",
+  "time.presets.year": "1 rok/s"
+}

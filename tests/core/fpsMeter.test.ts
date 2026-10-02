@@ -74,13 +74,30 @@ test('fpsMeter › overflow', () => {
 });
 
 test('fpsMeter › RangeError windowSeconds', () => {
-  for (const windowSeconds of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+  for (const windowSeconds of [
+    0,
+    -1,
+    0.5,
+    1,
+    1.99,
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+  ]) {
     const call = () => createFpsMeter(windowSeconds);
     expect(call).toThrow(RangeError);
     expect(call).toThrow(
-      `createFpsMeter: parameter "windowSeconds" must be finite and > 0, got ${windowSeconds}`,
+      `createFpsMeter: parameter "windowSeconds" must be finite and >= 2, got ${windowSeconds}`,
     );
   }
+});
+
+test('fpsMeter › slow frames in the shortest window', () => {
+  const meter = createFpsMeter(2);
+  for (let time = 0; time <= 5000; time += 900) {
+    meter.tick(time);
+  }
+
+  expect(meter.fps).toBeCloseTo(1000 / 900, 6);
 });
 
 test('fpsMeter › RangeError nowMs', () => {

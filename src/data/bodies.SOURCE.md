@@ -33,3 +33,21 @@ f. The Sun: the rotation period is given for latitude 16°, and the axial tilt o
 - `visual.color` values are chosen for appearance, not taken from NASA.
 - The convention in (e) and the use of EM Bary for Earth (b) are design decisions.
 - `visual.texture` is `null` until textures are added.
+
+## Moons
+
+The Moon and the four Galilean moons of Jupiter were added from sources retrieved on 2026-09-30. For a moon, `orbit.semiMajorAxisAu` is the semi-major axis in kilometers, not AU. `rotation.periodHours` is the orbital period in days times 24 (synchronous rotation, always positive).
+
+### Sources
+
+1. NASA/JPL Solar System Dynamics, "Planetary Satellite Mean Elements" (epoch 2000-01-01.5 TDB): <https://ssd.jpl.nasa.gov/sats/elem/>. It supplies the orbital elements `semiMajorAxisAu` (km), `eccentricity`, `argumentPeriapsisDeg`, `meanAnomalyAtEpochDeg`, `inclinationDeg`, `longitudeAscendingNodeDeg`, and `periodDays`.
+2. NASA NSSDCA Moon Fact Sheet: <https://nssdc.gsfc.nasa.gov/planetary/factsheet/moonfact.html> and Jovian Satellite Fact Sheet: <https://nssdc.gsfc.nasa.gov/planetary/factsheet/joviansatfact.html>. They supply `radiusKm` (mean radius) and `mass` (in 10^24 kg). The Moon's `rotation.axialTiltDeg` is NASA's "Obliquity to orbit" (6.68°).
+
+### Uncertainties
+
+a. Galilean elements are published in the Laplace plane and are used here as if they were ecliptic. The plane orientation is off by a few degrees, which is negligible at this educational scale.
+b. The JPL period for the Galilean moons is the anomalistic period (Io 1.762732 d). The sidereal period on the fact sheet is 1.769138 d for Io. The JPL value is the one stored, because it matches `meanAnomalyAtEpochDeg`.
+c. For the Moon, `periodDays` 27.322 is the sidereal period. The anomalistic period is 27.5546 d and is outside this source (unverified). After many periods the Moon's phase drifts from reality, because perigee precession is omitted.
+d. Solar perturbations and other mutual perturbations are omitted.
+e. `rotation.axialTiltDeg` of the Galilean moons is 0. That is an approximation, not a value from the fact sheet.
+f. Scene radii of moons are smaller than `moonRadiusToScene` when the orbit-gap rule requires it. Those radii are not true proportions.

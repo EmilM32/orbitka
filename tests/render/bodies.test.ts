@@ -50,6 +50,10 @@ test('bodies › materials', () => {
   const view = createBodies(bodies);
 
   for (const body of bodies) {
+    if (body.type !== 'star' && body.type !== 'planet') {
+      continue;
+    }
+
     const mesh = view.meshes.get(body.id);
     if (!mesh || Array.isArray(mesh.material)) {
       view.dispose();

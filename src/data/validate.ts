@@ -13,6 +13,9 @@ const BODY_TYPES: readonly BodyType[] = [
   'belt',
 ];
 const ID_PATTERN = /^[a-z0-9-]+$/;
+// Moons store the semi-major axis in kilometers. Every other orbit uses AU.
+// Neptune is about 30 AU and the Moon is about 384400 km, so 1000 separates them.
+const MOON_AXIS_MIN_KM = 1000;
 const COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 
 function isFields(value: unknown): value is Fields {
@@ -150,6 +153,7 @@ function isValidBody(
     check.field(orbit, 'orbit.', 'meanAnomalyAtEpochDeg', anyNumber);
     check.field(orbit, 'orbit.', 'epoch', epoch);
     check.field(orbit, 'orbit.', 'periodDays', positive);
+    checkAxisUnit(raw, label, orbit, errors);
   }
 
   const rotation = check.group(raw, 'rotation');
@@ -217,6 +221,73 @@ function checkHierarchy(bodies: readonly BodyDef[], errors: string[]): void {
     }
     if (root.orbit !== undefined) {
       errors.push(`${root.id}: root must not have an orbit field`);
+    }
+  }
+
+  checkMoonParents(bodies, errors);
+}
+
+function checkAxisUnit(
+  raw: Fields,
+  label: string,
+  orbit: Fields,
+  errors: string[],
+): void {
+  if (!isFiniteNumber(orbit.semiMajorAxisAu)) {
+    return;
+  }
+
+  const axis = orbit.semiMajorAxisAu;
+  if (raw.type === 'moon' && axis < MOON_AXIS_MIN_KM) {
+    errors.push(
+      `${label}: field orbit.semiMajorAxisAu must be >= ${MOON_AXIS_MIN_KM} (km for a moon), got ${axis}`,
+    );
+  }
+  if (raw.type !== 'moon' && axis >= MOON_AXIS_MIN_KM) {
+    errors.push(
+      `${label}: field orbit.semiMajorAxisAu must be < ${MOON_AXIS_MIN_KM} (AU for a body that is not a moon), got ${axis}`,
+    );
+  }
+}
+
+function checkMoonParents(bodies: readonly BodyDef[], errors: string[]): void {
+  const indexById = new Map<string, number>();
+  const byId = new Map<string, BodyDef>();
+
+  for (let index = 0; index < bodies.length; index += 1) {
+    const body = bodies[index];
+    if (body === undefined || indexById.has(body.id)) {
+      continue;
+    }
+    indexById.set(body.id, index);
+    byId.set(body.id, body);
+  }
+
+  for (const body of bodies) {
+    if (body.type !== 'moon') {
+      continue;
+    }
+
+    const parent = body.parentId === null ? undefined : byId.get(body.parentId);
+    if (body.parentId !== null && parent === undefined) {
+      continue;
+    }
+
+    const parentIndex =
+      body.parentId === null ? undefined : indexById.get(body.parentId);
+    const bodyIndex = indexById.get(body.id);
+    const earlierParent =
+      parent !== undefined &&
+      parentIndex !== undefined &&
+      bodyIndex !== undefined &&
+      parentIndex < bodyIndex &&
+      (parent.type === 'planet' || parent.type === 'dwarf');
+
+    if (!earlierParent) {
+      const got = body.parentId === null ? 'null' : `"${body.parentId}"`;
+      errors.push(
+        `${body.id}: field parentId must reference an earlier planet or dwarf, got ${got}`,
+      );
     }
   }
 }

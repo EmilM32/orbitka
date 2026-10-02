@@ -1,5 +1,5 @@
 :root {
-  --debug-top: 8px;
+  --debug-top: calc(8px + 44px + 8px);
 }
 
 #debug-overlay {

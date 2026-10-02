@@ -91,7 +91,7 @@ test('debugOverlay › invalid values', () => {
 test('debugOverlay › css', () => {
   const css = readFileSync('src/ui/debugOverlay.css', 'utf8');
 
-  expect(css).toContain('--debug-top: 8px');
+  expect(css).toContain('--debug-top: calc(8px + 44px + 8px)');
   expect(css).toMatch(/\.debug-fps-good\s*\{[^}]*color:\s*#3dd68c/);
   expect(css).toMatch(/\.debug-fps-mid\s*\{[^}]*color:\s*#e6c200/);
   expect(css).toMatch(/\.debug-fps-low\s*\{[^}]*color:\s*#e5484d/);

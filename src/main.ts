@@ -8,6 +8,7 @@ import { createLoop } from '@core/loop.ts';
 import { isStartPaused, parseStartDays } from '@core/startParams.ts';
 import { bodies } from '@data/bodies.ts';
 import { createBodyAnimator } from '@render/animateBodies.ts';
+import { createMoonAnimator } from '@render/animateMoons.ts';
 import { createBodies } from '@render/bodies.ts';
 import { addDebugAxes } from '@render/debugAxes.ts';
 import { createLights } from '@render/lights.ts';
@@ -48,8 +49,10 @@ function mount(canvas: HTMLCanvasElement): App {
     clock.pause();
   }
   const animator = createBodyAnimator(bodies, bodyView.meshes);
+  const moonAnimator = createMoonAnimator(bodies, bodyView.meshes);
   const rotationAnimator = createRotationAnimator(bodies, bodyView.meshes);
   animator.update(clock.days);
+  moonAnimator.update(clock.days, clock.daysPerSecond);
   rotationAnimator.update(clock.days, clock.daysPerSecond);
   const debugAxes = isDebugEnabled(search)
     ? addDebugAxes(bodies, bodyView.meshes)
@@ -98,6 +101,7 @@ function mount(canvas: HTMLCanvasElement): App {
     update(dtSeconds) {
       clock.tick(dtSeconds);
       animator.update(clock.days);
+      moonAnimator.update(clock.days, clock.daysPerSecond);
       rotationAnimator.update(clock.days, clock.daysPerSecond);
     },
     render() {

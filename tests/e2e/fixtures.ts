@@ -5,11 +5,24 @@ export const DRAWN_BODY_IDS = [
   'mercury',
   'venus',
   'earth',
+  'moon',
   'mars',
   'jupiter',
+  'io',
+  'europa',
+  'ganymede',
+  'callisto',
   'saturn',
   'uranus',
   'neptune',
+] as const;
+
+export const MOON_IDS = [
+  'moon',
+  'io',
+  'europa',
+  'ganymede',
+  'callisto',
 ] as const;
 
 // Kepler position at t = 0 projected onto a 1280×720 frame. Constants, not a mesh readout.

@@ -36,11 +36,11 @@ f. The Sun: the rotation period is given for latitude 16°, and the axial tilt o
 
 ## Moons
 
-The Moon and the four Galilean moons of Jupiter were added from sources retrieved on 2026-09-30. For a moon, `orbit.semiMajorAxisAu` is the semi-major axis in kilometers, not AU. `rotation.periodHours` is the orbital period in days times 24 (synchronous rotation, always positive).
+The Moon and the four Galilean moons of Jupiter were added from sources retrieved on 2026-09-30. For a moon, the semi-major axis is `orbit.semiMajorAxisKm`, in kilometers; planets use `orbit.semiMajorAxisAu`. `rotation.periodHours` is the orbital period in days times 24 (synchronous rotation, always positive).
 
 ### Sources
 
-1. NASA/JPL Solar System Dynamics, "Planetary Satellite Mean Elements" (epoch 2000-01-01.5 TDB): <https://ssd.jpl.nasa.gov/sats/elem/>. It supplies the orbital elements `semiMajorAxisAu` (km), `eccentricity`, `argumentPeriapsisDeg`, `meanAnomalyAtEpochDeg`, `inclinationDeg`, `longitudeAscendingNodeDeg`, and `periodDays`.
+1. NASA/JPL Solar System Dynamics, "Planetary Satellite Mean Elements" (epoch 2000-01-01.5 TDB): <https://ssd.jpl.nasa.gov/sats/elem/>. It supplies the orbital elements `semiMajorAxisKm`, `eccentricity`, `argumentPeriapsisDeg`, `meanAnomalyAtEpochDeg`, `inclinationDeg`, `longitudeAscendingNodeDeg`, and `periodDays`.
 2. NASA NSSDCA Moon Fact Sheet: <https://nssdc.gsfc.nasa.gov/planetary/factsheet/moonfact.html> and Jovian Satellite Fact Sheet: <https://nssdc.gsfc.nasa.gov/planetary/factsheet/joviansatfact.html>. They supply `radiusKm` (mean radius) and `mass` (in 10^24 kg). The Moon's `rotation.axialTiltDeg` is NASA's "Obliquity to orbit" (6.68°).
 
 ### Uncertainties

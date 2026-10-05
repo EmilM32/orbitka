@@ -4,7 +4,8 @@ import { getBody } from '@data/bodies.ts';
 import { distanceToScene, radiusToScene } from '@sim/scale.ts';
 
 function semiMajorAxisAu(id: string): number {
-  const axis = getBody(id).orbit?.semiMajorAxisAu;
+  const body = getBody(id);
+  const axis = body.type === 'moon' ? undefined : body.orbit?.semiMajorAxisAu;
   expect(axis, `${id} orbit is missing`).toBeDefined();
   if (axis === undefined) {
     throw new Error(`${id} orbit is missing`);

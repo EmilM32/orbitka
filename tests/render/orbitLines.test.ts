@@ -130,7 +130,8 @@ function copyAs(
     parentId: type === 'moon' ? 'earth' : null,
     orbit,
     contentKey: id,
-  };
+    // Any type with Earth's orbit: the tests check which types get a line.
+  } as BodyDef;
 }
 
 test('orbitLines › constants', () => {
@@ -349,9 +350,12 @@ test('createOrbitLines › no planets', () => {
 
 test('computeOrbitPoints › RangeError propagates', () => {
   const earth = getBody('earth');
+  if (earth.type === 'moon' || earth.orbit === undefined) {
+    throw new Error('Earth has no orbit');
+  }
   const broken: BodyDef = {
     ...earth,
-    orbit: { ...requireOrbit(earth), eccentricity: Number.NaN },
+    orbit: { ...earth.orbit, eccentricity: Number.NaN },
   };
 
   expect(() => computeOrbitPoints(broken)).toThrow(RangeError);

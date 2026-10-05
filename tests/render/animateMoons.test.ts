@@ -63,6 +63,13 @@ function requireOrbit(def: BodyDef): NonNullable<BodyDef['orbit']> {
   return def.orbit;
 }
 
+function moonAxisKm(def: BodyDef): number {
+  if (def.type !== 'moon' || def.orbit === undefined) {
+    throw new Error(`missing moon orbit ${def.id}`);
+  }
+  return def.orbit.semiMajorAxisKm;
+}
+
 function angularDistance(left: number, right: number): number {
   const turns = (left - right) / TWO_PI;
   let fraction = turns - Math.floor(turns);
@@ -221,7 +228,7 @@ test('animateMoons › no overlap', () => {
       parentId,
       group,
       radii: moonRadiiToScene(
-        group.map((moon) => requireOrbit(moon).semiMajorAxisAu),
+        group.map((moon) => moonAxisKm(moon)),
         group.map((moon) => requireOrbit(moon).eccentricity),
         group.map((moon) => moon.radiusKm),
         parent.radiusKm,

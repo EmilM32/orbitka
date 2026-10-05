@@ -45,10 +45,10 @@ test('camera › multiplier', () => {
 
 test('camera › Neptune visibility', () => {
   const neptune = getBody('neptune');
-  const orbit = neptune.orbit;
-  if (orbit === undefined) {
+  if (neptune.type === 'moon' || neptune.orbit === undefined) {
     throw new Error('Neptune has no orbit');
   }
+  const orbit = neptune.orbit;
 
   const orbitRadius = distanceToScene(orbit.semiMajorAxisAu);
   const wide = createCamera(16 / 9);

@@ -1,7 +1,6 @@
 export type BodyType = 'star' | 'planet' | 'dwarf' | 'moon' | 'belt';
 
-export interface OrbitDef {
-  semiMajorAxisAu: number; // AU; for moons (type 'moon') in km. Field name follows ADR-003
+interface OrbitElements {
   eccentricity: number;
   inclinationDeg: number; // relative to the J2000 ecliptic (planets)
   longitudeAscendingNodeDeg: number; // Ω
@@ -10,6 +9,18 @@ export interface OrbitDef {
   epoch: 'J2000';
   periodDays: number;
 }
+
+// An orbit around the Sun (planet, dwarf planet, belt).
+export interface HelioOrbitDef extends OrbitElements {
+  semiMajorAxisAu: number;
+}
+
+// A moon's orbit around its parent planet. The axis is in kilometers.
+export interface MoonOrbitDef extends OrbitElements {
+  semiMajorAxisKm: number;
+}
+
+export type OrbitDef = HelioOrbitDef | MoonOrbitDef;
 
 export interface RotationDef {
   periodHours: number;
@@ -22,18 +33,28 @@ export interface VisualDef {
   color: string;
 }
 
-export interface BodyDef {
+interface BodyBase {
   id: string;
   name: string;
-  type: BodyType;
   parentId: string | null;
   radiusKm: number;
   mass?: number; // 10^24 kg
-  orbit?: OrbitDef;
   rotation: RotationDef;
   visual: VisualDef;
   contentKey: string;
 }
+
+export interface MoonDef extends BodyBase {
+  type: 'moon';
+  orbit?: MoonOrbitDef;
+}
+
+export interface HelioBodyDef extends BodyBase {
+  type: Exclude<BodyType, 'moon'>;
+  orbit?: HelioOrbitDef;
+}
+
+export type BodyDef = MoonDef | HelioBodyDef;
 
 export type ValidationResult =
   { ok: true; bodies: BodyDef[] } | { ok: false; errors: string[] };

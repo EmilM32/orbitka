@@ -158,7 +158,12 @@ test('rotateBodies › RangeError / missing mesh', () => {
 
   const skippedTypes: BodyType[] = ['moon', 'dwarf', 'belt'];
   for (const type of skippedTypes) {
-    const def: BodyDef = { ...getBody('earth'), id: `skipped-${type}`, type };
+    // Earth's data under another type: only the type decides the skip.
+    const def = {
+      ...getBody('earth'),
+      id: `skipped-${type}`,
+      type,
+    } as BodyDef;
     const mesh = makeMesh(def.id);
     const skipped = new Map([[def.id, mesh]]);
     createRotationAnimator([def], skipped).update(10, 1);

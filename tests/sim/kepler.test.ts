@@ -1,7 +1,13 @@
 import { expect, test } from 'vitest';
 
 import { getBody } from '@data/bodies.ts';
-import type { BodyDef, BodyType, OrbitDef } from '@data/types.ts';
+import type {
+  BodyDef,
+  BodyType,
+  HelioOrbitDef,
+  MoonOrbitDef,
+  OrbitDef,
+} from '@data/types.ts';
 import { bodyPositionAu, solveKepler } from '@sim/kepler.ts';
 
 const PLANETS = [
@@ -48,7 +54,7 @@ const EXTRA_POINTS = [
 
 const ECCENTRICITIES = [0, 0.2, 0.5, 0.9, 0.99, 0.999] as const;
 
-function orbit(overrides: Partial<OrbitDef> = {}): OrbitDef {
+function orbit(overrides: Partial<HelioOrbitDef> = {}): HelioOrbitDef {
   return {
     semiMajorAxisAu: 1,
     eccentricity: 0,
@@ -77,7 +83,13 @@ function body(
     visual: { texture: null, color: '#ffffff' },
     contentKey: id,
     orbit: bodyOrbit,
-  };
+    // Any type with any orbit: some tests build invalid bodies on purpose.
+  } as BodyDef;
+}
+
+function moonOrbit(overrides: Partial<MoonOrbitDef> = {}): MoonOrbitDef {
+  const { semiMajorAxisAu, ...elements } = orbit();
+  return { ...elements, semiMajorAxisKm: semiMajorAxisAu, ...overrides };
 }
 
 function position(
@@ -223,10 +235,10 @@ test('bodyPositionAu › distance within bounds', () => {
 
   for (const id of PLANETS) {
     const def = getBody(id);
-    const orbitDef = def.orbit;
-    if (orbitDef === undefined) {
+    if (def.type === 'moon' || def.orbit === undefined) {
       throw new Error(`missing orbit: ${id}`);
     }
+    const orbitDef = def.orbit;
 
     const perihelion = orbitDef.semiMajorAxisAu * (1 - orbitDef.eccentricity);
     const aphelion = orbitDef.semiMajorAxisAu * (1 + orbitDef.eccentricity);
@@ -263,10 +275,10 @@ test.each(EXTRA_POINTS)(
 
 test('bodyPositionAu › Mercury perihelion and aphelion', () => {
   const mercury = getBody('mercury');
-  const mercuryOrbit = mercury.orbit;
-  if (mercuryOrbit === undefined) {
+  if (mercury.type === 'moon' || mercury.orbit === undefined) {
     throw new Error('Mercury has no orbit');
   }
+  const mercuryOrbit = mercury.orbit;
 
   const perihelion = position(
     {
@@ -336,8 +348,8 @@ test('bodyPositionAu › moon', () => {
   const moon = body(
     'moon',
     'moon',
-    orbit({
-      semiMajorAxisAu: 384_400,
+    moonOrbit({
+      semiMajorAxisKm: 384_400,
       eccentricity: 0.0549,
       periodDays: 27.3217,
     }),
@@ -351,6 +363,21 @@ test('bodyPositionAu › moon', () => {
   expect(
     Math.abs(Math.hypot(far.x, far.y, far.z) - 405_503.6),
   ).toBeLessThanOrEqual(0.1);
+});
+
+test.each([
+  ['zero', moonOrbit({ semiMajorAxisKm: 0 }), 'got 0'],
+  ['NaN', moonOrbit({ semiMajorAxisKm: Number.NaN }), 'got NaN'],
+  // The AU field on a moon is ignored, so the km field reads as missing.
+  ['AU field only', orbit({ semiMajorAxisAu: 384_400 }), 'got NaN'],
+] as const)('bodyPositionAu › moon axis %s', (_name, moonAxis, got) => {
+  const moon = body('moon', 'moon', moonAxis);
+  const call = () => position(moon, 0);
+
+  expect(call).toThrow(RangeError);
+  expect(call).toThrow(
+    `bodyPositionAu: parameter "orbit.semiMajorAxisKm" of body "moon" must be finite and > 0, ${got}`,
+  );
 });
 
 test('bodyPositionAu › negative days', () => {
@@ -388,10 +415,10 @@ test.each([
   'bodyPositionAu › RangeError %s = %s',
   (field, value, orbitPatch) => {
     const earth = getBody('earth');
-    const earthOrbit = earth.orbit;
-    if (earthOrbit === undefined) {
+    if (earth.type === 'moon' || earth.orbit === undefined) {
       throw new Error('Earth has no orbit');
     }
+    const earthOrbit = earth.orbit;
 
     const call = () =>
       bodyPositionAu(

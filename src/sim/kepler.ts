@@ -1,4 +1,9 @@
-import type { BodyDef, OrbitDef } from '@data/types.ts';
+import type {
+  BodyDef,
+  HelioOrbitDef,
+  MoonOrbitDef,
+  OrbitDef,
+} from '@data/types.ts';
 
 import type { Vec3 } from './scale.ts';
 
@@ -111,7 +116,7 @@ function requireDays(def: BodyDef, daysSinceJ2000: number): void {
 
 function requireOrbitNumber(
   def: BodyDef,
-  field: keyof OrbitDef,
+  field: keyof HelioOrbitDef | keyof MoonOrbitDef,
   value: number,
   requirement: string,
   valid: boolean,
@@ -127,9 +132,10 @@ function requireOrbitNumber(
 
 /**
  * Position of a body on a Keplerian orbit.
- * Planets, dwarf planets, and belts: result in AU relative to the Sun.
- * A moon (`type === 'moon'`): `semiMajorAxisAu` is in kilometers,
- * and the result is in kilometers relative to the parent body (no unit conversion).
+ * Planets, dwarf planets, and belts: `orbit.semiMajorAxisAu`, result in AU
+ * relative to the Sun.
+ * A moon (`type === 'moon'`): `orbit.semiMajorAxisKm`, result in kilometers
+ * relative to the parent body (no unit conversion).
  * Writes the result into `out`.
  */
 export function bodyPositionAu(
@@ -160,12 +166,18 @@ export function bodyPositionAu(
     'must be finite and > 0',
     Number.isFinite(orbit.periodDays) && orbit.periodDays > 0,
   );
+  const axisField = def.type === 'moon' ? 'semiMajorAxisKm' : 'semiMajorAxisAu';
+  // A missing axis field reads as NaN, so the check below names it.
+  const semiMajor =
+    (def.type === 'moon'
+      ? def.orbit?.semiMajorAxisKm
+      : def.orbit?.semiMajorAxisAu) ?? Number.NaN;
   requireOrbitNumber(
     def,
-    'semiMajorAxisAu',
-    orbit.semiMajorAxisAu,
+    axisField,
+    semiMajor,
     'must be finite and > 0',
-    Number.isFinite(orbit.semiMajorAxisAu) && orbit.semiMajorAxisAu > 0,
+    Number.isFinite(semiMajor) && semiMajor > 0,
   );
 
   const angles = [
@@ -200,7 +212,6 @@ export function bodyPositionAu(
   const cosE = Math.cos(eccentricAnomaly);
   const sinE = Math.sin(eccentricAnomaly);
   const eccentricity = orbit.eccentricity;
-  const semiMajor = orbit.semiMajorAxisAu;
   const xPrime = semiMajor * (cosE - eccentricity);
   const yPrime = semiMajor * Math.sqrt(1 - eccentricity * eccentricity) * sinE;
 

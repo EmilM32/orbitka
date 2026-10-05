@@ -406,12 +406,12 @@ type MoonSample = {
 function jupiterMoons(): MoonSample[] {
   return ['io', 'europa', 'ganymede', 'callisto'].map((id) => {
     const body = getBody(id);
-    const orbit = body.orbit;
-    if (orbit === undefined) {
-      throw new Error(`missing orbit: ${id}`);
+    if (body.type !== 'moon' || body.orbit === undefined) {
+      throw new Error(`missing moon orbit: ${id}`);
     }
+    const orbit = body.orbit;
     return {
-      axisKm: orbit.semiMajorAxisAu,
+      axisKm: orbit.semiMajorAxisKm,
       eccentricity: orbit.eccentricity,
       radiusKm: body.radiusKm,
     };
@@ -633,14 +633,14 @@ test('moonRadiiToScene › property', () => {
 
 test('moonRadiiToScene › edges and errors', () => {
   const moon = getBody('moon');
-  const orbit = moon.orbit;
-  if (orbit === undefined) {
+  if (moon.type !== 'moon' || moon.orbit === undefined) {
     throw new Error('missing Moon orbit');
   }
+  const orbit = moon.orbit;
 
   expect(
     moonRadiiToScene(
-      [orbit.semiMajorAxisAu],
+      [orbit.semiMajorAxisKm],
       [orbit.eccentricity],
       [moon.radiusKm],
       EARTH_RADIUS_KM,

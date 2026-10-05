@@ -64,7 +64,9 @@ test('bodies › moon meshes', () => {
   for (const [parentId, moons] of parents) {
     const parent = getBody(parentId);
     const radii = moonRadiiToScene(
-      moons.map((moon) => moon.orbit?.semiMajorAxisAu ?? 0),
+      moons.map((moon) =>
+        moon.type === 'moon' ? (moon.orbit?.semiMajorAxisKm ?? 0) : 0,
+      ),
       moons.map((moon) => moon.orbit?.eccentricity ?? 0),
       moons.map((moon) => moon.radiusKm),
       parent.radiusKm,

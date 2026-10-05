@@ -13,8 +13,9 @@ const BODY_TYPES: readonly BodyType[] = [
   'belt',
 ];
 const ID_PATTERN = /^[a-z0-9-]+$/;
-// Moons store the semi-major axis in kilometers. Every other orbit uses AU.
-// Neptune is about 30 AU and the Moon is about 384400 km, so 1000 separates them.
+// A moon's axis is orbit.semiMajorAxisKm, every other orbit uses
+// orbit.semiMajorAxisAu. A value in the wrong unit still lands on the wrong
+// side of 1000: Neptune is about 30 AU and the Moon is about 384400 km.
 const MOON_AXIS_MIN_KM = 1000;
 const COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 
@@ -150,7 +151,12 @@ function isValidBody(
     raw.type === 'star' || raw.type === 'belt',
   );
   if (orbit) {
-    check.field(orbit, 'orbit.', 'semiMajorAxisAu', positive);
+    check.field(
+      orbit,
+      'orbit.',
+      raw.type === 'moon' ? 'semiMajorAxisKm' : 'semiMajorAxisAu',
+      positive,
+    );
     check.field(orbit, 'orbit.', 'eccentricity', eccentricity);
     check.field(orbit, 'orbit.', 'inclinationDeg', anyNumber);
     check.field(orbit, 'orbit.', 'longitudeAscendingNodeDeg', anyNumber);
@@ -238,19 +244,30 @@ function checkAxisUnit(
   orbit: Fields,
   errors: string[],
 ): void {
-  if (!isFiniteNumber(orbit.semiMajorAxisAu)) {
+  if (raw.type === 'moon') {
+    if ('semiMajorAxisAu' in orbit) {
+      errors.push(
+        `${label}: field orbit.semiMajorAxisAu is not allowed for a moon, use orbit.semiMajorAxisKm`,
+      );
+    }
+    const axis = orbit.semiMajorAxisKm;
+    if (isFiniteNumber(axis) && axis < MOON_AXIS_MIN_KM) {
+      errors.push(
+        `${label}: field orbit.semiMajorAxisKm must be >= ${MOON_AXIS_MIN_KM} (km), got ${axis}`,
+      );
+    }
     return;
   }
 
-  const axis = orbit.semiMajorAxisAu;
-  if (raw.type === 'moon' && axis < MOON_AXIS_MIN_KM) {
+  if ('semiMajorAxisKm' in orbit) {
     errors.push(
-      `${label}: field orbit.semiMajorAxisAu must be >= ${MOON_AXIS_MIN_KM} (km for a moon), got ${axis}`,
+      `${label}: field orbit.semiMajorAxisKm is allowed only for a moon, use orbit.semiMajorAxisAu`,
     );
   }
-  if (raw.type !== 'moon' && axis >= MOON_AXIS_MIN_KM) {
+  const axis = orbit.semiMajorAxisAu;
+  if (isFiniteNumber(axis) && axis >= MOON_AXIS_MIN_KM) {
     errors.push(
-      `${label}: field orbit.semiMajorAxisAu must be < ${MOON_AXIS_MIN_KM} (AU for a body that is not a moon), got ${axis}`,
+      `${label}: field orbit.semiMajorAxisAu must be < ${MOON_AXIS_MIN_KM} (AU), got ${axis}`,
     );
   }
 }

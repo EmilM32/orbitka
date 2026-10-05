@@ -261,17 +261,54 @@ test('validate › moons › a missing planet parent names the field', () => {
   ]);
 });
 
+test('validate › moon semiMajorAxisKm', () => {
+  const list = entries();
+  const moonOrbit = group(find(list, 'moon'), 'orbit');
+  expect(moonOrbit.semiMajorAxisKm).toBe(384400);
+  expect(moonOrbit).not.toHaveProperty('semiMajorAxisAu');
+  expect(validateBodies(list).ok).toBe(true);
+
+  const missing = entries();
+  delete group(find(missing, 'moon'), 'orbit').semiMajorAxisKm;
+  expect(errorsOf(missing)).toEqual([
+    'moon: missing field orbit.semiMajorAxisKm',
+  ]);
+
+  for (const value of [0, -1, Number.NaN]) {
+    const broken = entries();
+    group(find(broken, 'moon'), 'orbit').semiMajorAxisKm = value;
+    expect(errorsOf(broken)[0]).toMatch(/^moon: field orbit\.semiMajorAxisKm /);
+  }
+});
+
+test('validate › moons › each axis field belongs to its body type', () => {
+  const moonWithAu = entries();
+  const moonOrbit = group(find(moonWithAu, 'moon'), 'orbit');
+  moonOrbit.semiMajorAxisAu = moonOrbit.semiMajorAxisKm;
+  delete moonOrbit.semiMajorAxisKm;
+  expect(errorsOf(moonWithAu)).toEqual([
+    'moon: missing field orbit.semiMajorAxisKm',
+    'moon: field orbit.semiMajorAxisAu is not allowed for a moon, use orbit.semiMajorAxisKm',
+  ]);
+
+  const planetWithKm = entries();
+  group(find(planetWithKm, 'neptune'), 'orbit').semiMajorAxisKm = 4_500_000_000;
+  expect(errorsOf(planetWithKm)).toEqual([
+    'neptune: field orbit.semiMajorAxisKm is allowed only for a moon, use orbit.semiMajorAxisAu',
+  ]);
+});
+
 test('validate › moons › axis units stay on their own side of 1000', () => {
   const moonList = entries();
-  group(find(moonList, 'moon'), 'orbit').semiMajorAxisAu = 0.00257;
+  group(find(moonList, 'moon'), 'orbit').semiMajorAxisKm = 0.00257;
   expect(errorsOf(moonList)).toEqual([
-    'moon: field orbit.semiMajorAxisAu must be >= 1000 (km for a moon), got 0.00257',
+    'moon: field orbit.semiMajorAxisKm must be >= 1000 (km), got 0.00257',
   ]);
 
   const planetList = entries();
   group(find(planetList, 'neptune'), 'orbit').semiMajorAxisAu = 1500;
   expect(errorsOf(planetList)).toEqual([
-    'neptune: field orbit.semiMajorAxisAu must be < 1000 (AU for a body that is not a moon), got 1500',
+    'neptune: field orbit.semiMajorAxisAu must be < 1000 (AU), got 1500',
   ]);
 });
 

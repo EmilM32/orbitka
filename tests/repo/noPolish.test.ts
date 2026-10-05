@@ -8,13 +8,15 @@ const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const SRC = join(ROOT, 'src');
 const LOCALES = `content${sep}locales`;
 const POLISH_LETTERS = /[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/u;
+// Files outside src that hold code or markup.
+const ROOT_FILES = ['index.html'];
 
 function containsPolish(text: string): boolean {
   return POLISH_LETTERS.test(text);
 }
 
 function isScanned(fromSrc: string): boolean {
-  if (fromSrc.endsWith('.ts')) {
+  if (fromSrc.endsWith('.ts') || fromSrc.endsWith('.css')) {
     return true;
   }
 
@@ -44,17 +46,16 @@ function sourceFiles(): string[] {
   }
 
   walk(SRC);
-  return found;
+  return [...found, ...ROOT_FILES.map((file) => join(ROOT, file))];
 }
 
-function polishHits(): string[] {
-  const hits: string[] = [];
-  for (const file of sourceFiles()) {
-    if (containsPolish(readFileSync(file, 'utf8'))) {
-      hits.push(relative(ROOT, file));
-    }
-  }
-  return hits;
+function polishHits(
+  files: readonly string[],
+  read: (file: string) => string,
+): string[] {
+  return files
+    .filter((file) => containsPolish(read(file)))
+    .map((file) => relative(ROOT, file).split(sep).join('/'));
 }
 
 test('repo › polish letter detector', () => {
@@ -62,6 +63,33 @@ test('repo › polish letter detector', () => {
   expect(containsPolish('const label = "Pause";')).toBe(false);
 });
 
+test('repo › scans code, stylesheets, data, and index.html', () => {
+  const scanned = sourceFiles().map((file) =>
+    relative(ROOT, file).split(sep).join('/'),
+  );
+
+  expect(scanned).toContain('index.html');
+  expect(scanned).toContain('src/main.ts');
+  expect(scanned).toContain('src/style.css');
+  expect(scanned).toContain('src/ui/scaleNotice.css');
+  expect(scanned).toContain('src/data/bodies.json');
+  expect(scanned).not.toContain('src/content/locales/pl.json');
+});
+
+test('repo › Polish in a stylesheet or index.html is reported', () => {
+  const texts = new Map([
+    [join(ROOT, 'src/ui/x.css'), '.badge::after { content: "Zamknij ą"; }'],
+    [join(ROOT, 'index.html'), '<title>Układ Słoneczny</title>'],
+    [join(ROOT, 'src/ui/y.css'), '.badge { color: red; }'],
+  ]);
+
+  expect(
+    polishHits([...texts.keys()], (file) => texts.get(file) ?? ''),
+  ).toEqual(['src/ui/x.css', 'index.html']);
+});
+
 test('repo › no Polish in code', () => {
-  expect(polishHits()).toEqual([]);
+  expect(
+    polishHits(sourceFiles(), (file) => readFileSync(file, 'utf8')),
+  ).toEqual([]);
 });

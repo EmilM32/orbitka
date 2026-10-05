@@ -143,7 +143,12 @@ function isValidBody(
   check.field(raw, '', 'mass', positive, true);
   check.field(raw, '', 'contentKey', text);
 
-  const orbit = check.group(raw, 'orbit', raw.type === 'star');
+  // A star and a belt may have no orbit: the solver puts them at (0, 0, 0).
+  const orbit = check.group(
+    raw,
+    'orbit',
+    raw.type === 'star' || raw.type === 'belt',
+  );
   if (orbit) {
     check.field(orbit, 'orbit.', 'semiMajorAxisAu', positive);
     check.field(orbit, 'orbit.', 'eccentricity', eccentricity);

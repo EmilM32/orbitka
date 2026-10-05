@@ -139,6 +139,52 @@ test('requires an orbit for every body that is not a star', () => {
   expect(errorsOf(list)).toEqual(['earth: missing field orbit']);
 });
 
+function beltEntry(list: Entry[]): Entry {
+  const belt = structuredClone(find(list, 'mars'));
+  belt.id = 'asteroid-belt';
+  belt.name = 'Asteroid belt';
+  belt.type = 'belt';
+  belt.contentKey = 'asteroid-belt';
+  return belt;
+}
+
+test('validate › belt without orbit', () => {
+  const withoutOrbit = entries();
+  const belt = beltEntry(withoutOrbit);
+  delete belt.orbit;
+  withoutOrbit.push(belt);
+  const result = validateBodies(withoutOrbit);
+  expect(result.ok).toBe(true);
+  expect(
+    result.ok && result.bodies.find((body) => body.id === 'asteroid-belt'),
+  ).toMatchObject({ type: 'belt' });
+
+  const withOrbit = entries();
+  withOrbit.push(beltEntry(withOrbit));
+  expect(validateBodies(withOrbit).ok).toBe(true);
+
+  const brokenOrbit = entries();
+  const brokenBelt = beltEntry(brokenOrbit);
+  group(brokenBelt, 'orbit').eccentricity = 1;
+  brokenOrbit.push(brokenBelt);
+  expect(errorsOf(brokenOrbit)).toEqual([
+    'asteroid-belt: field orbit.eccentricity must be in the range [0, 1)',
+  ]);
+});
+
+test.each([
+  ['planet', 'earth'],
+  ['dwarf', 'mars'],
+  ['moon', 'moon'],
+])('validate › orbit required for a %s', (type, id) => {
+  const list = entries();
+  const body = find(list, id);
+  body.type = type;
+  delete body.orbit;
+
+  expect(errorsOf(list)).toEqual([`${id}: missing field orbit`]);
+});
+
 test('reports every broken field of one body', () => {
   const list = entries();
   const saturn = find(list, 'saturn');

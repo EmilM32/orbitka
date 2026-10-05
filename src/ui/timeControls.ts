@@ -1,3 +1,5 @@
+import './timeControls.css';
+
 import {
   DAYS_LIMIT,
   daysToUtcDate,

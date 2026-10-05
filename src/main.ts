@@ -1,6 +1,4 @@
 import './style.css';
-import './ui/scaleNotice.css';
-import './ui/timeControls.css';
 
 import pl from '@content/locales/pl.json' with { type: 'json' };
 import { createClock, daysFromDate } from '@core/clock.ts';

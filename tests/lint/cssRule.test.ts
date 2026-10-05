@@ -19,7 +19,7 @@ async function stylesheetErrors(filePath: string, code: string) {
   return result.messages.filter((message) => message.ruleId === RULE_ID);
 }
 
-test('eslintCssRule › odrzuca .css poza src/ui', async () => {
+test('eslintCssRule › rejects .css outside src/ui', async () => {
   for (const filePath of [
     'src/render/x.css',
     'src/sim/x.css',
@@ -54,4 +54,24 @@ test('eslintCssRule › odrzuca .css poza src/ui', async () => {
       `import './debugOverlay.css';\n`,
     ),
   ).toEqual([]);
+});
+
+test('eslintCssRule › a UI stylesheet is imported by its own module', async () => {
+  const owner = await stylesheetErrors(
+    'src/ui/scaleNotice.ts',
+    `import './scaleNotice.css';\n`,
+  );
+  expect(owner).toEqual([]);
+
+  for (const [filePath, code] of [
+    ['src/main.ts', `import './ui/scaleNotice.css';\n`],
+    ['src/ui/scaleNotice.ts', `import './timeControls.css';\n`],
+    ['src/ui/panels/x.ts', `import '../x.css';\n`],
+  ] as const) {
+    const errors = await stylesheetErrors(filePath, code);
+    expect(errors, `${filePath}: ${code}`).toHaveLength(1);
+    expect(errors[0]?.message).toBe(
+      'A UI stylesheet is imported only by the module of the same name: src/ui/x.ts imports ./x.css.',
+    );
+  }
 });

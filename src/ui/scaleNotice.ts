@@ -1,3 +1,5 @@
+import './scaleNotice.css';
+
 import { type Dictionary, type I18n } from './i18n.ts';
 
 type AppI18n = I18n<Dictionary>;

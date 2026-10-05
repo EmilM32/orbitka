@@ -40,7 +40,7 @@ function pressEscape(target: HTMLElement): void {
   );
 }
 
-test('scaleNotice › znaczek', () => {
+test('scaleNotice › badge', () => {
   const view = setup();
 
   expect(view.parent.querySelector('#scale-badge')?.textContent).toBe(
@@ -59,7 +59,7 @@ test('scaleNotice › znaczek', () => {
   view.parent.remove();
 });
 
-test('scaleNotice › domyślnie zwinięty', () => {
+test('scaleNotice › collapsed by default', () => {
   const view = setup();
 
   expect(view.panel.hidden).toBe(true);
@@ -74,7 +74,7 @@ test('scaleNotice › domyślnie zwinięty', () => {
   view.parent.remove();
 });
 
-test('scaleNotice › otwarcie', () => {
+test('scaleNotice › opening', () => {
   const view = setup();
 
   view.why.click();
@@ -93,7 +93,7 @@ test('scaleNotice › otwarcie', () => {
   view.parent.remove();
 });
 
-test('scaleNotice › kolejność fokusu', () => {
+test('scaleNotice › focus order', () => {
   const view = setup();
   view.why.click();
 
@@ -110,7 +110,7 @@ test('scaleNotice › kolejność fokusu', () => {
   view.parent.remove();
 });
 
-test('scaleNotice › zamknięcie', () => {
+test('scaleNotice › closing', () => {
   const view = setup();
 
   view.why.click();
@@ -143,7 +143,7 @@ test('scaleNotice › zamknięcie', () => {
   view.parent.remove();
 });
 
-test('scaleNotice › Escape ograniczony', () => {
+test('scaleNotice › Escape is scoped to the notice', () => {
   const view = setup();
 
   view.why.focus();
@@ -165,7 +165,7 @@ test('scaleNotice › Escape ograniczony', () => {
   view.parent.remove();
 });
 
-test('scaleNotice › podwójny klik', () => {
+test('scaleNotice › double click', () => {
   const view = setup();
 
   view.why.click();
@@ -220,7 +220,7 @@ test('scaleNotice › dispose', () => {
   view.parent.remove();
 });
 
-test('scaleNotice › bez innerHTML', () => {
+test('scaleNotice › no innerHTML', () => {
   const source = readFileSync('src/ui/scaleNotice.ts', 'utf8');
   expect(source.includes('innerHTML')).toBe(false);
 

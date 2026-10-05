@@ -7,7 +7,7 @@ import {
   type Object3D,
 } from 'three';
 
-import type { BodyDef } from '@data/types.ts';
+import type { BodyDef, MoonDef } from '@data/types.ts';
 import { moonRadiiToScene, radiusToScene } from '@sim/scale.ts';
 
 import { SPHERE_SEGMENTS, createSphere } from './sphereFactory.ts';
@@ -20,7 +20,7 @@ export type BodyMeshes = {
 
 function moonSceneRadii(defs: readonly BodyDef[]): Map<string, number> {
   const byId = new Map(defs.map((def) => [def.id, def]));
-  const byParent = new Map<string, BodyDef[]>();
+  const byParent = new Map<string, MoonDef[]>();
 
   for (const def of defs) {
     if (def.type !== 'moon') {
@@ -70,7 +70,7 @@ function moonSceneRadii(defs: readonly BodyDef[]): Map<string, number> {
           `createBodies: body "${moon.id}" of type moon has no orbit`,
         );
       }
-      axesKm.push(orbit.semiMajorAxisAu);
+      axesKm.push(orbit.semiMajorAxisKm);
       eccentricities.push(orbit.eccentricity);
       radiiKm.push(moon.radiusKm);
     }

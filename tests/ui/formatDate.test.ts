@@ -11,14 +11,14 @@ function dateUtc(year: number, month = 0, day = 1): Date {
   return date;
 }
 
-test('formatDate › daty', () => {
+test('formatDate › dates', () => {
   expect(formatDate(new Date(Date.UTC(2000, 0, 1)))).toBe('01.01.2000');
   expect(formatDate(new Date(Date.UTC(2026, 8, 30)))).toBe('30.09.2026');
   expect(formatDate(new Date(Date.UTC(2026, 2, 5)))).toBe('05.03.2026');
   expect(formatDate(dateUtc(999))).toBe('01.01.0999');
 });
 
-test('formatDate › lata graniczne', () => {
+test('formatDate › boundary years', () => {
   expect(formatDate(dateUtc(0))).toBe('01.01.0000');
   expect(formatDate(dateUtc(-1))).toBe('01.01.-0001');
   expect(formatDate(dateUtc(10001))).toBe('01.01.10001');
@@ -32,7 +32,7 @@ test('formatDate › Invalid Date', () => {
   expect(formatDate(new Date(Number.NaN))).toBe('—');
 });
 
-test('formatDateTimeAttr › zakres', () => {
+test('formatDateTimeAttr › range', () => {
   expect(formatDateTimeAttr(dateUtc(1))).toBe('0001-01-01');
   expect(formatDateTimeAttr(dateUtc(9999, 11, 31))).toBe('9999-12-31');
   expect(formatDateTimeAttr(dateUtc(0))).toBeNull();

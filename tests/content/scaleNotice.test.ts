@@ -12,7 +12,7 @@ const PARAGRAPHS = [
   'scaleNotice.paragraph5',
 ] as const;
 
-test('scaleNotice › teksty', () => {
+test('scaleNotice › texts', () => {
   expect(messages['scaleNotice.why']).toBe('Dlaczego?');
   expect(messages['scaleNotice.badge']).toBe(
     'Skala uproszczona: odległości i rozmiary nie są w proporcji',
@@ -49,7 +49,7 @@ test('scaleNotice › teksty', () => {
   expect(copy).not.toContain('są widać');
 });
 
-test('scaleNotice › kształt', () => {
+test('scaleNotice › shape', () => {
   for (const key of PARAGRAPHS) {
     expect(messages[key]).toEqual(expect.any(String));
     expect(messages[key]).not.toBe('');

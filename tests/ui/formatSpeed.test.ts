@@ -38,13 +38,13 @@ function gridSpeeds(): number[] {
   return speeds;
 }
 
-test('formatSpeed › przykłady', () => {
+test('formatSpeed › examples', () => {
   for (const [speed, text] of EXAMPLES) {
     expect(formatSpeed(speed, i18n)).toBe(text);
   }
 });
 
-test('formatSpeed › własność przedziałów', () => {
+test('formatSpeed › interval property', () => {
   for (const speed of gridSpeeds()) {
     expect(formatSpeed(speed, i18n)).toMatch(SPEED_TEXT);
   }
@@ -55,7 +55,7 @@ test('formatSpeed › własność przedziałów', () => {
   expect(formatSpeed(10_000, i18n)).toMatch(SPEED_TEXT);
 });
 
-test('formatSpeed › odmiana', () => {
+test('formatSpeed › plural forms', () => {
   expect(formatSpeed(1 * 365.25, i18n)).toBe('1 rok/s');
   expect(formatSpeed(2 * 365.25, i18n)).toBe('2 lata/s');
   expect(formatSpeed(3 * 365.25, i18n)).toBe('3 lata/s');
@@ -80,7 +80,7 @@ test('formatSpeed › RangeError', () => {
   }
 });
 
-test('formatSpeedSpoken › teksty', () => {
+test('formatSpeedSpoken › texts', () => {
   expect(formatSpeedSpoken(365.25, false, false, i18n)).toBe(
     'Prędkość: 1 rok na sekundę',
   );

@@ -81,7 +81,7 @@
     "radiusKm": 1737.4,
     "mass": 0.07346,
     "orbit": {
-      "semiMajorAxisAu": 384400,
+      "semiMajorAxisKm": 384400,
       "eccentricity": 0.0554,
       "inclinationDeg": 5.16,
       "longitudeAscendingNodeDeg": 125.08,
@@ -144,7 +144,7 @@
     "radiusKm": 1821.5,
     "mass": 0.08932,
     "orbit": {
-      "semiMajorAxisAu": 421800,
+      "semiMajorAxisKm": 421800,
       "eccentricity": 0.004,
       "inclinationDeg": 0,
       "longitudeAscendingNodeDeg": 0,
@@ -165,7 +165,7 @@
     "radiusKm": 1560.8,
     "mass": 0.048,
     "orbit": {
-      "semiMajorAxisAu": 671100,
+      "semiMajorAxisKm": 671100,
       "eccentricity": 0.009,
       "inclinationDeg": 0.5,
       "longitudeAscendingNodeDeg": 184,
@@ -186,7 +186,7 @@
     "radiusKm": 2631.2,
     "mass": 0.14819,
     "orbit": {
-      "semiMajorAxisAu": 1070400,
+      "semiMajorAxisKm": 1070400,
       "eccentricity": 0.001,
       "inclinationDeg": 0.2,
       "longitudeAscendingNodeDeg": 58.5,
@@ -207,7 +207,7 @@
     "radiusKm": 2410.3,
     "mass": 0.10759,
     "orbit": {
-      "semiMajorAxisAu": 1882700,
+      "semiMajorAxisKm": 1882700,
       "eccentricity": 0.007,
       "inclinationDeg": 0.3,
       "longitudeAscendingNodeDeg": 309.1,

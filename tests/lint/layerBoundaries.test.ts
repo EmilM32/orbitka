@@ -247,6 +247,11 @@ test.each([
     `import '../ui/x.css';\n`,
   ],
   [
+    'the entry module into a UI stylesheet',
+    'src/main.ts',
+    `import './ui/timeControls.css';\n`,
+  ],
+  [
     'an import type',
     'src/ui/x.ts',
     `export type X = import('../render/a.ts').A;\n`,
@@ -272,11 +277,6 @@ test.each([
   ],
   ['a nested child', 'src/render/x.ts', `import './materials/sun.ts';\n`],
   ['the entry module stylesheet', 'src/main.ts', `import './style.css';\n`],
-  [
-    'the entry module UI stylesheet',
-    'src/main.ts',
-    `import './ui/timeControls.css';\n`,
-  ],
   [
     'a template literal import',
     'src/sim/x.ts',
@@ -530,6 +530,17 @@ test.each([
   ],
 ])('requestAnimationFrame is rejected in %s', async (_kind, filePath, code) => {
   expect(await boundaryErrors(filePath, code)).toHaveLength(1);
+});
+
+test('requestAnimationFrame message points to the one loop', async () => {
+  const [error] = await boundaryErrors(
+    'src/core/x.ts',
+    'requestAnimationFrame(() => {});\n',
+  );
+
+  expect(error?.message).toBe(
+    "Unexpected use of 'requestAnimationFrame'. The app has one loop: createLoop in src/core/loop.ts, driven by renderer.setAnimationLoop in src/render/createRenderer.ts (ADR-005). Do not call requestAnimationFrame.",
+  );
 });
 
 test.each([

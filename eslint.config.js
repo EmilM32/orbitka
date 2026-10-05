@@ -158,20 +158,6 @@ const noRelativeOutsideLayer = {
         return;
       }
 
-      // The entry module owns the global stylesheet and pulls UI stylesheets
-      // in by relative path. TypeScript imports still go through aliases.
-      const importer = path
-        .relative(SRC_DIR, context.filename)
-        .split(path.sep)
-        .join('/');
-      if (
-        importer === 'main.ts' &&
-        specifier.endsWith('.css') &&
-        targetZone === 'ui'
-      ) {
-        return;
-      }
-
       context.report({
         node: source,
         messageId: 'outside',
@@ -271,7 +257,7 @@ const indexReexportsOnly = {
 };
 
 const rafMessage =
-  'The app has one loop, renderer.setAnimationLoop in src/main.ts (ADR-005). Do not call requestAnimationFrame.';
+  'The app has one loop: createLoop in src/core/loop.ts, driven by renderer.setAnimationLoop in src/render/createRenderer.ts (ADR-005). Do not call requestAnimationFrame.';
 
 const REPO_ROOT = import.meta.dirname;
 
@@ -337,6 +323,8 @@ const stylesheetLocation = {
       location:
         'Stylesheets are allowed only in src/ui/**/*.css and src/style.css.',
       entry: 'src/style.css may be imported only from src/main.ts.',
+      owner:
+        'A UI stylesheet is imported only by the module of the same name: src/ui/x.ts imports ./x.css.',
     },
   },
   create(context) {
@@ -353,8 +341,15 @@ const stylesheetLocation = {
         return;
       }
 
-      if (resolved === 'src/style.css' && importer !== 'src/main.ts') {
-        context.report({ node, messageId: 'entry' });
+      if (resolved === 'src/style.css') {
+        if (importer !== 'src/main.ts') {
+          context.report({ node, messageId: 'entry' });
+        }
+        return;
+      }
+
+      if (resolved !== importer.replace(/\.[cm]?[jt]sx?$/, '.css')) {
+        context.report({ node, messageId: 'owner' });
       }
     }
 

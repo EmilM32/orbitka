@@ -181,16 +181,6 @@ export function createClock(options: ClockOptions = {}): Clock {
     return now;
   };
 
-  const clampDt = (dtSeconds: number): number => {
-    if (dtSeconds === Number.POSITIVE_INFINITY) {
-      return maxDtSeconds;
-    }
-    if (!Number.isFinite(dtSeconds) || dtSeconds <= 0) {
-      return 0;
-    }
-    return Math.min(dtSeconds, maxDtSeconds);
-  };
-
   return {
     get days() {
       return days;
@@ -208,8 +198,14 @@ export function createClock(options: ClockOptions = {}): Clock {
       return signedRate();
     },
     tick(dtSeconds: number) {
+      if (!Number.isFinite(dtSeconds) || dtSeconds < 0) {
+        throw new RangeError(
+          `tick: parameter "dtSeconds" must be finite and >= 0, got ${dtSeconds}`,
+        );
+      }
+
       const now = readNow();
-      const dt = clampDt(dtSeconds);
+      const dt = Math.min(dtSeconds, maxDtSeconds);
       const rate = signedRate();
       let crossed = false;
 
@@ -243,8 +239,10 @@ export function createClock(options: ClockOptions = {}): Clock {
       notify();
     },
     setSpeed(daysPerSecond: number) {
-      if (Number.isNaN(daysPerSecond)) {
-        return;
+      if (!Number.isFinite(daysPerSecond)) {
+        throw new RangeError(
+          `setSpeed: parameter "daysPerSecond" must be finite, got ${daysPerSecond}`,
+        );
       }
 
       speed = Math.min(SPEED_MAX, Math.max(SPEED_MIN, Math.abs(daysPerSecond)));

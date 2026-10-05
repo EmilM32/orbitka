@@ -60,14 +60,39 @@ test('tick › clamp dt', () => {
   clock.applyPreset('ten-days');
   clock.tick(5);
   expect(clock.days).toBeCloseTo(1, 9);
+});
 
-  const held = clock.days;
-  clock.tick(-1);
-  clock.tick(Number.NaN);
-  expect(clock.days).toBeCloseTo(held, 12);
+test('tick › zero dt', () => {
+  const clock = createClock({ nowMs: () => 0 });
+  expect(() => clock.tick(0)).not.toThrow();
+  expect(clock.days).toBe(0);
+});
 
-  clock.tick(Number.POSITIVE_INFINITY);
-  expect(clock.days).toBeCloseTo(held + 1, 9);
+test.each([
+  Number.NaN,
+  -1,
+  -1e-9,
+  Number.POSITIVE_INFINITY,
+  Number.NEGATIVE_INFINITY,
+])('tick › RangeError for dtSeconds %s', (value) => {
+  let reads = 0;
+  const clock = createClock({
+    nowMs: () => {
+      reads += 1;
+      return 0;
+    },
+  });
+  let calls = 0;
+  clock.subscribe(() => {
+    calls += 1;
+  });
+
+  expect(() => clock.tick(value)).toThrow(RangeError);
+  expect(() => clock.tick(value)).toThrow('"dtSeconds"');
+  expect(() => clock.tick(value)).toThrow(String(value));
+  expect(clock.days).toBe(0);
+  expect(calls).toBe(1);
+  expect(reads).toBe(0);
 });
 
 test('reversed › rewind', () => {
@@ -117,24 +142,32 @@ test('setSpeed › clamp', () => {
   expect(clock.speed).toBe(SPEED_MIN);
   clock.setSpeed(1e9);
   expect(clock.speed).toBe(SPEED_MAX);
-  clock.setSpeed(Number.POSITIVE_INFINITY);
-  expect(clock.speed).toBe(SPEED_MAX);
   clock.setSpeed(-5);
   expect(clock.speed).toBe(5);
   expect(clock.reversed).toBe(true);
   expect(clock.paused).toBe(true);
-
-  let calls = 0;
-  clock.subscribe(() => {
-    calls += 1;
-  });
-  const afterSubscribe = calls;
-  clock.setSpeed(Number.NaN);
-  expect(clock.speed).toBe(5);
-  expect(clock.reversed).toBe(true);
-  expect(clock.paused).toBe(true);
-  expect(calls).toBe(afterSubscribe);
 });
+
+test.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
+  'setSpeed › RangeError for %s',
+  (value) => {
+    const clock = createClock({ speed: 5, nowMs: () => 0 });
+    clock.setReversed(true);
+    clock.pause();
+    let calls = 0;
+    clock.subscribe(() => {
+      calls += 1;
+    });
+
+    expect(() => clock.setSpeed(value)).toThrow(RangeError);
+    expect(() => clock.setSpeed(value)).toThrow('"daysPerSecond"');
+    expect(() => clock.setSpeed(value)).toThrow(String(value));
+    expect(clock.speed).toBe(5);
+    expect(clock.reversed).toBe(true);
+    expect(clock.paused).toBe(true);
+    expect(calls).toBe(1);
+  },
+);
 
 test('presetId › for presets', () => {
   let now = 0;

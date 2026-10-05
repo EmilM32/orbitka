@@ -31,6 +31,8 @@ export function addDebugAxes(
     }
 
     const helper = new AxesHelper(2 * radiusToScene(def.radiusKm));
+    // Counted apart from the draw-call budget (renderStats.ts).
+    helper.userData.debug = true;
     mesh.add(helper);
     helpers.push(helper);
   }

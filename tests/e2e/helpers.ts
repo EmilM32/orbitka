@@ -23,46 +23,63 @@ export async function assertWebGl(page: Page): Promise<void> {
   }
 }
 
-export async function waitForPaintedFrame(
+// Waits on the app's own frame counter (window.__orbitka.frameCount, only
+// with ?debug=1) until `frames` more frames have been rendered.
+export async function waitForFrames(page: Page, frames: number): Promise<void> {
+  const start = await page.evaluate(() => window.__orbitka?.frameCount ?? 0);
+  await page.waitForFunction(
+    (target) => (window.__orbitka?.frameCount ?? 0) >= target,
+    start + frames,
+  );
+}
+
+// For pages without the debug hook: waits for `frames` browser animation
+// frames. The app renders from renderer.setAnimationLoop, which runs on the
+// same frames.
+export async function waitForBrowserFrames(
+  page: Page,
+  frames: number,
+): Promise<void> {
+  await page.evaluate(
+    (count) =>
+      new Promise<void>((resolve) => {
+        let left = count;
+        const step = (): void => {
+          left -= 1;
+          if (left <= 0) {
+            resolve();
+            return;
+          }
+          requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      }),
+    frames,
+  );
+}
+
+// One pixel read after frames have been rendered. Not a wait: callers wait
+// with waitForFrames or waitForBrowserFrames first.
+export async function expectPaintedFrame(
   page: Page,
   cssWidth: number,
   cssHeight: number,
+  minFill: number,
 ): Promise<CanvasContrast> {
-  const frames: CanvasContrast[] = [];
-
-  await expect
-    .poll(
-      async () => {
-        const box = await page.locator('canvas').boundingBox();
-        if (box === null || box.width <= 0 || box.height <= 0) {
-          return 0;
-        }
-
-        const contrast = await readCanvasContrast(
-          page,
-          [],
-          box.width,
-          box.height,
-        );
-        frames.push(contrast);
-        return contrast.differentFraction;
-      },
-      { timeout: 10_000, intervals: [50, 100, 200, 400] },
-    )
-    .toBeGreaterThanOrEqual(0.0015);
-
-  const latest = frames.at(-1);
-  if (latest === undefined) {
-    throw new Error('no painted frame');
+  const box = await page.locator('canvas').boundingBox();
+  if (box === null || box.width <= 0 || box.height <= 0) {
+    throw new Error('canvas has no size');
   }
 
-  if (latest.width !== cssWidth || latest.height !== cssHeight) {
+  const frame = await readCanvasContrast(page, [], box.width, box.height);
+  if (frame.width !== cssWidth || frame.height !== cssHeight) {
     throw new Error(
-      `canvas is ${latest.width}×${latest.height}, expected ${cssWidth}×${cssHeight}`,
+      `canvas is ${frame.width}×${frame.height}, expected ${cssWidth}×${cssHeight}`,
     );
   }
 
-  return latest;
+  expect(frame.differentFraction).toBeGreaterThanOrEqual(minFill);
+  return frame;
 }
 
 export async function readCanvasContrast(

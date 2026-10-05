@@ -2,7 +2,7 @@ import './debugOverlay.css';
 
 export type DebugStats = {
   fps: number;
-  calls: number;
+  drawCalls: number;
   triangles: number;
 };
 
@@ -82,7 +82,7 @@ export function createDebugOverlay(parent: HTMLElement): DebugOverlay {
       }
 
       writeLine(fpsLine, 'FPS', stats.fps, true);
-      writeLine(callsLine, 'Draw calls', stats.calls, false);
+      writeLine(callsLine, 'Draw calls', stats.drawCalls, false);
       writeLine(trianglesLine, 'Triangles', stats.triangles, false);
     },
     dispose() {

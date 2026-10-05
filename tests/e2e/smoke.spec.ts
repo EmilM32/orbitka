@@ -6,7 +6,12 @@ import {
   MIN_FILL,
   VIEWPORT,
 } from './fixtures.ts';
-import { assertWebGl, waitForPaintedFrame } from './helpers.ts';
+import {
+  assertWebGl,
+  expectPaintedFrame,
+  waitForBrowserFrames,
+  waitForFrames,
+} from './helpers.ts';
 
 type ScreenPosition = {
   id: string;
@@ -37,7 +42,8 @@ async function waitForBodies(page: Page) {
     (count) => window.__orbitka?.getBodyScreenPositions().length === count,
     DRAWN_BODY_IDS.length,
   );
-  await waitForPaintedFrame(page, VIEWPORT.width, VIEWPORT.height);
+  await waitForFrames(page, 3);
+  await expectPaintedFrame(page, VIEWPORT.width, VIEWPORT.height, MIN_FILL);
 }
 
 test('no console errors', async ({ page }) => {
@@ -53,7 +59,8 @@ test('no console errors', async ({ page }) => {
 
   await openApp(page, '/');
   await page.locator('canvas').waitFor();
-  await page.waitForTimeout(2000);
+  // About a second of running loop at 60 FPS, counted in frames, not time.
+  await waitForBrowserFrames(page, 60);
   expect(errors).toEqual([]);
 });
 
@@ -69,14 +76,16 @@ test('canvas is not empty', async ({ page }) => {
   expect(box.width).toBe(VIEWPORT.width);
   expect(box.height).toBe(VIEWPORT.height);
 
-  const pixels = await waitForPaintedFrame(
+  // No debug hook on this page, so the wait counts browser frames.
+  await waitForBrowserFrames(page, 3);
+  const pixels = await expectPaintedFrame(
     page,
     VIEWPORT.width,
     VIEWPORT.height,
+    MIN_FILL,
   );
   expect(pixels.width).toBe(VIEWPORT.width);
   expect(pixels.height).toBe(VIEWPORT.height);
-  expect(pixels.differentFraction).toBeGreaterThanOrEqual(MIN_FILL);
 });
 
 test('Sun and planets', async ({ page }) => {
@@ -146,6 +155,47 @@ test('Sun and planets', async ({ page }) => {
   const box = await page.locator('canvas').boundingBox();
   expect(box?.width).toBe(VIEWPORT.width);
   expect(box?.height).toBe(VIEWPORT.height);
+});
+
+test('frame counter and render stats', async ({ page }) => {
+  await openApp(page, '/?debug=1&days=0&paused=1');
+  await waitForBodies(page);
+
+  const before = await page.evaluate(() => window.__orbitka?.frameCount);
+  expect(before).toBeGreaterThanOrEqual(3);
+  await waitForFrames(page, 5);
+  const after = await page.evaluate(() => window.__orbitka?.frameCount);
+  expect(after).toBeGreaterThanOrEqual((before ?? 0) + 5);
+
+  const stats = await page.evaluate(() => window.__orbitka?.getRenderStats());
+  expect(Object.keys(stats ?? {}).sort()).toEqual([
+    'debugDrawCalls',
+    'drawCalls',
+    'triangles',
+  ]);
+});
+
+test('DRAW_CALL_BUDGET', async ({ page }) => {
+  // DRAW_CALL_BUDGET from ADR-006 and ADR-009: one limit for the scene without
+  // debug objects. A literal on purpose, because e2e imports nothing from src.
+  const DRAW_CALL_BUDGET = 25;
+  const TRIANGLE_BUDGET = 60_000;
+
+  await openApp(page, '/?debug=1&days=0&paused=1');
+  await waitForBodies(page);
+  const stats = await page.evaluate(() => {
+    const hook = window.__orbitka;
+    if (!hook) {
+      throw new Error('missing debug hook');
+    }
+    return hook.getRenderStats();
+  });
+
+  expect(stats.drawCalls).toBeGreaterThan(0);
+  expect(stats.drawCalls).toBeLessThanOrEqual(DRAW_CALL_BUDGET);
+  // Debug axes are reported apart and have no limit.
+  expect(stats.debugDrawCalls).toBeGreaterThan(0);
+  expect(stats.triangles).toBeLessThanOrEqual(TRIANGLE_BUDGET);
 });
 
 test('hook only with debug', async ({ page }) => {

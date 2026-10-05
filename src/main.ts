@@ -16,7 +16,7 @@ import { createLights } from '@render/lights.ts';
 import { addOrbitLines } from '@render/orbitLines.ts';
 import { createRenderer } from '@render/createRenderer.ts';
 import { createRotationAnimator } from '@render/rotateBodies.ts';
-import { getRenderStats } from '@render/renderStats.ts';
+import { getRenderStats, trackDebugDrawCalls } from '@render/renderStats.ts';
 import { getBodyScreenPositions } from '@render/screenPositions.ts';
 import { createDebugSession } from '@ui/debugSession.ts';
 import { createI18n } from '@ui/i18n.ts';
@@ -56,22 +56,29 @@ function mount(canvas: HTMLCanvasElement): App {
   animator.update(clock.days);
   moonAnimator.update(clock.days, clock.daysPerSecond);
   rotationAnimator.update(clock.days, clock.daysPerSecond);
-  const debugAxes = isDebugEnabled(search)
-    ? addDebugAxes(bodies, bodyView.meshes)
-    : null;
+  const debug = isDebugEnabled(search);
+  const debugAxes = debug ? addDebugAxes(bodies, bodyView.meshes) : null;
+  const debugDraws = debug ? trackDebugDrawCalls(view.scene) : null;
   const i18n = createI18n(pl, 'pl-PL');
   const scaleNotice = createScaleNotice(document.body, i18n);
   const timeControls = createTimeControls(document.body, clock, i18n);
   const debugSession = createDebugSession(search, document.body);
   let lastUiMs = Number.NEGATIVE_INFINITY;
+  let frameCount = 0;
 
-  if (isDebugEnabled(search)) {
+  if (debug) {
     const screenEntries: {
       id: string;
       type: string;
       position: { x: number; y: number; z: number };
     }[] = [];
     window.__orbitka = {
+      get frameCount() {
+        return frameCount;
+      },
+      getRenderStats() {
+        return getRenderStats(view.renderer, debugDraws?.count ?? 0);
+      },
       getBodyScreenPositions() {
         const width = canvas.clientWidth;
         const height = canvas.clientHeight;
@@ -109,15 +116,19 @@ function mount(canvas: HTMLCanvasElement): App {
     },
     render() {
       view.syncPixelRatio();
+      debugDraws?.reset();
       view.renderer.render(view.scene, view.camera);
       if (debugSession === null) {
         return;
       }
 
+      frameCount += 1;
       const nowMs = performance.now();
       debugSession.tick(nowMs);
       if (nowMs - lastUiMs >= 100) {
-        debugSession.update(getRenderStats(view.renderer));
+        debugSession.update(
+          getRenderStats(view.renderer, debugDraws?.count ?? 0),
+        );
         lastUiMs = nowMs;
       }
     },
@@ -147,6 +158,7 @@ function mount(canvas: HTMLCanvasElement): App {
       timeControls.dispose();
       debugSession?.dispose();
       delete window.__orbitka;
+      debugDraws?.dispose();
       debugAxes?.dispose();
       orbitLines.dispose();
       bodyView.dispose();

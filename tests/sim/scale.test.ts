@@ -789,3 +789,51 @@ test('SCALE › moonGapFraction', () => {
   expect(SCALE.moonGapFraction).toBeGreaterThan(0);
   expect(SCALE.moonGapFraction).toBeLessThanOrEqual(0.5);
 });
+
+test('compressMoonOffsetKm › RangeError when the length overflows', () => {
+  const out = { x: 0, y: 0, z: 0 };
+  const max = Number.MAX_VALUE;
+  const call = () => compressMoonOffsetKm(max, max, 0, EARTH_RADIUS_KM, out);
+
+  expect(Math.hypot(max, max, 0)).toBe(Number.POSITIVE_INFINITY);
+  expect(call).toThrow(RangeError);
+  expect(call).toThrow(
+    `compressMoonOffsetKm: parameter "x" must not overflow, got ${max}`,
+  );
+});
+
+// A hole in an input array reads as undefined, not as a number.
+function withHole(values: readonly number[], hole: number): number[] {
+  const copy = [...values];
+  delete copy[hole];
+  return copy;
+}
+
+test.each([
+  ['semiMajorAxesKm[1]', 0],
+  ['eccentricities[1]', 1],
+  ['radiiKm[1]', 2],
+] as const)('moonRadiiToScene › a hole at %s', (parameter, argument) => {
+  const inputs = [
+    [384_400, 421_800],
+    [0.05, 0.004],
+    [1737.4, 1821.5],
+  ].map((values, index) => (index === argument ? withHole(values, 1) : values));
+  const call = () =>
+    moonRadiiToScene(
+      inputs[0] ?? [],
+      inputs[1] ?? [],
+      inputs[2] ?? [],
+      EARTH_RADIUS_KM,
+    );
+
+  expect(inputs[argument]).toHaveLength(2);
+  expect(call).toThrow(RangeError);
+  expect(call).toThrow(
+    `moonRadiiToScene: parameter "${parameter}" ${
+      parameter.startsWith('eccentricities')
+        ? 'must be in the range [0, 1)'
+        : 'must be finite and > 0'
+    }, got NaN`,
+  );
+});

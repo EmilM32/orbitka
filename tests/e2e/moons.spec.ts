@@ -1,6 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { DRAWN_BODY_IDS, MIN_FILL, MOON_IDS, VIEWPORT } from './fixtures.ts';
+import {
+  DRAWN_BODY_IDS,
+  MIN_BRIGHT_FILL,
+  MOON_IDS,
+  VIEWPORT,
+} from './fixtures.ts';
 import { assertWebGl, expectPaintedFrame, waitForFrames } from './helpers.ts';
 
 type ScreenPosition = {
@@ -30,7 +35,12 @@ test('moons › hook contains moons', async ({ page }) => {
     DRAWN_BODY_IDS.length,
   );
   await waitForFrames(page, 3);
-  await expectPaintedFrame(page, VIEWPORT.width, VIEWPORT.height, MIN_FILL);
+  await expectPaintedFrame(
+    page,
+    VIEWPORT.width,
+    VIEWPORT.height,
+    MIN_BRIGHT_FILL,
+  );
 
   const first = await readPositions(page);
   const ids = first.map((position) => position.id);

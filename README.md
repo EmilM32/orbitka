@@ -15,7 +15,7 @@ Open the address printed in the terminal.
 
 ## CI
 
-Every pull request and every push to `main` runs the GitHub Actions workflow in `.github/workflows/ci.yml`. The `verify` job on Node 24 (the version from `.nvmrc`, the same major version as `engines`) runs `npm ci`, then `npm run verify`. Before a pull request, run `npm run verify` locally: the same command checks format (`format:check`), lint, typecheck, tests with coverage, and the build, and stops at the first failure. The check name to mark as required in branch protection for `main` is `verify`; a red result then blocks the merge. A new push to the same branch cancels the previous unfinished run.
+Every pull request and every push to `main` runs the GitHub Actions workflow in `.github/workflows/ci.yml`, with two jobs: `verify` and `e2e`. A push to any other branch runs nothing until it has a pull request. The `verify` job on Node 24 (the version from `.nvmrc`, the same major version as `engines`) runs `npm ci`, then `npm run verify`. Before a pull request, run `npm run verify` locally: the same command checks format (`format:check`), lint, typecheck, tests with coverage, and the build, and stops at the first failure. The check name to mark as required in branch protection for `main` is `verify`; a red result then blocks the merge. A new push to the same branch cancels the previous unfinished run.
 
 ## Scripts
 
@@ -33,14 +33,14 @@ Every pull request and every push to `main` runs the GitHub Actions workflow in 
 
 ## Smoke test
 
-The browser test checks application startup: no console errors, a non-empty canvas, and the Sun and planets. Locally:
+The browser test checks application startup: no console errors, a non-empty canvas, the Sun and planets, and the draw-call budget (`DRAW_CALL_BUDGET` = 25 for the scene without debug objects, ADR-006). Tests wait for rendered frames, not for fixed time: with `?debug=1` on the counter `window.__orbitka.frameCount`, without it on browser animation frames. Locally:
 
 ```bash
 npx playwright install chromium
 npm run test:e2e
 ```
 
-The `e2e` job in GitHub Actions runs the same test only on pull requests. A push to `main` does not start it.
+The `e2e` job in GitHub Actions runs the same test on every pull request and on every push to `main`, so a commit that lands on `main` without a pull request still gets the browser test. When it fails, the job uploads `playwright-report/` and `test-results/` as artifacts.
 
 Layer aliases always include a subpath (`@core/…`, `@sim/…`). A bare import `@core` works in Vite, but `tsc` reports TS2307.
 

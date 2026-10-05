@@ -181,21 +181,13 @@ test.each([
 );
 
 test('solveKepler › maxIterations', () => {
-  const call = () => solveKepler(3, 0.99, 1e-12, 1);
+  const call = () => solveKepler(3, 0.99, 1e-15, 2);
 
   expect(call).toThrow(Error);
-  try {
-    call();
-  } catch (error) {
-    expect(error).not.toBeInstanceOf(RangeError);
-    expect(error).toBeInstanceOf(Error);
-    if (!(error instanceof Error)) {
-      throw error;
-    }
-    expect(error.message).toContain('M=3');
-    expect(error.message).toContain('e=0.99');
-    expect(error.message).toContain('1');
-  }
+  expect(call).not.toThrow(RangeError);
+  expect(call).toThrow(
+    'solveKepler: failed to converge for M=3, e=0.99 after 2 iterations',
+  );
 });
 
 test('bodyPositionAu › planetary periods', () => {

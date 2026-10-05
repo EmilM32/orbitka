@@ -169,6 +169,7 @@ function mount(canvas: HTMLCanvasElement): App {
 
 // Vite keeps every replaced version of this module alive, so after HMR the
 // module scope must not hold the renderer, the scene, or the old canvas.
+console.error('x');
 let app: App | null = mount(findCanvas());
 
 const dispose = (): void => {

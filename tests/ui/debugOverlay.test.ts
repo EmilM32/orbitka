@@ -19,7 +19,7 @@ test('debugOverlay › lines', () => {
   document.body.append(parent);
   const overlay = createDebugOverlay(parent);
 
-  overlay.update({ fps: 60, calls: 12, triangles: 34_560 });
+  overlay.update({ fps: 60, drawCalls: 12, triangles: 34_560 });
 
   const root = parent.querySelector('#debug-overlay');
   expect(root).not.toBeNull();
@@ -43,7 +43,7 @@ test('debugOverlay › colors', () => {
   ] as const;
 
   for (const [fps, className] of cases) {
-    overlay.update({ fps, calls: 1, triangles: 1 });
+    overlay.update({ fps, drawCalls: 1, triangles: 1 });
     expect(line(parent, 'fps').className).toBe(className);
   }
 
@@ -62,7 +62,7 @@ test('debugOverlay › shown value matches color', () => {
   ] as const;
 
   for (const [fps, text, className] of cases) {
-    overlay.update({ fps, calls: 1, triangles: 1 });
+    overlay.update({ fps, drawCalls: 1, triangles: 1 });
     expect(line(parent, 'fps').textContent).toBe(text);
     expect(line(parent, 'fps').className).toBe(className);
   }
@@ -75,12 +75,14 @@ test('debugOverlay › invalid values', () => {
   const overlay = createDebugOverlay(parent);
 
   for (const fps of [Number.NaN, Number.POSITIVE_INFINITY, -1]) {
-    expect(() => overlay.update({ fps, calls: 1, triangles: 1 })).not.toThrow();
+    expect(() =>
+      overlay.update({ fps, drawCalls: 1, triangles: 1 }),
+    ).not.toThrow();
     expect(line(parent, 'fps').textContent).toBe('FPS: —');
     expect(line(parent, 'fps').className).toBe('');
   }
 
-  overlay.update({ fps: 60, calls: Number.NaN, triangles: -5 });
+  overlay.update({ fps: 60, drawCalls: Number.NaN, triangles: -5 });
   expect(line(parent, 'calls').textContent).toBe('Draw calls: —');
   expect(line(parent, 'triangles').textContent).toBe('Triangles: —');
   expect(line(parent, 'fps').className).toBe('debug-fps-good');
@@ -106,7 +108,7 @@ test('debugOverlay › dispose', () => {
   expect(document.querySelector('#debug-overlay')).toBeNull();
   expect(() => overlay.dispose()).not.toThrow();
   expect(() =>
-    overlay.update({ fps: 10, calls: 1, triangles: 1 }),
+    overlay.update({ fps: 10, drawCalls: 1, triangles: 1 }),
   ).not.toThrow();
   expect(document.querySelector('#debug-overlay')).toBeNull();
   parent.remove();

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { DRAWN_BODY_IDS, MOON_IDS, VIEWPORT } from './fixtures.ts';
-import { assertWebGl, waitForPaintedFrame } from './helpers.ts';
+import { DRAWN_BODY_IDS, MIN_FILL, MOON_IDS, VIEWPORT } from './fixtures.ts';
+import { assertWebGl, expectPaintedFrame, waitForFrames } from './helpers.ts';
 
 type ScreenPosition = {
   id: string;
@@ -29,7 +29,8 @@ test('moons › hook contains moons', async ({ page }) => {
     (count) => window.__orbitka?.getBodyScreenPositions().length === count,
     DRAWN_BODY_IDS.length,
   );
-  await waitForPaintedFrame(page, VIEWPORT.width, VIEWPORT.height);
+  await waitForFrames(page, 3);
+  await expectPaintedFrame(page, VIEWPORT.width, VIEWPORT.height, MIN_FILL);
 
   const first = await readPositions(page);
   const ids = first.map((position) => position.id);
@@ -40,7 +41,8 @@ test('moons › hook contains moons', async ({ page }) => {
     expect(ids).toContain(id);
   }
 
-  await page.waitForTimeout(500);
+  // The clock is paused, so 30 more frames must leave the moons in place.
+  await waitForFrames(page, 30);
   const second = await readPositions(page);
   expect(second).toEqual(first);
 });

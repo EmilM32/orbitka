@@ -5,7 +5,7 @@ import { expect, test } from 'vitest';
 const css = readFileSync('src/ui/scaleNotice.css', 'utf8');
 const debugCss = readFileSync('src/ui/debugOverlay.css', 'utf8');
 
-test('scaleNoticeCss › reguły', () => {
+test('scaleNoticeCss › rules', () => {
   expect(css).toContain('min-width: 44px');
   expect(css).toContain('min-height: 44px');
   expect(css).toMatch(/:focus-visible\s*\{[^}]*outline:\s*3px solid #ffd54a/u);

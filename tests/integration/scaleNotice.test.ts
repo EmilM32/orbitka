@@ -14,7 +14,7 @@ function semiMajorAxisAu(id: string): number {
   return axis;
 }
 
-test('scaleNotice › liczby zgodne ze skalą', () => {
+test('scaleNotice › numbers match the scale', () => {
   const neptuneAu = semiMajorAxisAu('neptune');
   const earthAu = semiMajorAxisAu('earth');
   const mercuryAu = semiMajorAxisAu('mercury');

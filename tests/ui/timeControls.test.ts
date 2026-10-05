@@ -84,7 +84,7 @@ function stubClock(days: number): Clock {
   } as Clock;
 }
 
-test('timeControls › struktura', () => {
+test('timeControls › structure', () => {
   const view = setup();
 
   const section = view.parent.querySelector('#time-controls');
@@ -143,7 +143,7 @@ test('timeControls › aria-label', () => {
   view.cleanup();
 });
 
-test('timeControls › kliknięcia', () => {
+test('timeControls › clicks', () => {
   const view = setup();
   const year = button(view.parent, 'time-preset-year');
   const day = button(view.parent, 'time-preset-day');
@@ -177,7 +177,7 @@ test('timeControls › kliknięcia', () => {
   view.cleanup();
 });
 
-test('timeControls › data i prędkość', () => {
+test('timeControls › date and speed', () => {
   const view = setup();
   const date = view.parent.querySelector('#sim-date');
 
@@ -202,7 +202,7 @@ test('timeControls › data i prędkość', () => {
   view.cleanup();
 });
 
-test('timeControls › granica dat', () => {
+test('timeControls › date limit', () => {
   let now = 0;
   const view = setup({
     startDays: DAYS_LIMIT - 1,
@@ -235,7 +235,7 @@ test('timeControls › granica dat', () => {
   }
 });
 
-test('timeControls › ogłoszenia', () => {
+test('timeControls › announcements', () => {
   let now = 0;
   const view = setup({ speed: SPEED_MAX, nowMs: () => now });
   const live = liveRegion(view.parent);
@@ -264,7 +264,7 @@ test('timeControls › ogłoszenia', () => {
   view.cleanup();
 });
 
-test('timeControls › bez timerów', () => {
+test('timeControls › no timers', () => {
   const source = readFileSync('src/ui/timeControls.ts', 'utf8');
   expect(source.includes('innerHTML')).toBe(false);
 

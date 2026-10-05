@@ -4,7 +4,7 @@ import { expect, test } from 'vitest';
 
 const css = readFileSync('src/ui/timeControls.css', 'utf8');
 
-test('timeControlsCss › reguły', () => {
+test('timeControlsCss › rules', () => {
   expect(css).toContain('min-width: 44px');
   expect(css).toContain('min-height: 44px');
   expect(css).toContain('touch-action: manipulation');

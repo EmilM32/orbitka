@@ -1,16 +1,27 @@
 import { expect, type Page } from '@playwright/test';
 
-export type PixelSample = {
+import { PIXEL } from './fixtures.ts';
+
+// A body to look for in the frame: its center on screen and its catalog color.
+export type BodyProbe = {
+  id: string;
   x: number;
   y: number;
+  color: string;
 };
 
-export type CanvasContrast = {
+export type CanvasPixels = {
   width: number;
   height: number;
-  differentFraction: number;
-  sampleDiffers: boolean[];
+  // Pixels brighter than any orbit line, so orbit lines alone give 0.
+  brightFraction: number;
+  // Per probe: lit pixels around the center whose color matches the body.
+  matches: Record<string, number>;
 };
+
+// Panels such as the scale notice and the time controls sit on top of the
+// canvas. A screenshot of the canvas box would count them as scene pixels.
+const HIDE_OVERLAYS = 'body > :not(canvas) { visibility: hidden !important; }';
 
 export async function assertWebGl(page: Page): Promise<void> {
   const available = await page.evaluate(() => {
@@ -64,34 +75,33 @@ export async function expectPaintedFrame(
   page: Page,
   cssWidth: number,
   cssHeight: number,
-  minFill: number,
-): Promise<CanvasContrast> {
-  const box = await page.locator('canvas').boundingBox();
-  if (box === null || box.width <= 0 || box.height <= 0) {
-    throw new Error('canvas has no size');
-  }
-
-  const frame = await readCanvasContrast(page, [], box.width, box.height);
+  minBrightFill: number,
+): Promise<CanvasPixels> {
+  const frame = await readCanvasPixels(page, []);
   if (frame.width !== cssWidth || frame.height !== cssHeight) {
     throw new Error(
       `canvas is ${frame.width}×${frame.height}, expected ${cssWidth}×${cssHeight}`,
     );
   }
 
-  expect(frame.differentFraction).toBeGreaterThanOrEqual(minFill);
+  expect(frame.brightFraction).toBeGreaterThanOrEqual(minBrightFill);
   return frame;
 }
 
-export async function readCanvasContrast(
+export async function readCanvasPixels(
   page: Page,
-  samples: readonly PixelSample[],
-  cssWidth: number,
-  cssHeight: number,
-): Promise<CanvasContrast> {
-  const png = await page.locator('canvas').screenshot();
+  probes: readonly BodyProbe[],
+): Promise<CanvasPixels> {
+  const canvas = page.locator('canvas');
+  const box = await canvas.boundingBox();
+  if (box === null || box.width <= 0 || box.height <= 0) {
+    throw new Error('canvas has no size');
+  }
+
+  const png = await canvas.screenshot({ style: HIDE_OVERLAYS });
 
   return page.evaluate(
-    async ({ encoded, points, cssWidth: widthCss, cssHeight: heightCss }) => {
+    async ({ encoded, bodies, cssWidth, cssHeight, pixel }) => {
       const binary = atob(encoded);
       const bytes = new Uint8Array(binary.length);
       for (let index = 0; index < binary.length; index += 1) {
@@ -108,50 +118,92 @@ export async function readCanvasContrast(
       }
 
       context.drawImage(bitmap, 0, 0);
-      const image = context.getImageData(0, 0, bitmap.width, bitmap.height);
-      const backgroundIndex = (2 + 2 * bitmap.width) * 4;
+      const data = context.getImageData(0, 0, bitmap.width, bitmap.height).data;
+      const channel = (offset: number): number => data[offset] ?? 0;
+      const brightest = (offset: number): number =>
+        Math.max(channel(offset), channel(offset + 1), channel(offset + 2));
 
-      const differs = (offset: number): boolean => {
-        const data = image.data;
-        const background = backgroundIndex;
-        return (
-          Math.abs((data[offset] ?? 0) - (data[background] ?? 0)) > 6 ||
-          Math.abs((data[offset + 1] ?? 0) - (data[background + 1] ?? 0)) > 6 ||
-          Math.abs((data[offset + 2] ?? 0) - (data[background + 2] ?? 0)) > 6
-        );
-      };
-
-      let different = 0;
+      let bright = 0;
       const pixelCount = bitmap.width * bitmap.height;
       for (let index = 0; index < pixelCount; index += 1) {
-        if (differs(index * 4)) {
-          different += 1;
+        if (brightest(index * 4) >= pixel.brightMin) {
+          bright += 1;
         }
       }
 
-      const scaleX = bitmap.width / widthCss;
-      const scaleY = bitmap.height / heightCss;
-      const sampleDiffers = points.map((point) => {
-        const x = Math.round(point.x * scaleX);
-        const y = Math.round(point.y * scaleY);
-        if (x < 0 || y < 0 || x >= bitmap.width || y >= bitmap.height) {
-          return false;
+      // Lighting scales a color in linear light, so the channel ratios of a
+      // lit or shaded body match its catalog color there, not in sRGB.
+      const toLinear = (value: number): number => {
+        const unit = value / 255;
+        return unit <= 0.04045 ? unit / 12.92 : ((unit + 0.055) / 1.055) ** 2.4;
+      };
+      const chromaticity = (r: number, g: number, b: number): number[] => {
+        const linear = [toLinear(r), toLinear(g), toLinear(b)];
+        const sum = linear.reduce((total, value) => total + value, 0);
+        return sum === 0 ? [0, 0, 0] : linear.map((value) => value / sum);
+      };
+      const fromHex = (hex: string): number[] =>
+        [1, 3, 5].map((start) =>
+          Number.parseInt(hex.slice(start, start + 2), 16),
+        );
+
+      const scaleX = bitmap.width / cssWidth;
+      const scaleY = bitmap.height / cssHeight;
+      const matches: Record<string, number> = {};
+      for (const body of bodies) {
+        const [r = 0, g = 0, b = 0] = fromHex(body.color);
+        const expected = chromaticity(r, g, b);
+        const centerX = Math.round(body.x * scaleX);
+        const centerY = Math.round(body.y * scaleY);
+        let count = 0;
+        for (let dy = -pixel.windowRadius; dy <= pixel.windowRadius; dy += 1) {
+          for (
+            let dx = -pixel.windowRadius;
+            dx <= pixel.windowRadius;
+            dx += 1
+          ) {
+            const x = centerX + dx;
+            const y = centerY + dy;
+            if (x < 0 || y < 0 || x >= bitmap.width || y >= bitmap.height) {
+              continue;
+            }
+
+            const offset = (x + y * bitmap.width) * 4;
+            if (brightest(offset) < pixel.litMin) {
+              continue;
+            }
+
+            const actual = chromaticity(
+              channel(offset),
+              channel(offset + 1),
+              channel(offset + 2),
+            );
+            const distance = Math.hypot(
+              (actual[0] ?? 0) - (expected[0] ?? 0),
+              (actual[1] ?? 0) - (expected[1] ?? 0),
+              (actual[2] ?? 0) - (expected[2] ?? 0),
+            );
+            if (distance <= pixel.chromaTolerance) {
+              count += 1;
+            }
+          }
         }
-        return differs((x + y * bitmap.width) * 4);
-      });
+        matches[body.id] = count;
+      }
 
       return {
         width: bitmap.width,
         height: bitmap.height,
-        differentFraction: different / pixelCount,
-        sampleDiffers,
+        brightFraction: bright / pixelCount,
+        matches,
       };
     },
     {
       encoded: png.toString('base64'),
-      points: samples,
-      cssWidth,
-      cssHeight,
+      bodies: probes,
+      cssWidth: box.width,
+      cssHeight: box.height,
+      pixel: PIXEL,
     },
   );
 }

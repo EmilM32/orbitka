@@ -1,14 +1,18 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import {
+  BODY_COLORS,
   DRAWN_BODY_IDS,
   GOLDEN_SCREEN,
-  MIN_FILL,
+  MIN_BRIGHT_FILL,
+  PIXEL,
+  UNPROBED_BODY_IDS,
   VIEWPORT,
 } from './fixtures.ts';
 import {
   assertWebGl,
   expectPaintedFrame,
+  readCanvasPixels,
   waitForBrowserFrames,
   waitForFrames,
 } from './helpers.ts';
@@ -43,7 +47,12 @@ async function waitForBodies(page: Page) {
     DRAWN_BODY_IDS.length,
   );
   await waitForFrames(page, 3);
-  await expectPaintedFrame(page, VIEWPORT.width, VIEWPORT.height, MIN_FILL);
+  await expectPaintedFrame(
+    page,
+    VIEWPORT.width,
+    VIEWPORT.height,
+    MIN_BRIGHT_FILL,
+  );
 }
 
 test('no console errors', async ({ page }) => {
@@ -82,7 +91,7 @@ test('canvas is not empty', async ({ page }) => {
     page,
     VIEWPORT.width,
     VIEWPORT.height,
-    MIN_FILL,
+    MIN_BRIGHT_FILL,
   );
   expect(pixels.width).toBe(VIEWPORT.width);
   expect(pixels.height).toBe(VIEWPORT.height);
@@ -121,6 +130,35 @@ test('Sun and planets', async ({ page }) => {
     expect(Math.abs(sample.position.y - sample.expected.y)).toBeLessThanOrEqual(
       1,
     );
+  }
+
+  // Each body is drawn where the hook puts it: lit pixels in its own color
+  // around the center. Fails when a body is missing from the scene, hidden,
+  // transparent, black, or unlit.
+  const probes = positions
+    .filter((position) => !UNPROBED_BODY_IDS.includes(position.id))
+    .map((position) => ({
+      id: position.id,
+      x: position.x,
+      y: position.y,
+      color: BODY_COLORS[position.id as keyof typeof BODY_COLORS],
+    }));
+  expect(probes.map((probe) => probe.id)).toEqual([
+    'sun',
+    'mercury',
+    'venus',
+    'earth',
+    'mars',
+    'jupiter',
+    'saturn',
+    'uranus',
+    'neptune',
+  ]);
+  const pixels = await readCanvasPixels(page, probes);
+  for (const probe of probes) {
+    expect
+      .soft(pixels.matches[probe.id] ?? 0, `${probe.id} pixels`)
+      .toBeGreaterThanOrEqual(PIXEL.minMatches);
   }
 
   const distinct = new Set(

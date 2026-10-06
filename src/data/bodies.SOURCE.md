@@ -27,6 +27,7 @@ c. Earth's orbital inclination from Table 1 (−0.00001531°) is rounded to 0.
 d. Orbital periods are derived from the mean-longitude rate, not taken from the sidereal period in the Fact Sheet. The differences are less than 0.3 day for Saturn and less than 2 days for Uranus.
 e. NASA records the rotation periods of Venus and Uranus with a minus sign (retrograde rotation). In the data, `rotation.periodHours` is always positive, and the retrograde direction follows from `rotation.axialTiltDeg` greater than 90° (Venus 177.36°, Uranus 97.77°).
 f. The Sun: the rotation period is given for latitude 16°, and the axial tilt of 7.25° is measured against the ecliptic. The Sun has `parentId: null` and no `orbit` field.
+g. The only bound for the Table 1 years 1800–2050 is `ELEMENT_VALID_FROM_DAYS` / `ELEMENT_VALID_UNTIL_DAYS` in `src/data/elementValidity.ts` (the end is exclusive). The ±10,000-day error note in (a) is a separate estimate. Outside that bound the time panel says the positions are approximate.
 
 ## Uncertainties and design decisions
 

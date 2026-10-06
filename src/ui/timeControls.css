@@ -45,7 +45,8 @@
 }
 
 #sim-date,
-#sim-speed {
+#sim-speed,
+#time-accuracy {
   margin: 0;
 }
 

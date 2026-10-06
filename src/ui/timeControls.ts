@@ -6,6 +6,7 @@ import {
   type Clock,
   type ClockState,
 } from '@core/clock.ts';
+import { orbitalElementsAreApproximate } from '@data/elementValidity.ts';
 
 import { formatDate, formatDateTimeAttr } from './formatDate.ts';
 import { formatSpeed, formatSpeedSpoken } from './formatSpeed.ts';
@@ -120,6 +121,11 @@ export function createTimeControls(
   simDate.setAttribute('id', 'sim-date');
   simDate.setAttribute('data-testid', 'sim-date');
 
+  const accuracy = document.createElement('p');
+  accuracy.setAttribute('id', 'time-accuracy');
+  accuracy.setAttribute('data-testid', 'time-accuracy');
+  accuracy.hidden = true;
+
   const simSpeed = document.createElement('p');
   simSpeed.setAttribute('id', 'sim-speed');
 
@@ -132,6 +138,7 @@ export function createTimeControls(
     ...presetButtonList,
     reverseButton,
     simDate,
+    accuracy,
     simSpeed,
     live,
   );
@@ -156,6 +163,8 @@ export function createTimeControls(
 
   let lastDateText = '';
   let lastDateTime: string | null = null;
+  let lastApproximate: boolean | null = null;
+  const approximateText = i18n.t('time.accuracy.approximate');
   let lastSpeedText = '';
   let lastPresetId: string | null | undefined;
   let lastAnnouncement = '';
@@ -241,6 +250,14 @@ export function createTimeControls(
         simDate.setAttribute('datetime', dateTime);
       }
       lastDateTime = dateTime;
+    }
+
+    const approximate =
+      Number.isFinite(state.days) && orbitalElementsAreApproximate(state.days);
+    if (approximate !== lastApproximate) {
+      accuracy.hidden = !approximate;
+      accuracy.textContent = approximate ? approximateText : '';
+      lastApproximate = approximate;
     }
 
     lastSpeedText = setText(simSpeed, speedText(state), lastSpeedText);

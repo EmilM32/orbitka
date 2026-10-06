@@ -311,3 +311,68 @@ test('timeControls › dispose', () => {
   expect(() => controls.dispose()).not.toThrow();
   parent.remove();
 });
+
+function accuracyNotice(parent: ParentNode): HTMLElement {
+  const found = parent.querySelector('[data-testid="time-accuracy"]');
+  if (!(found instanceof HTMLElement)) {
+    throw new Error('missing time accuracy');
+  }
+
+  return found;
+}
+
+test('timeControls › accuracy', () => {
+  const view = setup();
+  const notice = accuracyNotice(view.parent);
+  const date = view.parent.querySelector('#sim-date');
+  const live = liveRegion(view.parent);
+  const scaleNotice = view.parent.querySelector('#scale-notice');
+
+  expect(scaleNotice).toBeNull();
+  expect(notice.hidden).toBe(true);
+  expect(notice.textContent).toBe('');
+  expect(date?.nextElementSibling).toBe(notice);
+
+  view.clock.setDays(-73048.5);
+  expect(notice.hidden).toBe(true);
+  expect(notice.textContent).toBe('');
+  expect(date?.textContent).toBe('01.01.1800');
+
+  view.clock.setDays(-73049.5);
+  expect(notice.hidden).toBe(false);
+  expect(notice.textContent).toBe('Pozycje przybliżone');
+  expect(date?.textContent).toBe('31.12.1799');
+  expect(live.textContent).not.toContain('Pozycje przybliżone');
+
+  notice.textContent = 'marker';
+  view.clock.setDays(-73059.5);
+  expect(notice.textContent).toBe('marker');
+  expect(notice.hidden).toBe(false);
+  expect(live.textContent).not.toContain('Pozycje przybliżone');
+
+  view.clock.pause();
+  expect(view.clock.paused).toBe(true);
+  expect(notice.hidden).toBe(false);
+  expect(notice.textContent).toBe('marker');
+
+  view.clock.setDays(0);
+  expect(notice.hidden).toBe(true);
+  expect(notice.textContent).toBe('');
+  expect(live.textContent).not.toContain('Pozycje przybliżone');
+
+  view.clock.setDays(18627);
+  expect(notice.hidden).toBe(true);
+  expect(notice.textContent).toBe('');
+
+  view.clock.setDays(18627.5);
+  expect(notice.hidden).toBe(false);
+  expect(notice.textContent).toBe('Pozycje przybliżone');
+  expect(date?.textContent).toBe('01.01.2051');
+  expect(live.textContent).not.toContain('Pozycje przybliżone');
+
+  view.clock.pause();
+  expect(notice.hidden).toBe(false);
+  expect(notice.textContent).toBe('Pozycje przybliżone');
+
+  view.cleanup();
+});

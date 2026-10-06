@@ -48,6 +48,7 @@
   "time.presets.month.spoken": "1 miesiąc na sekundę",
   "time.presets.year.spoken": "1 rok na sekundę",
   "time.date.missing": "—",
+  "time.accuracy.approximate": "Pozycje przybliżone",
   "scaleNotice.why": "Dlaczego?",
   "scaleNotice.badge": "Skala uproszczona: odległości i rozmiary nie są w proporcji",
   "scaleNotice.buttonLabel": "Pokaż wyjaśnienie, dlaczego skala jest uproszczona",

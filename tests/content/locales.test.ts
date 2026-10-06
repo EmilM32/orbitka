@@ -33,6 +33,8 @@ test('locales › body names', () => {
 });
 
 test('locales › shape', () => {
+  expect(messages['time.accuracy.approximate']).toBe('Pozycje przybliżone');
+
   for (const value of Object.values(messages)) {
     if (typeof value === 'string') {
       expect(value).not.toBe('');

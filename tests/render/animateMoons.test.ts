@@ -6,6 +6,7 @@ import type { BodyDef } from '@data/types.ts';
 import { createBodyAnimator } from '@render/animateBodies.ts';
 import { createMoonAnimator } from '@render/animateMoons.ts';
 import { bodyPositionAu } from '@sim/kepler.ts';
+import { ORBIT_STEP_FADE_DEG, orbitStepDegrees } from '@sim/orbitStep.ts';
 import { spinAngleRad } from '@sim/rotation.ts';
 import {
   compressMoonOffsetKm,
@@ -457,4 +458,41 @@ test('animateMoons › synchronous spin', () => {
   expect(io.position.distanceTo(position)).toBeLessThan(1e-9);
   expect(angularDistance(io.rotation.y, angle)).toBeLessThan(1e-6);
   disposeMeshes(reverseMeshes);
+});
+
+test('animateMoons › orbit step fade', () => {
+  const ioDef = getBody('io');
+  const periodDays = requireOrbit(ioDef).periodDays;
+  const atThreshold = (ORBIT_STEP_FADE_DEG * periodDays) / 360;
+  const overThreshold = (30.0001 * periodDays) / 360;
+  const meshes = sceneMeshes(bodies);
+  const animator = createMoonAnimator(bodies, meshes);
+  const io = requireMesh(meshes, 'io');
+
+  animator.update(0, 3652.5);
+  expect(io.visible).toBe(true);
+
+  animator.update(atThreshold, 3652.5);
+  expect(orbitStepDegrees(atThreshold, periodDays)).toBeCloseTo(
+    ORBIT_STEP_FADE_DEG,
+    6,
+  );
+  expect(io.visible).toBe(true);
+  expect(Number.isFinite(io.position.x)).toBe(true);
+
+  const hiddenAt = atThreshold + overThreshold;
+  animator.update(hiddenAt, 0.1);
+  expect(orbitStepDegrees(overThreshold, periodDays)).toBeGreaterThan(
+    ORBIT_STEP_FADE_DEG,
+  );
+  expect(io.visible).toBe(false);
+
+  animator.update(hiddenAt, 0.1);
+  expect(io.visible).toBe(true);
+
+  animator.update(hiddenAt - atThreshold, -3652.5);
+  expect(io.visible).toBe(true);
+  expect(Number.isFinite(io.position.x)).toBe(true);
+
+  disposeMeshes(meshes);
 });

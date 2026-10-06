@@ -2,6 +2,7 @@ import { Vector3, type Mesh } from 'three';
 
 import type { BodyDef } from '@data/types.ts';
 import { bodyPositionAu } from '@sim/kepler.ts';
+import { meshIsVisibleForOrbitStep, orbitStepDegrees } from '@sim/orbitStep.ts';
 import {
   advanceSpinAngleRad,
   rotationsPerSecond,
@@ -62,6 +63,8 @@ export function createMoonAnimator(
   const bufScene: Vec3 = { x: 0, y: 0, z: 0 };
   const tmp = new Vector3();
   let started = false;
+  // One clock for every moon, separate from the per-moon spin sample.
+  let orbitPreviousDays = 0;
 
   return {
     update(daysSinceJ2000: number, daysPerSecond: number) {
@@ -89,6 +92,7 @@ export function createMoonAnimator(
           slot.mesh.rotation.y = angle;
           previousDays[index] = daysSinceJ2000;
         }
+        orbitPreviousDays = daysSinceJ2000;
         started = true;
         return;
       }
@@ -102,6 +106,10 @@ export function createMoonAnimator(
         }
 
         placeMoon(slot, daysSinceJ2000, bufKm, bufScene, tmp);
+        const periodDays = slot.def.orbit?.periodDays ?? Number.NaN;
+        slot.mesh.visible = meshIsVisibleForOrbitStep(
+          orbitStepDegrees(daysSinceJ2000 - orbitPreviousDays, periodDays),
+        );
         const next = advanceSpinAngleRad(
           angle,
           prev,
@@ -113,6 +121,8 @@ export function createMoonAnimator(
         slot.mesh.rotation.y = next;
         previousDays[index] = daysSinceJ2000;
       }
+
+      orbitPreviousDays = daysSinceJ2000;
     },
   };
 }

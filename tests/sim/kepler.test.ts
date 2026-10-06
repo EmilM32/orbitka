@@ -409,6 +409,41 @@ test.each([
   ['orbit.semiMajorAxisAu', -1, { semiMajorAxisAu: -1 }],
   ['orbit.semiMajorAxisAu', Number.NaN, { semiMajorAxisAu: Number.NaN }],
   ['orbit.inclinationDeg', Number.NaN, { inclinationDeg: Number.NaN }],
+  [
+    'orbit.inclinationDeg',
+    Number.POSITIVE_INFINITY,
+    { inclinationDeg: Number.POSITIVE_INFINITY },
+  ],
+  [
+    'orbit.longitudeAscendingNodeDeg',
+    Number.NaN,
+    { longitudeAscendingNodeDeg: Number.NaN },
+  ],
+  [
+    'orbit.longitudeAscendingNodeDeg',
+    Number.POSITIVE_INFINITY,
+    { longitudeAscendingNodeDeg: Number.POSITIVE_INFINITY },
+  ],
+  [
+    'orbit.argumentPeriapsisDeg',
+    Number.NaN,
+    { argumentPeriapsisDeg: Number.NaN },
+  ],
+  [
+    'orbit.argumentPeriapsisDeg',
+    Number.POSITIVE_INFINITY,
+    { argumentPeriapsisDeg: Number.POSITIVE_INFINITY },
+  ],
+  [
+    'orbit.meanAnomalyAtEpochDeg',
+    Number.NaN,
+    { meanAnomalyAtEpochDeg: Number.NaN },
+  ],
+  [
+    'orbit.meanAnomalyAtEpochDeg',
+    Number.POSITIVE_INFINITY,
+    { meanAnomalyAtEpochDeg: Number.POSITIVE_INFINITY },
+  ],
   ['orbit.eccentricity', 1, { eccentricity: 1 }],
   ['orbit.eccentricity', Number.NaN, { eccentricity: Number.NaN }],
 ] as const)(

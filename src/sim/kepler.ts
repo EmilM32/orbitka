@@ -9,6 +9,14 @@ import type { Vec3 } from './scale.ts';
 
 const TWO_PI = Math.PI * 2;
 
+// Module scope so bodyPositionAu does not allocate this list on every call.
+const ANGLE_FIELDS = [
+  'inclinationDeg',
+  'longitudeAscendingNodeDeg',
+  'argumentPeriapsisDeg',
+  'meanAnomalyAtEpochDeg',
+] as const satisfies readonly (keyof OrbitDef)[];
+
 function invalidInput(
   functionName: string,
   parameter: string,
@@ -180,14 +188,8 @@ export function bodyPositionAu(
     Number.isFinite(semiMajor) && semiMajor > 0,
   );
 
-  const angles = [
-    'inclinationDeg',
-    'longitudeAscendingNodeDeg',
-    'argumentPeriapsisDeg',
-    'meanAnomalyAtEpochDeg',
-  ] as const satisfies readonly (keyof OrbitDef)[];
-
-  for (const field of angles) {
+  for (let index = 0; index < ANGLE_FIELDS.length; index += 1) {
+    const field = ANGLE_FIELDS[index];
     requireOrbitNumber(
       def,
       field,

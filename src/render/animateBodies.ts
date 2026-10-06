@@ -2,6 +2,7 @@ import { Vector3, type Mesh } from 'three';
 
 import type { BodyDef } from '@data/types.ts';
 import { bodyPositionAu } from '@sim/kepler.ts';
+import { meshIsVisibleForOrbitStep, orbitStepDegrees } from '@sim/orbitStep.ts';
 import { compressPositionAu, type Vec3 } from '@sim/scale.ts';
 
 import { eclipticToScene } from './coords.ts';
@@ -37,9 +38,16 @@ export function createBodyAnimator(
   const bufAu: Vec3 = { x: 0, y: 0, z: 0 };
   const bufScene: Vec3 = { x: 0, y: 0, z: 0 };
   const tmpVector = new Vector3();
+  // One clock for every planet. The first update has no previous step.
+  let previousDays = 0;
+  let hasPreviousDays = false;
 
   return {
     update(daysSinceJ2000: number) {
+      if (planets.length === 0) {
+        return;
+      }
+
       for (let index = 0; index < planets.length; index += 1) {
         const planet = planets[index];
         if (planet === undefined) {
@@ -50,7 +58,16 @@ export function createBodyAnimator(
         compressPositionAu(bufAu.x, bufAu.y, bufAu.z, bufScene);
         eclipticToScene(bufScene, tmpVector);
         planet.mesh.position.copy(tmpVector);
+        if (hasPreviousDays) {
+          const periodDays = planet.def.orbit?.periodDays ?? Number.NaN;
+          planet.mesh.visible = meshIsVisibleForOrbitStep(
+            orbitStepDegrees(daysSinceJ2000 - previousDays, periodDays),
+          );
+        }
       }
+
+      previousDays = daysSinceJ2000;
+      hasPreviousDays = true;
     },
   };
 }

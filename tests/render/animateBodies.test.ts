@@ -1,12 +1,4 @@
-import {
-  BufferGeometry,
-  Line,
-  LineBasicMaterial,
-  Mesh,
-  MeshBasicMaterial,
-  SphereGeometry,
-  Vector3,
-} from 'three';
+import { Mesh, MeshBasicMaterial, SphereGeometry, Vector3 } from 'three';
 import { expect, test } from 'vitest';
 
 import { bodies, getBody } from '@data/bodies.ts';
@@ -219,11 +211,10 @@ test('animateBodies › the same time', () => {
   disposeMeshes(meshes);
 });
 
-test('animateBodies › wygaszenie kroku', () => {
+test('animateBodies › orbit step fade', () => {
   const meshes = planetMeshes(bodies);
   const mercury = meshes.get('mercury');
   const sun = meshes.get('sun');
-  const orbitLine = new Line(new BufferGeometry(), new LineBasicMaterial());
   if (!mercury || !sun) {
     throw new Error('missing body');
   }
@@ -241,7 +232,6 @@ test('animateBodies › wygaszenie kroku', () => {
   fast.update(3652.5 / 60);
   expect(mercury.visible).toBe(false);
   expect(sun.visible).toBe(true);
-  expect(orbitLine.visible).toBe(true);
   expect(Number.isFinite(mercury.position.x)).toBe(true);
 
   fast.update(3652.5 / 60 - 365.25 / 60);
@@ -253,12 +243,7 @@ test('animateBodies › wygaszenie kroku', () => {
   reverse.update(0);
   reverse.update(-3652.5 / 60);
   expect(mercury.visible).toBe(false);
-  expect(orbitLine.visible).toBe(true);
   expect(sun.visible).toBe(true);
 
-  orbitLine.geometry.dispose();
-  if (!Array.isArray(orbitLine.material)) {
-    orbitLine.material.dispose();
-  }
   disposeMeshes(meshes);
 });

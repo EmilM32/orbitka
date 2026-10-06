@@ -460,7 +460,7 @@ test('animateMoons › synchronous spin', () => {
   disposeMeshes(reverseMeshes);
 });
 
-test('animateMoons › wygaszenie kroku', () => {
+test('animateMoons › orbit step fade', () => {
   const ioDef = getBody('io');
   const periodDays = requireOrbit(ioDef).periodDays;
   const atThreshold = (ORBIT_STEP_FADE_DEG * periodDays) / 360;

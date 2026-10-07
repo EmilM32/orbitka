@@ -105,7 +105,7 @@ async function collectSnapshots(
   }, count);
 }
 
-test('hook › kształt', async ({ page }) => {
+test('hook › shape', async ({ page }) => {
   await openApp(page, DEBUG_START);
   await page.waitForFunction(
     () => window.__orbitka?.getFrameSnapshot() != null,
@@ -170,7 +170,7 @@ test('hook › kształt', async ({ page }) => {
   );
 });
 
-test('A pauza zatrzymuje ruch', async ({ page }) => {
+test('pause stops movement', async ({ page }) => {
   await openApp(page, DEBUG_START);
   await page.getByTestId('time-preset-ten-days').click();
 
@@ -219,7 +219,7 @@ test('A pauza zatrzymuje ruch', async ({ page }) => {
   expect(distance(p2, p1)).toBeGreaterThan(0.001);
 });
 
-test('B wznowienie', async ({ page }) => {
+test('resume', async ({ page }) => {
   await openApp(page, DEBUG_START);
   await page.getByTestId('time-pause').click();
   const paused = await readClock(page);
@@ -237,7 +237,7 @@ test('B wznowienie', async ({ page }) => {
   );
 });
 
-test('C zmiana prędkości', async ({ page }) => {
+test('speed change', async ({ page }) => {
   await openApp(page, DEBUG_START);
   await page.getByTestId('time-preset-day').click();
   const start = await readClock(page);
@@ -268,7 +268,7 @@ test('C zmiana prędkości', async ({ page }) => {
   expect(deltaYear / deltaDay).toBeLessThanOrEqual(500);
 });
 
-test('D cofanie', async ({ page }) => {
+test('reverse', async ({ page }) => {
   await openApp(page, DEBUG_START);
   await page.getByTestId('time-preset-ten-days').click();
   await page.waitForFunction(
@@ -318,7 +318,7 @@ test('D cofanie', async ({ page }) => {
   }
 });
 
-test('E suwak', async ({ page }) => {
+test('slider', async ({ page }) => {
   await openApp(page, DEBUG_START);
   const slider = page.getByTestId('time-slider');
 
@@ -346,7 +346,7 @@ test('E suwak', async ({ page }) => {
   }
 });
 
-test('F data', async ({ page }) => {
+test('date', async ({ page }) => {
   await openApp(page, DEBUG_START);
   await expect(page.getByTestId('sim-date')).toContainText('01.01.2000');
 
@@ -365,7 +365,7 @@ test('F data', async ({ page }) => {
   expect(clock.paused).toBe(true);
 });
 
-test('G bez debug brak hooka', async ({ page }) => {
+test('no hook without debug', async ({ page }) => {
   for (const path of ['/', '/?days=0', '/?debug=0']) {
     await openApp(page, path);
     const hook = await page.evaluate(() => window.__orbitka);

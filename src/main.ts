@@ -15,6 +15,7 @@ import { addOrbitLines } from '@render/orbitLines.ts';
 import { createRenderer } from '@render/createRenderer.ts';
 import { createRotationAnimator } from '@render/rotateBodies.ts';
 import { getRenderStats, trackDebugDrawCalls } from '@render/renderStats.ts';
+import { getBodyScenePosition as readBodyScenePosition } from '@render/scenePosition.ts';
 import { getBodyScreenPositions } from '@render/screenPositions.ts';
 import { createDebugSession } from '@ui/debugSession.ts';
 import { createI18n } from '@ui/i18n.ts';
@@ -63,8 +64,17 @@ function mount(canvas: HTMLCanvasElement): App {
   const debugSession = createDebugSession(search, document.body);
   let lastUiMs = Number.NEGATIVE_INFINITY;
   let frameCount = 0;
+  let presetId: string | null = null;
+  let frameSnapshot: {
+    days: number;
+    earth: { x: number; y: number; z: number };
+  } | null = null;
+  let unsubscribeClock: (() => void) | null = null;
 
   if (debug) {
+    unsubscribeClock = clock.subscribe((state) => {
+      presetId = state.presetId;
+    });
     const screenEntries: {
       id: string;
       type: string;
@@ -91,6 +101,32 @@ function mount(canvas: HTMLCanvasElement): App {
           height,
         );
       },
+      getClock() {
+        return {
+          days: clock.days,
+          speed: clock.speed,
+          reversed: clock.reversed,
+          paused: clock.paused,
+          presetId,
+        };
+      },
+      getBodyScenePosition(id: string) {
+        return readBodyScenePosition(bodyView.meshes, id);
+      },
+      getFrameSnapshot() {
+        if (frameSnapshot === null) {
+          return null;
+        }
+
+        return {
+          days: frameSnapshot.days,
+          earth: {
+            x: frameSnapshot.earth.x,
+            y: frameSnapshot.earth.y,
+            z: frameSnapshot.earth.z,
+          },
+        };
+      },
     };
 
     for (const body of bodies) {
@@ -111,6 +147,15 @@ function mount(canvas: HTMLCanvasElement): App {
       animator.update(clock.days);
       moonAnimator.update(clock.days, clock.daysPerSecond);
       rotationAnimator.update(clock.days, clock.daysPerSecond);
+      if (!debug) {
+        return;
+      }
+
+      // After the animators, so days and the Earth mesh are from this frame.
+      // Stays null until the loop has run once. The mount-time animator update
+      // is not a frame.
+      const earth = readBodyScenePosition(bodyView.meshes, 'earth');
+      frameSnapshot = earth === null ? null : { days: clock.days, earth };
     },
     render() {
       view.syncPixelRatio();
@@ -155,6 +200,8 @@ function mount(canvas: HTMLCanvasElement): App {
       scaleNotice.dispose();
       timeControls.dispose();
       debugSession?.dispose();
+      unsubscribeClock?.();
+      unsubscribeClock = null;
       delete window.__orbitka;
       debugDraws?.dispose();
       debugAxes?.dispose();

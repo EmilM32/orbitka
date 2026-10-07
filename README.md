@@ -29,11 +29,11 @@ Every pull request and every push to `main` runs the GitHub Actions workflow in 
 - `npm run verify` — format, lint, typecheck, tests with coverage, and the build; run it before a pull request
 - `npm run test` — Vitest
 - `npm run test:coverage` — Vitest with a line-coverage threshold for `src/sim`
-- `npm run test:e2e` — Playwright smoke test (Chromium)
+- `npm run test:e2e` — Playwright tests in Chromium (smoke, moons, and time controls)
 
 ## Smoke test
 
-The browser test checks application startup: no console errors, a non-empty canvas, the Sun and planets, and the draw-call budget (`DRAW_CALL_BUDGET` = 25 for the scene without debug objects, ADR-006). Tests wait for rendered frames, not for fixed time: with `?debug=1` on the counter `window.__orbitka.frameCount`, without it on browser animation frames. Locally:
+The browser test checks application startup: no console errors, a non-empty canvas, the Sun and planets, and the draw-call budget (`DRAW_CALL_BUDGET` = 25 for the scene without debug objects, ADR-006). `tests/e2e/timeControls.spec.ts` checks that pause, speed, reverse, the speed slider, and the date drive the simulation. Tests wait for rendered frames, not for fixed time: with `?debug=1` on the counter `window.__orbitka.frameCount`, without it on browser animation frames. Locally:
 
 ```bash
 npx playwright install chromium

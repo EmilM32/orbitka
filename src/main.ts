@@ -14,6 +14,7 @@ import { addDebugAxes } from '@render/debugAxes.ts';
 import { createLights } from '@render/lights.ts';
 import { addOrbitLines } from '@render/orbitLines.ts';
 import { createCameraController } from '@render/cameraController.ts';
+import { createCameraPointerInput } from '@render/cameraPointerInput.ts';
 import { createRenderer } from '@render/createRenderer.ts';
 import { createRotationAnimator } from '@render/rotateBodies.ts';
 import { getRenderStats, trackDebugDrawCalls } from '@render/renderStats.ts';
@@ -47,6 +48,10 @@ function mount(canvas: HTMLCanvasElement): App {
   });
   const unsubscribeResize = view.onResize((width, height) => {
     cameraController.setAspect(width / height);
+  });
+  const pointerInput = createCameraPointerInput({
+    surface: canvas,
+    controller: cameraController,
   });
   const bodyView = createBodies(bodies);
   view.scene.add(bodyView.group);
@@ -219,6 +224,7 @@ function mount(canvas: HTMLCanvasElement): App {
       orbitLines.dispose();
       bodyView.dispose();
       unsubscribeResize();
+      pointerInput.dispose();
       cameraController.dispose();
       reducedMotion.dispose();
       view.dispose();

@@ -14,6 +14,7 @@
   "bodies.uranus.name": "Uran",
   "bodies.neptune.name": "Neptun",
   "app.title": "Orbitka: Układ Słoneczny",
+  "canvas.ariaLabel": "Widok 3D Układu Słonecznego. Strzałki obracają, plus i minus przybliżają.",
   "bodies.panel.title": "Ciała niebieskie",
   "bodies.panel.collapse": "Zwiń listę ciał",
   "bodies.panel.expand": "Rozwiń listę ciał",

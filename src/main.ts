@@ -19,6 +19,7 @@ import { addDebugAxes } from '@render/debugAxes.ts';
 import { createLights } from '@render/lights.ts';
 import { addOrbitLines } from '@render/orbitLines.ts';
 import { createCameraController } from '@render/cameraController.ts';
+import { createCameraDirector } from '@render/cameraDirector.ts';
 import { createCameraPointerInput } from '@render/cameraPointerInput.ts';
 import { createRenderer } from '@render/createRenderer.ts';
 import { createRotationAnimator } from '@render/rotateBodies.ts';
@@ -30,6 +31,7 @@ import { createI18n } from '@ui/i18n.ts';
 import { createScaleNotice } from '@ui/scaleNotice.ts';
 import { createSelectionRing } from '@ui/selectionRing.ts';
 import { createTimeControls } from '@ui/timeControls.ts';
+import { createViewportFade } from '@ui/viewportFade.ts';
 
 type App = {
   dispose: () => void;
@@ -70,17 +72,35 @@ function mount(canvas: HTMLCanvasElement): App {
   const selectable = getSelectableBodies(bodies);
   const selection = createSelection(selectable.map((body) => body.id));
   const projectorEntries = [];
+  const directorBodies = [];
   for (const body of selectable) {
     const mesh = bodyView.meshes.get(body.id);
     if (mesh === undefined) {
       continue;
     }
+    const displayRadius = radiusToScene(body.radiusKm);
     projectorEntries.push({
       id: body.id,
       position: mesh.position,
-      displayRadius: radiusToScene(body.radiusKm),
+      displayRadius,
+    });
+    directorBodies.push({
+      id: body.id,
+      object: mesh,
+      displayRadius,
+      isSun: body.type === 'star',
     });
   }
+  const viewportFade = createViewportFade(canvas);
+  const director = createCameraDirector({
+    controller: cameraController,
+    selection,
+    bodies: directorBodies,
+    reducedMotion,
+    onJump() {
+      viewportFade.play();
+    },
+  });
   const projector = createBodyProjector(projectorEntries, view);
   const picker = createBodyPicker({
     surface: canvas,
@@ -208,6 +228,7 @@ function mount(canvas: HTMLCanvasElement): App {
       animator.update(clock.days);
       moonAnimator.update(clock.days, clock.daysPerSecond);
       rotationAnimator.update(clock.days, clock.daysPerSecond);
+      director.update(dtSeconds);
       cameraController.update(dtSeconds);
       if (!debug) {
         return;
@@ -263,6 +284,8 @@ function mount(canvas: HTMLCanvasElement): App {
     dispose() {
       loop.stop();
       document.removeEventListener('visibilitychange', onVisibilityChange);
+      director.dispose();
+      viewportFade.dispose();
       ring.dispose();
       picker.dispose();
       projector.dispose();

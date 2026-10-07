@@ -11,6 +11,7 @@ export type Selection = {
   setHovered(id: string | null): void;
   getSelectedId(): string | null;
   getHoveredId(): string | null;
+  readonly ids: readonly string[];
   subscribe(listener: SelectionListener): () => void;
   dispose(): void;
 };
@@ -32,10 +33,12 @@ export function createSelection(ids: readonly string[]): Selection {
   }
 
   const allowed = new Set<string>();
+  const idList: string[] = [];
   for (let index = 0; index < ids.length; index += 1) {
     const id = ids[index];
     if (id !== undefined) {
       allowed.add(id);
+      idList.push(id);
     }
   }
 
@@ -81,6 +84,7 @@ export function createSelection(ids: readonly string[]): Selection {
     getHoveredId(): string | null {
       return hoveredId;
     },
+    ids: idList,
     subscribe(listener: SelectionListener): () => void {
       if (disposed) {
         return () => undefined;

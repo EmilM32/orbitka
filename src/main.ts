@@ -28,16 +28,19 @@ import { getRenderStats, trackDebugDrawCalls } from '@render/renderStats.ts';
 import { getBodyScenePosition as readBodyScenePosition } from '@render/scenePosition.ts';
 import { getBodyScreenPositions } from '@render/screenPositions.ts';
 import { createAnnouncer } from '@ui/announcer.ts';
+import { createBodiesDrawer, type BodiesDrawer } from '@ui/bodiesDrawer.ts';
 import { createBodiesPanel } from '@ui/bodiesPanel.ts';
 import { createBodyLabels } from '@ui/bodyLabels.ts';
 import { createDebugSession } from '@ui/debugSession.ts';
 import { createI18n } from '@ui/i18n.ts';
+import { createLayoutObserver } from '@ui/layoutObserver.ts';
 import { createPageHeader } from '@ui/pageHeader.ts';
 import { createScaleNotice } from '@ui/scaleNotice.ts';
 import { createSelectionRing } from '@ui/selectionRing.ts';
 import { createTimeControls } from '@ui/timeControls.ts';
 import { createViewControls } from '@ui/viewControls.ts';
 import { createViewportFade } from '@ui/viewportFade.ts';
+import '@ui/layout.ts';
 
 type App = {
   dispose: () => void;
@@ -162,12 +165,21 @@ function mount(canvas: HTMLCanvasElement): App {
     },
     ariaLabel: i18n.t('canvas.ariaLabel'),
   });
-  const scaleNotice = createScaleNotice(document.body, i18n);
   const pageHeader = createPageHeader(document.body, i18n, canvas);
+  const scaleNotice = createScaleNotice(document.body, i18n, canvas);
+  let bodiesDrawer: BodiesDrawer | null = null;
   const bodiesPanel = createBodiesPanel(document.body, {
     bodies: selectable,
     selection,
     i18n,
+    before: canvas,
+    getFocusFallback: () => bodiesDrawer?.getFocusFallback() ?? null,
+  });
+  bodiesDrawer = createBodiesDrawer(document.body, {
+    panel: bodiesPanel,
+    selection,
+    i18n,
+    matchMedia: window.matchMedia.bind(window),
     before: canvas,
   });
   const viewControls = createViewControls(document.body, {
@@ -188,6 +200,14 @@ function mount(canvas: HTMLCanvasElement): App {
     i18n,
     viewControls.element.nextSibling,
   );
+  const timePanel = document.querySelector('#time-controls');
+  if (!(timePanel instanceof HTMLElement)) {
+    throw new Error('Missing time controls element #time-controls');
+  }
+  const layoutObserver = createLayoutObserver({
+    target: timePanel,
+    root: document.documentElement,
+  });
   const announcer = createAnnouncer(document.body, selection, i18n);
   const labels = createBodyLabels(document.body, {
     bodies: selectable,
@@ -342,6 +362,7 @@ function mount(canvas: HTMLCanvasElement): App {
       document.removeEventListener('visibilitychange', onVisibilityChange);
       announcer.dispose();
       bodiesPanel.dispose();
+      bodiesDrawer?.dispose();
       labels.dispose();
       pageHeader.remove();
       director.dispose();
@@ -353,6 +374,7 @@ function mount(canvas: HTMLCanvasElement): App {
       selection.dispose();
       scaleNotice.dispose();
       viewControls.dispose();
+      layoutObserver.dispose();
       timeControls.dispose();
       debugSession?.dispose();
       unsubscribeClock?.();

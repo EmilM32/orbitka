@@ -222,6 +222,7 @@ test('dispose removes element and subscription', () => {
       setHovered: (id) => selection.setHovered(id),
       getSelectedId: () => selection.getSelectedId(),
       getHoveredId: () => selection.getHoveredId(),
+      ids: selection.ids,
       subscribe: (listener) => {
         const unsubscribe = selection.subscribe(listener);
         return () => {

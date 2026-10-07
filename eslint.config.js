@@ -445,6 +445,8 @@ export default tseslint.config(
   eslintConfigPrettier,
   {
     files: ['**/*.css'],
+    // docs/design/ holds static mockup stylesheets (EMI-213), not app code.
+    ignores: ['docs/design/**'],
     languageOptions: {
       parser: cssTextParser,
     },

@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="pl" data-quality="high">
+  <head>
+    <meta charset="utf-8" />
+    <title>Orbitka · Obserwatorium FINAL · Merkury z kartą (miernik < 1)</title>
+    <meta name="viewport" content="width=1280,initial-scale=1" />
+    <!-- Makieta statyczna (7.10.2026). Stany hover/fokus wymuszone klasami is-*. Treści kart oznaczone jako przykładowe. -->
+    <link rel="stylesheet" href="fonts.css" />
+    <link rel="stylesheet" href="../tokens.css" />
+    <link rel="stylesheet" href="ui.css" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 1280px;
+        height: 720px;
+        overflow: hidden;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="stage" style="width: 1280px; height: 720px">
+      <img class="scene" src="../scene/mercury-1280-high.png" alt="" />
+      <span
+        class="ring-sel"
+        style="left: 508px; top: 360px; width: 308px; height: 308px"
+      ></span>
+      <div class="labels">
+        <span class="pill is-selected" style="left: 508px; top: 184px"
+          ><span class="dot" style="background: #9c9c9c"></span>Merkury</span
+        >
+      </div>
+      <div class="brand" style="left: 20px; top: 16px; font-size: 24px">
+        <svg class="mark" viewBox="0 0 40 40" aria-hidden="true">
+          <defs>
+            <radialGradient id="sg" cx="40%" cy="38%">
+              <stop offset="0" stop-color="#fff3c4" />
+              <stop offset=".55" stop-color="#ffc24b" />
+              <stop offset="1" stop-color="#e98a12" />
+            </radialGradient>
+          </defs>
+          <ellipse
+            cx="20"
+            cy="20"
+            rx="17"
+            ry="7.5"
+            fill="none"
+            stroke="#8cc8ff"
+            stroke-width="2"
+            transform="rotate(-18 20 20)"
+          />
+          <circle cx="20" cy="20" r="7" fill="url(#sg)" />
+          <circle cx="34.6" cy="14.6" r="2.6" fill="#f2f4fa" /></svg
+        >Orbitka
+      </div>
+      <div class="chip glass" style="left: 172px; top: 18px">
+        <svg
+          class="ic"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 11v5.5" />
+          <circle
+            cx="12"
+            cy="7.6"
+            r="1.1"
+            fill="currentColor"
+            stroke="none"
+          /></svg
+        >Skala uproszczona<button class="why" aria-haspopup="dialog">
+          Dlaczego?
+        </button>
+      </div>
+      <div
+        class="toolbar glass"
+        role="group"
+        aria-label="Widok"
+        style="right: 16px; top: 14px"
+      >
+        <button class="btn">
+          <svg
+            class="ic"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="2.6" fill="currentColor" />
+            <circle cx="12" cy="12" r="6" />
+            <circle cx="12" cy="12" r="9.6" stroke-dasharray="2.5 2.8" /></svg
+          >Cały układ</button
+        ><button class="btn toggle" aria-pressed="true">
+          <svg
+            class="ic"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <ellipse cx="12" cy="12" rx="10" ry="5.2" />
+            <circle cx="19.6" cy="10" r="1.8" fill="currentColor" /></svg
+          >Orbity<span class="switch" aria-hidden="true"></span></button
+        ><span class="sep"></span
+        ><button class="btn" aria-label="Oddal">
+          <svg
+            class="ic"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M5 12h14" />
+          </svg></button
+        ><button class="btn" aria-label="Przybliż">
+          <svg
+            class="ic"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+        </button>
+      </div>
+      <nav
+        class="rail glass"
+        aria-label="Ciała niebieskie (zwinięte)"
+        style="left: 16px; top: 72px"
+      >
+        <button
+          class="btn"
+          aria-label="Rozwiń listę ciał"
+          aria-expanded="false"
+        >
+          <svg
+            class="ic"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M9 6h11M9 12h11M9 18h11" />
+            <circle cx="4.5" cy="6" r="1.2" fill="currentColor" />
+            <circle cx="4.5" cy="12" r="1.2" fill="currentColor" />
+            <circle cx="4.5" cy="18" r="1.2" fill="currentColor" />
+          </svg></button
+        ><span class="rsep"></span
+        ><button class="rdot" aria-label="Słońce">
+          <i style="background: #fdb813"></i></button
+        ><button
+          class="rdot is-selected"
+          aria-label="Merkury"
+          aria-current="true"
+        >
+          <i style="background: #9c9c9c"></i></button
+        ><button class="rdot" aria-label="Wenus">
+          <i style="background: #e6c88a"></i></button
+        ><button class="rdot" aria-label="Ziemia">
+          <i style="background: #3a78c2"></i></button
+        ><button class="rdot" aria-label="Mars">
+          <i style="background: #c1440e"></i></button
+        ><button class="rdot" aria-label="Jowisz">
+          <i style="background: #d2a679"></i></button
+        ><button class="rdot" aria-label="Saturn">
+          <i style="background: #e3cc8f"></i></button
+        ><button class="rdot" aria-label="Uran">
+          <i style="background: #7fd6e0"></i></button
+        ><button class="rdot" aria-label="Neptun">
+          <i style="background: #3f5fd0"></i>
+        </button>
+      </nav>
+      <section
+        class="card glass"
+        aria-labelledby="card-title"
+        style="left: 944px; top: 72px; width: 320px"
+      >
+        <div class="card-top">
+          <div>
+            <h2 id="card-title">Merkury</h2>
+            <div class="kind">
+              <span class="dot" style="background: #9c9c9c"></span>planeta
+              skalista
+            </div>
+          </div>
+          <button
+            class="btn"
+            style="
+              min-width: 40px;
+              height: 40px;
+              padding: 0;
+              margin: -6px -8px 0 0;
+            "
+            aria-label="Zamknij kartę i pokaż cały układ"
+          >
+            <svg
+              class="ic"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6 6 18" />
+            </svg>
+          </button>
+        </div>
+        <div
+          class="meter"
+          role="img"
+          aria-label="Średnica: Merkury 0,38 razy średnica Ziemi"
+        >
+          <div class="meter-head">
+            <span class="k">Średnica</span><span class="v">0,38 × Ziemia</span>
+          </div>
+          <div class="mrow">
+            <span class="n">Ziemia</span>
+            <div class="mbar track">
+              <span class="b earth" style="width: 100%"></span>
+            </div>
+          </div>
+          <div class="mrow">
+            <span class="n">Merkury</span>
+            <div class="mbar track">
+              <span class="b" style="width: 38.29%; background: #9c9c9c"></span>
+            </div>
+          </div>
+          <div class="cap">
+            <b>Ziemia jest ok. 2,6 raza szersza</b> od Merkurego.
+            <span class="km">Merkury ok. 4 900 km · Ziemia ok. 12 700 km</span>
+          </div>
+        </div>
+        <ul class="facts">
+          <li>Rok trwa<b>88 dni ziemskich</b></li>
+          <li>Obrót wokół osi<b>58,6 doby ziemskiej</b></li>
+        </ul>
+        <p class="curio">
+          <span>Ciekawostka</span>Merkury to najmniejsza planeta Układu
+          Słonecznego.
+        </p>
+        <span class="sample">Treść przykładowa · teksty w M4 (Treści)</span>
+        <div class="card-actions">
+          <button class="btn outline">
+            <svg
+              class="ic"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="2.6" fill="currentColor" />
+              <circle cx="12" cy="12" r="6" />
+              <circle cx="12" cy="12" r="9.6" stroke-dasharray="2.5 2.8" /></svg
+            >Cały układ</button
+          ><button class="btn primary">
+            Więcej<svg
+              class="ic"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+          </button>
+        </div>
+      </section>
+      <section
+        class="dock glass"
+        aria-label="Sterowanie czasem"
+        style="position: absolute; left: 205px; top: 636px"
+      >
+        <button class="play" aria-label="Pauza">
+          <svg
+            class="ic"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <rect
+              x="6.5"
+              y="5"
+              width="3.6"
+              height="14"
+              rx="1"
+              fill="currentColor"
+              stroke="none"
+            />
+            <rect
+              x="13.9"
+              y="5"
+              width="3.6"
+              height="14"
+              rx="1"
+              fill="currentColor"
+              stroke="none"
+            />
+          </svg>
+        </button>
+        <div class="date">
+          <span class="d" aria-live="off">20 listopada 2026</span
+          ><span class="s">1 dzień/s</span>
+        </div>
+        <div
+          class="segs"
+          role="radiogroup"
+          aria-label="Prędkość czasu na sekundę"
+        >
+          <span class="seg is-active" role="radio" aria-checked="true"
+            >1 dzień</span
+          ><span class="seg" role="radio" aria-checked="false">10 dni</span
+          ><span class="seg" role="radio" aria-checked="false">1 mies.</span
+          ><span class="seg" role="radio" aria-checked="false">1 rok</span>
+        </div>
+        <button class="btn outline" aria-pressed="false">
+          <svg
+            class="ic"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1" />
+            <path d="M3.5 4v4.6h4.6" /></svg
+          >Wstecz
+        </button>
+        <div
+          class="slider"
+          role="slider"
+          aria-label="Prędkość czasu"
+          style="width: 150px"
+        >
+          <span class="track"></span
+          ><span class="fill" style="width: 18%"></span
+          ><span class="thumb" style="left: 18%"></span>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

@@ -446,3 +446,64 @@ test('uses literal breakpoints', () => {
     expect(source.includes(token)).toBe(true);
   }
 });
+
+async function assertPanelFits(page: Page): Promise<void> {
+  const metrics = await page.evaluate(() => {
+    const panel = document.querySelector('#bodies-panel');
+    const title = document.querySelector('#bodies-panel-title');
+    const toggle = document.querySelector('#bodies-collapse');
+    if (panel === null || title === null || toggle === null) {
+      throw new Error('missing bodies panel parts');
+    }
+    const panelBox = panel.getBoundingClientRect();
+    const toggleBox = toggle.getBoundingClientRect();
+    const titleBox = title.getBoundingClientRect();
+    return {
+      scrollWidth: panel.scrollWidth,
+      clientWidth: panel.clientWidth,
+      scrollLeft: panel.scrollLeft,
+      titleHeight: titleBox.height,
+      titleLineHeight: parseFloat(getComputedStyle(title).lineHeight),
+      titleLeft: titleBox.left - panelBox.left,
+      toggleLeft: toggleBox.left - panelBox.left,
+      toggleRight: panelBox.right - toggleBox.right,
+      toggleWidth: toggleBox.width,
+    };
+  });
+  expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth);
+  expect(metrics.scrollLeft).toBe(0);
+  expect(metrics.titleHeight).toBeLessThanOrEqual(
+    metrics.titleLineHeight + 0.5,
+  );
+  expect(metrics.titleLeft).toBeGreaterThanOrEqual(0);
+  expect(metrics.toggleLeft).toBeGreaterThan(metrics.titleLeft);
+  expect(metrics.toggleRight).toBeGreaterThanOrEqual(0);
+  expect(metrics.toggleWidth).toBeGreaterThanOrEqual(32);
+  expect(metrics.toggleWidth).toBeLessThan(80);
+}
+
+test('bodies panel has no horizontal scroll at 1280x720 and 1920x1080', async ({
+  page,
+}) => {
+  for (const size of [
+    { width: 1280, height: 720 },
+    { width: 1920, height: 1080 },
+  ]) {
+    const errors = await openAt(page, size);
+    await assertPanelFits(page);
+
+    await page.getByTestId('body-item-earth').click();
+    await assertPanelFits(page);
+
+    await page.getByTestId('bodies-collapse').click();
+    await expect(page.getByTestId('bodies-collapse')).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    await assertPanelFits(page);
+
+    await page.getByTestId('bodies-collapse').click();
+    await assertPanelFits(page);
+    expect(errors).toEqual([]);
+  }
+});

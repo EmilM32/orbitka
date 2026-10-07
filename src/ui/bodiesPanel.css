@@ -40,7 +40,6 @@
 
 #bodies-panel button {
   box-sizing: border-box;
-  width: 100%;
   min-height: 32px;
   margin: 0;
   padding: 6px 8px;
@@ -51,6 +50,11 @@
   background: transparent;
   border: 0;
   border-radius: 8px;
+}
+
+/* Only list items span the panel; the collapse button keeps its own width. */
+#bodies-list button {
+  width: 100%;
 }
 
 #bodies-collapse {

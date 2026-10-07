@@ -1,0 +1,52 @@
+#body-labels {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 0;
+  pointer-events: none;
+}
+
+.body-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 4px 6px;
+  overflow: hidden;
+  color: #ffffff;
+  font-family: system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+  background: rgba(10, 14, 30, 0.85);
+}
+
+.body-label.is-selected {
+  font-weight: 700;
+}
+
+.body-label.is-hovered {
+  color: #0a0e1e;
+  background: #ffd54a;
+}
+
+.body-label.is-hidden {
+  visibility: hidden;
+}
+
+@media (pointer: fine) {
+  .body-label {
+    min-height: 32px;
+    pointer-events: auto;
+  }
+}
+
+@media (pointer: coarse) {
+  .body-label {
+    pointer-events: none;
+  }
+}

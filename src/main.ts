@@ -21,6 +21,7 @@ import { addOrbitLines } from '@render/orbitLines.ts';
 import { createCameraController } from '@render/cameraController.ts';
 import { createCameraDirector } from '@render/cameraDirector.ts';
 import { createCameraPointerInput } from '@render/cameraPointerInput.ts';
+import { createCanvasKeyboard } from '@render/canvasKeyboard.ts';
 import { createRenderer } from '@render/createRenderer.ts';
 import { createRotationAnimator } from '@render/rotateBodies.ts';
 import { getRenderStats, trackDebugDrawCalls } from '@render/renderStats.ts';
@@ -143,6 +144,14 @@ function mount(canvas: HTMLCanvasElement): App {
   const debugAxes = debug ? addDebugAxes(bodies, bodyView.meshes) : null;
   const debugDraws = debug ? trackDebugDrawCalls(view.scene) : null;
   const i18n = createI18n(pl, 'pl-PL');
+  const canvasKeyboard = createCanvasKeyboard({
+    surface: canvas,
+    controller: cameraController,
+    onShowSystem: () => {
+      selection.showSystem();
+    },
+    ariaLabel: i18n.t('canvas.ariaLabel'),
+  });
   const scaleNotice = createScaleNotice(document.body, i18n);
   const timeControls = createTimeControls(document.body, clock, i18n);
   const pageHeader = createPageHeader(document.body, i18n, canvas);
@@ -326,6 +335,7 @@ function mount(canvas: HTMLCanvasElement): App {
       orbitLines.dispose();
       bodyView.dispose();
       unsubscribeResize();
+      canvasKeyboard.dispose();
       pointerInput.dispose();
       cameraController.dispose();
       reducedMotion.dispose();

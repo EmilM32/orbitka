@@ -12,6 +12,8 @@ import type { BodyDef } from '@data/types.ts';
 import { bodyPositionAu } from '@sim/kepler.ts';
 import { compressPositionAu, type Vec3 } from '@sim/scale.ts';
 
+import { CAMERA_CONFIG } from '@core/cameraConfig.ts';
+
 import { eclipticToScene } from './coords.ts';
 
 export const ORBIT_SEGMENTS = 256;
@@ -20,6 +22,8 @@ export const ORBIT_OPACITY = 0.55;
 
 export type OrbitLines = {
   group: Group;
+  setOrbitLinesVisible: (visible: boolean) => void;
+  setSelectedBody: (id: string | null) => void;
   dispose: () => void;
 };
 
@@ -68,16 +72,24 @@ export function computeOrbitPoints(
   return points;
 }
 
-export function createOrbitLines(defs: readonly BodyDef[]): OrbitLines {
-  const group = new Group();
-  const material = new LineBasicMaterial({
+function createOrbitMaterial(opacity: number): LineBasicMaterial {
+  return new LineBasicMaterial({
     color: ORBIT_COLOR,
     transparent: true,
-    opacity: ORBIT_OPACITY,
+    opacity,
     depthWrite: false,
   });
+}
+
+export function createOrbitLines(defs: readonly BodyDef[]): OrbitLines {
+  const group = new Group();
+  const normal = createOrbitMaterial(ORBIT_OPACITY);
+  const dimmed = createOrbitMaterial(CAMERA_CONFIG.orbitOpacityDimmed);
+  const selected = createOrbitMaterial(CAMERA_CONFIG.orbitOpacitySelected);
+  const materials = [normal, dimmed, selected];
   const lines: LineLoop[] = [];
   let disposed = false;
+  let selectedId: string | null = null;
 
   const dispose = (): void => {
     if (disposed) {
@@ -89,9 +101,33 @@ export function createOrbitLines(defs: readonly BodyDef[]): OrbitLines {
       line.geometry.dispose();
       group.remove(line);
     }
-    material.dispose();
+    for (const material of materials) {
+      material.dispose();
+    }
     lines.length = 0;
     group.removeFromParent();
+  };
+
+  const applyMaterials = (): void => {
+    const selectedName =
+      selectedId === null || selectedId === 'sun' ? '' : `orbit-${selectedId}`;
+    let found = false;
+    for (const line of lines) {
+      if (line.name === selectedName) {
+        found = true;
+        break;
+      }
+    }
+
+    for (const line of lines) {
+      if (!found) {
+        line.material = normal;
+      } else if (line.name === selectedName) {
+        line.material = selected;
+      } else {
+        line.material = dimmed;
+      }
+    }
   };
 
   try {
@@ -105,7 +141,7 @@ export function createOrbitLines(defs: readonly BodyDef[]): OrbitLines {
         'position',
         new Float32BufferAttribute(computeOrbitPoints(def), 3),
       );
-      const line = new LineLoop(geometry, material);
+      const line = new LineLoop(geometry, normal);
       line.name = `orbit-${def.id}`;
       line.frustumCulled = false;
       line.renderOrder = -1;
@@ -117,13 +153,29 @@ export function createOrbitLines(defs: readonly BodyDef[]): OrbitLines {
     throw error;
   }
 
-  return { group, dispose };
+  return {
+    group,
+    setOrbitLinesVisible(visible: boolean): void {
+      if (disposed) {
+        return;
+      }
+      group.visible = visible;
+    },
+    setSelectedBody(id: string | null): void {
+      if (disposed) {
+        return;
+      }
+      selectedId = id;
+      applyMaterials();
+    },
+    dispose,
+  };
 }
 
 export function addOrbitLines(
   scene: Scene,
   defs: readonly BodyDef[],
-): { dispose: () => void } {
+): OrbitLines {
   const lines = createOrbitLines(defs);
   scene.add(lines.group);
   return lines;

@@ -61,6 +61,41 @@ function distance(left: ScenePosition, right: ScenePosition): number {
   return Math.hypot(left.x - right.x, left.y - right.y, left.z - right.z);
 }
 
+// A busy runner can give the first window fewer frames than the second, so a
+// raw Δdays over 1500 ms of wall time is not comparable. Divide by the frame
+// time the loop is allowed to use: dt clamped to 0.1 s, the same cap as the
+// render loop. The ratio of those rates is the speed ratio.
+async function daysPerSimSecond(page: Page, windowMs: number): Promise<number> {
+  return page.evaluate(async (durationMs) => {
+    const hook = window.__orbitka;
+    if (!hook) {
+      throw new Error('missing debug hook');
+    }
+
+    const startDays = hook.getClock().days;
+    const start = performance.now();
+    let previous = start;
+    let simulated = 0;
+
+    while (performance.now() - start < durationMs) {
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          resolve();
+        });
+      });
+      const now = performance.now();
+      simulated += Math.min(0.1, Math.max(0, (now - previous) / 1000));
+      previous = now;
+    }
+
+    if (!(simulated > 0)) {
+      throw new Error('no frames in the measurement window');
+    }
+
+    return (hook.getClock().days - startDays) / simulated;
+  }, windowMs);
+}
+
 async function collectSnapshots(
   page: Page,
   count: number,
@@ -242,10 +277,7 @@ test('speed change', async ({ page }) => {
   await page.getByTestId('time-preset-day').click();
   const start = await readClock(page);
   expect(start.speed).toBe(1);
-
-  await page.waitForTimeout(1500);
-  const mid = await readClock(page);
-  const deltaDay = mid.days - start.days;
+  const rateDay = await daysPerSimSecond(page, 1500);
 
   await page.getByTestId('time-preset-year').click();
   const year = await readClock(page);
@@ -259,13 +291,17 @@ test('speed change', async ({ page }) => {
     'false',
   );
 
-  const afterClick = await readClock(page);
-  await page.waitForTimeout(1500);
-  const end = await readClock(page);
-  const deltaYear = end.days - afterClick.days;
-  expect(deltaDay).toBeGreaterThan(0);
-  expect(deltaYear / deltaDay).toBeGreaterThanOrEqual(200);
-  expect(deltaYear / deltaDay).toBeLessThanOrEqual(500);
+  const rateYear = await daysPerSimSecond(page, 1500);
+  const ratio = rateYear / rateDay;
+  expect(rateDay, `day rate ${rateDay}`).toBeGreaterThan(0);
+  expect(
+    ratio,
+    `speed ratio ${ratio} (${rateYear} / ${rateDay})`,
+  ).toBeGreaterThanOrEqual(200);
+  expect(
+    ratio,
+    `speed ratio ${ratio} (${rateYear} / ${rateDay})`,
+  ).toBeLessThanOrEqual(500);
 });
 
 test('reverse', async ({ page }) => {

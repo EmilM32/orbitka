@@ -236,3 +236,56 @@ test('update does not allocate', () => {
 
   projector.dispose();
 });
+
+test('radius covers the drawn sphere close up and off axis', () => {
+  const camera = new PerspectiveCamera(45, 16 / 9, 0.1, 2000);
+  camera.position.set(0, 0, 0);
+  camera.lookAt(0, 0, -1);
+  camera.updateMatrixWorld();
+  const radius = 1.5;
+  const cases = [
+    { x: 0, y: 0, z: -2.5 * radius },
+    { x: 1.2, y: 0.4, z: -2.5 * radius },
+    { x: 6, y: -2, z: -14 },
+  ];
+
+  for (const position of cases) {
+    const projector = createBodyProjector(
+      [{ id: 'earth', position, displayRadius: radius }],
+      resizeView(),
+    );
+    projector.update(camera, 1280, 720);
+    const centerX = projector.frame.x[0] ?? 0;
+    const centerY = projector.frame.y[0] ?? 0;
+    const radiusPx = projector.frame.radiusPx[0] ?? 0;
+
+    const center = new Vector3(position.x, position.y, position.z);
+    const toCamera = center.clone().negate().normalize();
+    const point = new Vector3();
+    let farthest = 0;
+    const steps = 720;
+    for (let latitude = 0; latitude <= steps / 4; latitude += 1) {
+      const polar = (latitude / steps) * 2 * Math.PI;
+      for (let longitude = 0; longitude < steps; longitude += 1) {
+        const azimuth = (longitude / steps) * 2 * Math.PI;
+        point.set(
+          Math.sin(polar * 2) * Math.cos(azimuth),
+          Math.sin(polar * 2) * Math.sin(azimuth),
+          Math.cos(polar * 2),
+        );
+        // Only the half facing the camera is drawn.
+        if (point.dot(toCamera) < 0) {
+          continue;
+        }
+        point.multiplyScalar(radius).add(center).project(camera);
+        const x = (point.x * 0.5 + 0.5) * 1280;
+        const y = (-point.y * 0.5 + 0.5) * 720;
+        farthest = Math.max(farthest, Math.hypot(x - centerX, y - centerY));
+      }
+    }
+
+    expect(radiusPx).toBeGreaterThanOrEqual(farthest - 0.05);
+    expect(radiusPx).toBeLessThan(farthest * 1.01);
+    projector.dispose();
+  }
+});

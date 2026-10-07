@@ -419,7 +419,7 @@ function pressedPresets(parent: ParentNode): string[] {
   );
 }
 
-test('timeControls › suwak: struktura', () => {
+test('timeControls › slider structure', () => {
   const view = setup();
   const slider = sliderOf(view.parent);
   const label = view.parent.querySelector('label[for="speed-slider"]');
@@ -435,7 +435,7 @@ test('timeControls › suwak: struktura', () => {
   view.cleanup();
 });
 
-test('timeControls › suwak: preset', () => {
+test('timeControls › slider preset', () => {
   const view = setup();
   const slider = sliderOf(view.parent);
 
@@ -447,7 +447,7 @@ test('timeControls › suwak: preset', () => {
   view.cleanup();
 });
 
-test('timeControls › suwak: input', () => {
+test('timeControls › slider input', () => {
   const view = setup();
   const slider = sliderOf(view.parent);
 
@@ -464,7 +464,7 @@ test('timeControls › suwak: input', () => {
   view.cleanup();
 });
 
-test('timeControls › suwak: bez pułapki', () => {
+test('timeControls › slider does not snap nearby', () => {
   const view = setup();
   const slider = sliderOf(view.parent);
 
@@ -489,7 +489,7 @@ test('timeControls › suwak: bez pułapki', () => {
   view.cleanup();
 });
 
-test('timeControls › suwak: pauza', () => {
+test('timeControls › slider pause', () => {
   const view = setup();
   const slider = sliderOf(view.parent);
   const speedBefore = view.clock.speed;
@@ -508,7 +508,7 @@ test('timeControls › suwak: pauza', () => {
   view.cleanup();
 });
 
-test('timeControls › suwak: kierunek', () => {
+test('timeControls › slider direction', () => {
   const view = setup();
   const slider = sliderOf(view.parent);
 
@@ -519,7 +519,7 @@ test('timeControls › suwak: kierunek', () => {
   view.cleanup();
 });
 
-test('timeControls › suwak: aria-valuetext', () => {
+test('timeControls › slider aria-valuetext', () => {
   const view = setup();
   const slider = sliderOf(view.parent);
 
@@ -567,7 +567,7 @@ test.each([
   'lostpointercapture',
   'change',
   'blur',
-] as const)('timeControls › suwak: przeciąganie %s', (type) => {
+] as const)('timeControls › slider drag %s', (type) => {
   const view = setup();
   const slider = sliderOf(view.parent);
   const capture = vi.fn();
@@ -596,7 +596,7 @@ test.each([
   view.cleanup();
 });
 
-test('timeControls › suwak: klawisze', () => {
+test('timeControls › slider keys', () => {
   const view = setup();
   const slider = sliderOf(view.parent);
 
@@ -647,7 +647,7 @@ test('timeControls › suwak: klawisze', () => {
   view.cleanup();
 });
 
-test('timeControls › suwak: bez timerów', () => {
+test('timeControls › slider no timers', () => {
   const source = readFileSync('src/ui/timeControls.ts', 'utf8');
   expect(source.includes('dispatchEvent')).toBe(false);
   expect(source.includes('setInterval')).toBe(false);
@@ -671,7 +671,7 @@ test('timeControls › suwak: bez timerów', () => {
   view.cleanup();
 });
 
-test('timeControls › suwak: dispose', () => {
+test('timeControls › slider dispose', () => {
   const parent = document.createElement('div');
   document.body.append(parent);
   const clock = createClock({ nowMs: () => 0 });
@@ -700,7 +700,7 @@ test('timeControls › suwak: dispose', () => {
   parent.remove();
 });
 
-test('timeControls › suwak: niepoprawna wartość', () => {
+test('timeControls › slider invalid value', () => {
   const view = setup();
   const slider = sliderOf(view.parent);
   vi.spyOn(slider, 'value', 'get').mockReturnValue('NaN');

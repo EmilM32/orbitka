@@ -17,7 +17,7 @@ test('sliderToSpeed › clamp', () => {
   expect(sliderToSpeed(Number.NaN)).toBe(0.1);
 });
 
-test('sliderToSpeed › złote wartości', () => {
+test('sliderToSpeed › golden values', () => {
   expect(sliderToSpeed(250)).toBeCloseTo(1.3824, 3);
   expect(sliderToSpeed(500)).toBeCloseTo(19.1115, 3);
   expect(sliderToSpeed(750)).toBeCloseTo(264.206, 2);
@@ -26,7 +26,7 @@ test('sliderToSpeed › złote wartości', () => {
   ).toBeLessThan(1e-6);
 });
 
-test('speedToSlider › złote wartości', () => {
+test('speedToSlider › golden values', () => {
   expect(speedToSlider(0.1)).toBe(0);
   expect(speedToSlider(1)).toBe(219);
   expect(speedToSlider(10)).toBe(438);
@@ -45,7 +45,7 @@ test('speedToSlider › clamp', () => {
   expect(speedToSlider(Number.POSITIVE_INFINITY)).toBe(1000);
 });
 
-test('sliderToSpeed › monotoniczność', () => {
+test('sliderToSpeed › monotonic', () => {
   let previous = sliderToSpeed(0);
   for (let position = 1; position <= SLIDER_STEPS; position += 1) {
     const speed = sliderToSpeed(position);
@@ -54,7 +54,7 @@ test('sliderToSpeed › monotoniczność', () => {
   }
 });
 
-test('speedToSlider › okrągłość', () => {
+test('speedToSlider › round trip', () => {
   for (let position = 0; position <= SLIDER_STEPS; position += 1) {
     expect(speedToSlider(sliderToSpeed(position))).toBe(position);
   }
@@ -92,7 +92,7 @@ test('speedSlider › RangeError', () => {
   }
 });
 
-test('speedSlider › parametry własne', () => {
+test('speedSlider › custom bounds', () => {
   expect(sliderToSpeed(0, 2, 8)).toBe(2);
   expect(sliderToSpeed(1000, 2, 8)).toBe(8);
   expect(sliderToSpeed(500, 2, 8)).toBeCloseTo(4, 9);

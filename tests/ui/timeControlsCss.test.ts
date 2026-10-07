@@ -20,7 +20,7 @@ test('timeControlsCss › rules', () => {
   expect(css).not.toContain('url(http');
 });
 
-test('timeControlsCss › suwak', () => {
+test('timeControlsCss › slider', () => {
   const sliderRule = css.match(/#speed-slider\s*\{[^}]*\}/u);
   expect(sliderRule).not.toBeNull();
   expect(sliderRule?.[0]).toContain('min-height: 44px');

@@ -13,7 +13,9 @@ import {
   type Clock,
   type ClockState,
 } from '@core/clock.ts';
+import { sliderToSpeed, speedToSlider } from '@core/speedSlider.ts';
 import { formatDate, formatDateTimeAttr } from '@ui/formatDate.ts';
+import { formatSpeedSpoken } from '@ui/formatSpeed.ts';
 import { createI18n } from '@ui/i18n.ts';
 import { createTimeControls } from '@ui/timeControls.ts';
 
@@ -373,6 +375,339 @@ test('timeControls › accuracy', () => {
   view.clock.pause();
   expect(notice.hidden).toBe(false);
   expect(notice.textContent).toBe('Pozycje przybliżone');
+
+  view.cleanup();
+});
+
+const PRESET_STEPS = [
+  ['time-preset-day', '219', 1],
+  ['time-preset-ten-days', '438', 10],
+  ['time-preset-month', '544', 30.4375],
+  ['time-preset-year', '781', 365.25],
+] as const;
+
+const SLIDER_EVENTS = [
+  'input',
+  'keydown',
+  'pointerdown',
+  'pointerup',
+  'pointercancel',
+  'lostpointercapture',
+  'change',
+  'blur',
+] as const;
+
+function sliderOf(parent: ParentNode): HTMLInputElement {
+  const found = parent.querySelector('[data-testid="time-slider"]');
+  if (!(found instanceof HTMLInputElement)) {
+    throw new Error('missing time slider');
+  }
+
+  return found;
+}
+
+function fireInput(slider: HTMLInputElement, value: string): void {
+  slider.value = value;
+  slider.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function pressedPresets(parent: ParentNode): string[] {
+  return BUTTON_IDS.filter(
+    (testId) =>
+      testId.startsWith('time-preset-') &&
+      button(parent, testId).getAttribute('aria-pressed') === 'true',
+  );
+}
+
+test('timeControls › slider structure', () => {
+  const view = setup();
+  const slider = sliderOf(view.parent);
+  const label = view.parent.querySelector('label[for="speed-slider"]');
+
+  expect(slider.id).toBe('speed-slider');
+  expect(slider.min).toBe('0');
+  expect(slider.max).toBe('1000');
+  expect(slider.step).toBe('1');
+  expect(label?.textContent).toBe('Prędkość czasu');
+  expect(slider.value).toBe('219');
+  expect(slider.getAttribute('aria-label')).toBeNull();
+
+  view.cleanup();
+});
+
+test('timeControls › slider preset', () => {
+  const view = setup();
+  const slider = sliderOf(view.parent);
+
+  for (const [testId, value] of PRESET_STEPS) {
+    button(view.parent, testId).click();
+    expect(slider.value).toBe(value);
+  }
+
+  view.cleanup();
+});
+
+test('timeControls › slider input', () => {
+  const view = setup();
+  const slider = sliderOf(view.parent);
+
+  fireInput(slider, '500');
+  expect(view.clock.speed).toBeCloseTo(19.1115, 3);
+  expect(pressedPresets(view.parent)).toEqual([]);
+
+  fireInput(slider, '219');
+  expect(view.clock.speed).toBe(1);
+  expect(
+    button(view.parent, 'time-preset-day').getAttribute('aria-pressed'),
+  ).toBe('true');
+
+  view.cleanup();
+});
+
+test('timeControls › slider does not snap nearby', () => {
+  const view = setup();
+  const slider = sliderOf(view.parent);
+
+  for (const [, value] of PRESET_STEPS) {
+    const position = Number(value);
+    for (const next of [position + 1, position - 1]) {
+      fireInput(slider, String(next));
+      expect(slider.value).toBe(String(next));
+      expect(slider.value).not.toBe(value);
+      expect(view.clock.speed).toBeCloseTo(sliderToSpeed(next), 9);
+      expect(pressedPresets(view.parent)).toEqual([]);
+    }
+  }
+
+  fireInput(slider, '220');
+  expect(view.clock.speed).toBeCloseTo(1.0087, 3);
+  expect(pressedPresets(view.parent)).toEqual([]);
+
+  fireInput(slider, '439');
+  expect(view.clock.speed).toBeCloseTo(10.069, 2);
+
+  view.cleanup();
+});
+
+test('timeControls › slider pause', () => {
+  const view = setup();
+  const slider = sliderOf(view.parent);
+  const speedBefore = view.clock.speed;
+
+  view.clock.pause();
+  fireInput(slider, '500');
+  expect(view.clock.speed).not.toBe(speedBefore);
+  expect(view.clock.paused).toBe(true);
+  expect(speedText(view.parent)).toBe('Pauza');
+
+  fireInput(slider, '219');
+  expect(view.clock.speed).toBe(1);
+  expect(view.clock.paused).toBe(true);
+  expect(speedText(view.parent)).toBe('Pauza');
+
+  view.cleanup();
+});
+
+test('timeControls › slider direction', () => {
+  const view = setup();
+  const slider = sliderOf(view.parent);
+
+  view.clock.setReversed(true);
+  fireInput(slider, '500');
+  expect(view.clock.reversed).toBe(true);
+
+  view.cleanup();
+});
+
+test('timeControls › slider aria-valuetext', () => {
+  const view = setup();
+  const slider = sliderOf(view.parent);
+
+  for (const [testId, , speed] of PRESET_STEPS) {
+    button(view.parent, testId).click();
+    expect(slider.getAttribute('aria-valuetext')).toBe(
+      formatSpeedSpoken(speed, false, false, i18n),
+    );
+  }
+
+  expect(slider.getAttribute('aria-valuetext')).toBe(
+    'Prędkość: 1 rok na sekundę',
+  );
+
+  view.clock.pause();
+  expect(slider.getAttribute('aria-valuetext')).toBe('Pauza');
+  view.clock.resume();
+
+  button(view.parent, 'time-preset-year').click();
+  view.clock.setReversed(true);
+  expect(slider.getAttribute('aria-valuetext')).toBe(
+    'Prędkość: cofanie 1 rok na sekundę',
+  );
+
+  view.clock.setReversed(false);
+  view.clock.setSpeed(123);
+  expect(slider.getAttribute('aria-valuetext')).toBe(
+    'Prędkość: 123 dni na sekundę',
+  );
+  view.clock.setSpeed(1.5);
+  expect(slider.getAttribute('aria-valuetext')).toBe(
+    'Prędkość: 1,5 dnia na sekundę',
+  );
+  view.clock.setSpeed(1899.3);
+  expect(slider.getAttribute('aria-valuetext')).toBe(
+    'Prędkość: 5,2 roku na sekundę',
+  );
+
+  view.cleanup();
+});
+
+test.each([
+  'pointerup',
+  'pointercancel',
+  'lostpointercapture',
+  'change',
+  'blur',
+] as const)('timeControls › slider drag %s', (type) => {
+  const view = setup();
+  const slider = sliderOf(view.parent);
+  const capture = vi.fn();
+  Object.defineProperty(slider, 'setPointerCapture', {
+    configurable: true,
+    value: capture,
+  });
+
+  slider.dispatchEvent(
+    new PointerEvent('pointerdown', { pointerId: 4, bubbles: true }),
+  );
+  expect(capture).toHaveBeenCalledWith(4);
+
+  const frozen = slider.value;
+  view.clock.setSpeed(5);
+  expect(slider.value).toBe(frozen);
+  expect(speedText(view.parent)).toBe('Prędkość: 5 dni/s');
+  expect(slider.getAttribute('aria-valuetext')).toBe(
+    'Prędkość: 5 dni na sekundę',
+  );
+
+  slider.dispatchEvent(new Event(type, { bubbles: true }));
+  view.clock.setSpeed(10);
+  expect(slider.value).toBe(String(speedToSlider(10)));
+
+  view.cleanup();
+});
+
+test('timeControls › slider keys', () => {
+  const view = setup();
+  const slider = sliderOf(view.parent);
+
+  function key(name: string): KeyboardEvent {
+    const event = new KeyboardEvent('keydown', {
+      key: name,
+      bubbles: true,
+      cancelable: true,
+    });
+    slider.dispatchEvent(event);
+    return event;
+  }
+
+  slider.value = '250';
+  expect(key('PageUp').defaultPrevented).toBe(true);
+  expect(slider.value).toBe('350');
+
+  expect(key('PageDown').defaultPrevented).toBe(true);
+  expect(slider.value).toBe('250');
+
+  slider.value = '950';
+  key('PageUp');
+  expect(slider.value).toBe('1000');
+  expect(view.clock.speed).toBe(3652.5);
+
+  key('Home');
+  expect(slider.value).toBe('0');
+  expect(view.clock.speed).toBe(0.1);
+
+  key('End');
+  expect(slider.value).toBe('1000');
+
+  fireInput(slider, '301');
+  expect(slider.value).toBe('301');
+  expect(view.clock.speed).toBeCloseTo(sliderToSpeed(301), 9);
+  fireInput(slider, '300');
+  expect(slider.value).toBe('300');
+  expect(view.clock.speed).toBeCloseTo(sliderToSpeed(300), 9);
+
+  key('ArrowRight');
+  const frozen = slider.value;
+  view.clock.setSpeed(5);
+  expect(slider.value).toBe(frozen);
+  slider.dispatchEvent(new Event('blur'));
+  view.clock.setSpeed(8);
+  expect(slider.value).toBe(String(speedToSlider(8)));
+
+  view.cleanup();
+});
+
+test('timeControls › slider no timers', () => {
+  const source = readFileSync('src/ui/timeControls.ts', 'utf8');
+  expect(source.includes('dispatchEvent')).toBe(false);
+  expect(source.includes('setInterval')).toBe(false);
+  expect(source.includes('requestAnimationFrame')).toBe(false);
+
+  const interval = vi.spyOn(window, 'setInterval');
+  const frame = vi.spyOn(window, 'requestAnimationFrame');
+  interval.mockClear();
+  frame.mockClear();
+
+  const view = setup();
+  const setSpeed = vi.spyOn(view.clock, 'setSpeed');
+  button(view.parent, 'time-preset-year').click();
+  expect(sliderOf(view.parent).value).toBe('781');
+  expect(setSpeed).not.toHaveBeenCalled();
+  expect(interval).not.toHaveBeenCalled();
+  expect(frame).not.toHaveBeenCalled();
+
+  interval.mockRestore();
+  frame.mockRestore();
+  view.cleanup();
+});
+
+test('timeControls › slider dispose', () => {
+  const parent = document.createElement('div');
+  document.body.append(parent);
+  const clock = createClock({ nowMs: () => 0 });
+  const controls = createTimeControls(parent, clock, i18n);
+  const slider = sliderOf(parent);
+  const remove = vi.spyOn(slider, 'removeEventListener');
+
+  controls.dispose();
+
+  for (const type of SLIDER_EVENTS) {
+    expect(remove).toHaveBeenCalledWith(type, expect.any(Function));
+  }
+
+  const speed = clock.speed;
+  expect(() => {
+    fireInput(slider, '500');
+    slider.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Home', bubbles: true }),
+    );
+  }).not.toThrow();
+  expect(clock.speed).toBe(speed);
+  expect(() => clock.setSpeed(4)).not.toThrow();
+  expect(document.querySelector('#time-controls')).toBeNull();
+  expect(document.querySelector('#sim-speed')).toBeNull();
+  expect(() => controls.dispose()).not.toThrow();
+  parent.remove();
+});
+
+test('timeControls › slider invalid value', () => {
+  const view = setup();
+  const slider = sliderOf(view.parent);
+  vi.spyOn(slider, 'value', 'get').mockReturnValue('NaN');
+
+  slider.dispatchEvent(new Event('input', { bubbles: true }));
+  expect(view.clock.speed).toBe(0.1);
+  expect(view.clock.paused).toBe(false);
 
   view.cleanup();
 });

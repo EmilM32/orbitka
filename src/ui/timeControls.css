@@ -44,6 +44,35 @@
   border-color: #ffd54a;
 }
 
+#speed-slider {
+  box-sizing: border-box;
+  flex: 1 1 180px;
+  width: 180px;
+  min-width: 140px;
+  height: 44px;
+  min-height: 44px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  accent-color: #ffd54a;
+  touch-action: none;
+}
+
+#speed-slider:focus-visible {
+  outline: 3px solid #ffd54a;
+  outline-offset: 2px;
+}
+
+#speed-slider::-webkit-slider-thumb {
+  width: 28px;
+  height: 28px;
+}
+
+#speed-slider::-moz-range-thumb {
+  width: 28px;
+  height: 28px;
+}
+
 #sim-date,
 #sim-speed,
 #time-accuracy {

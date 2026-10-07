@@ -30,6 +30,7 @@
   "time.status.paused": "Pauza",
   "time.speed.perSecond": "{amount}/s",
   "time.speed.perSecondSpoken": "{amount} na sekundę",
+  "time.slider.label": "Prędkość czasu",
   "time.units.days": {
     "one": "{count} dzień",
     "few": "{count} dni",

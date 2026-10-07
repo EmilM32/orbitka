@@ -6,7 +6,7 @@
   position: fixed;
   top: var(--debug-top);
   left: 8px;
-  z-index: 2;
+  z-index: var(--layer-debug);
   pointer-events: none;
   padding: 6px 8px;
   font: 12px monospace;

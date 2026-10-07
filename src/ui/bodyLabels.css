@@ -2,7 +2,7 @@
   position: fixed;
   top: 0;
   left: 0;
-  z-index: 1;
+  z-index: var(--layer-overlay);
   margin: 0;
   padding: 0;
   pointer-events: none;

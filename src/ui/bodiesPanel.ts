@@ -222,13 +222,11 @@ export function createBodiesPanel(
     if (previousId === null) {
       return;
     }
-    if (collapsed) {
-      toggle.focus();
-      return;
-    }
-    const button = buttonById.get(previousId);
-    if (button !== undefined && isShown(button)) {
-      button.focus();
+    // Collapsed: the collapse button, unless it sits in a closed drawer
+    // (tablet); then the fallback below, like a hidden list item.
+    const target = collapsed ? toggle : buttonById.get(previousId);
+    if (target !== undefined && isShown(target)) {
+      target.focus();
       return;
     }
     const fallback = options.getFocusFallback?.() ?? null;

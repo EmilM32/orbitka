@@ -56,7 +56,7 @@ test('css contract', () => {
   expect(CSS).toContain('#ffffff');
   expect(CSS).toContain('rgba(10, 14, 30, 0.85)');
   expect(CSS).toContain('font-weight: 700');
-  expect(CSS).toContain('z-index: 1');
+  expect(CSS).toContain('z-index: var(--layer-overlay)');
   expect(CSS).not.toMatch(/transition/iu);
   expect(CSS).not.toMatch(/animation/iu);
   expect(CSS).toMatch(/#body-labels\s*\{[^}]*pointer-events:\s*none/u);

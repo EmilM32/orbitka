@@ -1,3 +1,15 @@
+/*
+ * Stacking layers. Every z-index in the app uses one of these, so the order
+ * lives in one place.
+ */
+:root {
+  --layer-overlay: 1;
+  --layer-debug: 2;
+  --layer-panel: 3;
+  --layer-drawer: 4;
+  --layer-dialog: 5;
+}
+
 html,
 body,
 #viewport {

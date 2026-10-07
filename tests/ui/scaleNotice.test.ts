@@ -82,6 +82,7 @@ test('scaleNotice › opening', () => {
   expect(view.panel.hidden).toBe(false);
   expect(view.panel.hasAttribute('hidden')).toBe(false);
   expect(view.why.getAttribute('aria-expanded')).toBe('true');
+  expect(view.root.classList.contains('is-open')).toBe(true);
   expect(document.activeElement).toBe(view.title);
   expect(
     [...view.panel.querySelectorAll('p')].map(
@@ -98,10 +99,13 @@ test('scaleNotice › focus order', () => {
   view.why.click();
 
   expect(view.why.nextElementSibling).toBe(view.panel);
-  expect(view.panel.firstElementChild).toBe(view.title);
+  const elements = [...view.panel.querySelectorAll<HTMLElement>('*')];
+  expect(elements.find((element) => element.tagName !== 'DIV')).toBe(
+    view.title,
+  );
 
-  const afterTitle = [...view.panel.querySelectorAll<HTMLElement>('*')]
-    .slice(1)
+  const afterTitle = elements
+    .slice(elements.indexOf(view.title) + 1)
     .find((element) => element.tabIndex >= 0);
   expect(afterTitle).toBe(view.close);
   expect(afterTitle?.textContent).toBe('Zamknij');
@@ -118,6 +122,7 @@ test('scaleNotice › closing', () => {
   pressEscape(view.panel);
   expect(view.panel.hidden).toBe(true);
   expect(view.why.getAttribute('aria-expanded')).toBe('false');
+  expect(view.root.classList.contains('is-open')).toBe(false);
   expect(document.activeElement).toBe(view.why);
 
   view.why.click();

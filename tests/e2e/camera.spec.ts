@@ -636,6 +636,30 @@ test('keyboard only path on tablet', async ({ page }) => {
   expect(await focusedName(page)).toBe('bodies-drawer-open');
 });
 
+test('Esc on tablet with a collapsed list focuses Ciała', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await openApp(page);
+  await waitReady(page);
+
+  await page.getByTestId('bodies-drawer-open').click();
+  await page.getByTestId('bodies-collapse').click();
+  await expect(page.getByTestId('bodies-collapse')).toHaveAttribute(
+    'aria-expanded',
+    'false',
+  );
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-testid="bodies-drawer"]')).toBeHidden();
+
+  const jupiter = await screenPoint(page, 'jupiter');
+  requireVisible(jupiter, 'jupiter');
+  await page.mouse.click(jupiter.x, jupiter.y);
+  await expect.poll(() => selectedId(page)).toBe('jupiter');
+  await page.locator('#viewport').focus();
+  await page.keyboard.press('Escape');
+  await expect.poll(() => selectedId(page)).toBeNull();
+  expect(await focusedName(page)).toBe('bodies-drawer-open');
+});
+
 test('orbit emphasis and toggle', async ({ page }) => {
   await openApp(page);
   await waitReady(page);

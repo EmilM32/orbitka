@@ -1,12 +1,16 @@
 import {
+  BufferGeometry,
   LineBasicMaterial,
   LineLoop,
   Scene,
   Vector3,
-  type BufferGeometry,
+  type BufferGeometry as BufferGeometryType,
 } from 'three';
 import { expect, test, vi } from 'vitest';
 
+import { CAMERA_CONFIG } from '@core/cameraConfig.ts';
+import { getSelectableBodies } from '@core/selectableBodies.ts';
+import { createSelection } from '@core/selection.ts';
 import { bodies, getBody } from '@data/bodies.ts';
 import type { BodyDef, OrbitDef } from '@data/types.ts';
 import {
@@ -37,7 +41,7 @@ function scenePosition(def: BodyDef, days: number): Vector3 {
   return eclipticToScene(scene, new Vector3());
 }
 
-function positionArray(geometry: BufferGeometry): Float32Array {
+function positionArray(geometry: BufferGeometryType): Float32Array {
   const attribute = geometry.getAttribute('position');
   if (!(attribute.array instanceof Float32Array)) {
     throw new Error('expected a Float32Array position attribute');
@@ -386,6 +390,119 @@ test('orbitLines › dispose', () => {
     expect(spy).toHaveBeenCalledOnce();
   }
   expect(materialSpy).toHaveBeenCalledOnce();
+});
+
+function lineOpacity(
+  view: ReturnType<typeof createOrbitLines>,
+  id: string,
+): number {
+  const child = view.group.children.find((item) => item.name === `orbit-${id}`);
+  if (child === undefined) {
+    throw new Error(`missing orbit-${id}`);
+  }
+
+  return lineMaterial(asLine(child, child.name)).opacity;
+}
+
+function expectEveryOpacity(
+  view: ReturnType<typeof createOrbitLines>,
+  opacity: number,
+): void {
+  for (const child of view.group.children) {
+    expect(lineMaterial(asLine(child, child.name)).opacity).toBe(opacity);
+  }
+}
+
+test('selection opacity', () => {
+  const view = createOrbitLines(bodies);
+  const selection = createSelection(
+    getSelectableBodies(bodies).map((body) => body.id),
+  );
+  selection.subscribe((event) => {
+    if (event.kind === 'selected') {
+      view.setSelectedBody(event.id);
+      return;
+    }
+    if (event.kind === 'system') {
+      view.setSelectedBody(null);
+    }
+  });
+
+  expectEveryOpacity(view, ORBIT_OPACITY);
+
+  selection.select('mars');
+  expect(lineOpacity(view, 'mars')).toBe(CAMERA_CONFIG.orbitOpacitySelected);
+  expect(lineOpacity(view, 'mars')).toBe(0.8);
+  for (const child of view.group.children) {
+    if (child.name === 'orbit-mars') {
+      continue;
+    }
+    expect(lineMaterial(asLine(child, child.name)).opacity).toBe(
+      CAMERA_CONFIG.orbitOpacityDimmed,
+    );
+    expect(lineMaterial(asLine(child, child.name)).opacity).toBe(0.35);
+  }
+
+  selection.select('sun');
+  expectEveryOpacity(view, ORBIT_OPACITY);
+
+  selection.select('venus');
+  expect(lineOpacity(view, 'venus')).toBe(0.8);
+  selection.showSystem();
+  expectEveryOpacity(view, ORBIT_OPACITY);
+
+  view.setSelectedBody('pluto');
+  expectEveryOpacity(view, ORBIT_OPACITY);
+
+  selection.dispose();
+  view.dispose();
+});
+
+test('setOrbitLinesVisible toggles group', () => {
+  const view = createOrbitLines(bodies);
+  view.setSelectedBody('saturn');
+  view.setOrbitLinesVisible(false);
+
+  expect(view.group.visible).toBe(false);
+  expect(lineOpacity(view, 'saturn')).toBe(0.8);
+  expect(lineOpacity(view, 'earth')).toBe(0.35);
+
+  view.setOrbitLinesVisible(true);
+  expect(view.group.visible).toBe(true);
+  expect(lineOpacity(view, 'saturn')).toBe(0.8);
+  expect(lineOpacity(view, 'earth')).toBe(0.35);
+  view.dispose();
+});
+
+test('dispose frees three materials once', () => {
+  const view = createOrbitLines(bodies);
+  const geometrySpy = vi.spyOn(BufferGeometry.prototype, 'dispose');
+  const materialSpy = vi.spyOn(LineBasicMaterial.prototype, 'dispose');
+  geometrySpy.mockClear();
+  materialSpy.mockClear();
+
+  try {
+    view.dispose();
+    expect(geometrySpy).toHaveBeenCalledTimes(8);
+    expect(materialSpy).toHaveBeenCalledTimes(3);
+    view.dispose();
+    expect(geometrySpy).toHaveBeenCalledTimes(8);
+    expect(materialSpy).toHaveBeenCalledTimes(3);
+  } finally {
+    geometrySpy.mockRestore();
+    materialSpy.mockRestore();
+  }
+});
+
+test('one LineLoop per planet', () => {
+  const view = createOrbitLines(bodies);
+  const loops = view.group.children.filter(
+    (child) => child instanceof LineLoop,
+  );
+
+  expect(loops).toHaveLength(8);
+  expect(view.group.children).toHaveLength(8);
+  view.dispose();
 });
 
 test('addOrbitLines › adds the group to the scene', () => {

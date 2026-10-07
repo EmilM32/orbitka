@@ -5,11 +5,16 @@ import { createClock, daysFromDate } from '@core/clock.ts';
 import { isDebugEnabled } from '@core/debugFlag.ts';
 import { createLoop } from '@core/loop.ts';
 import { createReducedMotion } from '@core/reducedMotion.ts';
+import { getSelectableBodies } from '@core/selectableBodies.ts';
+import { createSelection } from '@core/selection.ts';
 import { isStartPaused, parseStartDays } from '@core/startParams.ts';
 import { bodies } from '@data/bodies.ts';
+import { radiusToScene } from '@sim/scale.ts';
 import { createBodyAnimator } from '@render/animateBodies.ts';
 import { createMoonAnimator } from '@render/animateMoons.ts';
 import { createBodies } from '@render/bodies.ts';
+import { createBodyPicker } from '@render/bodyPicker.ts';
+import { createBodyProjector } from '@render/bodyProjector.ts';
 import { addDebugAxes } from '@render/debugAxes.ts';
 import { createLights } from '@render/lights.ts';
 import { addOrbitLines } from '@render/orbitLines.ts';
@@ -23,6 +28,7 @@ import { getBodyScreenPositions } from '@render/screenPositions.ts';
 import { createDebugSession } from '@ui/debugSession.ts';
 import { createI18n } from '@ui/i18n.ts';
 import { createScaleNotice } from '@ui/scaleNotice.ts';
+import { createSelectionRing } from '@ui/selectionRing.ts';
 import { createTimeControls } from '@ui/timeControls.ts';
 
 type App = {
@@ -46,7 +52,12 @@ function mount(canvas: HTMLCanvasElement): App {
     camera: view.camera,
     reducedMotion,
   });
+  let cssWidth = document.body.clientWidth;
+  let cssHeight = document.body.clientHeight;
+  let simDt = 0;
   const unsubscribeResize = view.onResize((width, height) => {
+    cssWidth = width;
+    cssHeight = height;
     cameraController.setAspect(width / height);
   });
   const pointerInput = createCameraPointerInput({
@@ -56,6 +67,40 @@ function mount(canvas: HTMLCanvasElement): App {
   const bodyView = createBodies(bodies);
   view.scene.add(bodyView.group);
   const orbitLines = addOrbitLines(view.scene, bodies);
+  const selectable = getSelectableBodies(bodies);
+  const selection = createSelection(selectable.map((body) => body.id));
+  const projectorEntries = [];
+  for (const body of selectable) {
+    const mesh = bodyView.meshes.get(body.id);
+    if (mesh === undefined) {
+      continue;
+    }
+    projectorEntries.push({
+      id: body.id,
+      position: mesh.position,
+      displayRadius: radiusToScene(body.radiusKm),
+    });
+  }
+  const projector = createBodyProjector(projectorEntries, view);
+  const picker = createBodyPicker({
+    surface: canvas,
+    frame: projector.frame,
+    selection,
+    pointerInput,
+  });
+  const ring = createSelectionRing(document.body, {
+    selection,
+    frame: projector.frame,
+  });
+  const unsubscribeSelection = selection.subscribe((event) => {
+    if (event.kind === 'selected') {
+      orbitLines.setSelectedBody(event.id);
+      return;
+    }
+    if (event.kind === 'system') {
+      orbitLines.setSelectedBody(null);
+    }
+  });
   view.scene.add(createLights());
   const search = window.location.search;
   const clock = createClock({
@@ -158,6 +203,7 @@ function mount(canvas: HTMLCanvasElement): App {
 
   const loop = createLoop({
     update(dtSeconds) {
+      simDt = dtSeconds;
       clock.tick(dtSeconds);
       animator.update(clock.days);
       moonAnimator.update(clock.days, clock.daysPerSecond);
@@ -177,6 +223,10 @@ function mount(canvas: HTMLCanvasElement): App {
       view.syncPixelRatio();
       debugDraws?.reset();
       view.renderer.render(view.scene, view.camera);
+      if (cssWidth > 0 && cssHeight > 0) {
+        projector.update(view.camera, cssWidth, cssHeight);
+      }
+      ring.update(simDt);
       if (debugSession === null) {
         return;
       }
@@ -213,6 +263,11 @@ function mount(canvas: HTMLCanvasElement): App {
     dispose() {
       loop.stop();
       document.removeEventListener('visibilitychange', onVisibilityChange);
+      ring.dispose();
+      picker.dispose();
+      projector.dispose();
+      unsubscribeSelection();
+      selection.dispose();
       scaleNotice.dispose();
       timeControls.dispose();
       debugSession?.dispose();

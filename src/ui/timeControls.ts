@@ -3,9 +3,15 @@ import './timeControls.css';
 import {
   DAYS_LIMIT,
   daysToUtcDate,
+  SPEED_PRESETS,
   type Clock,
   type ClockState,
 } from '@core/clock.ts';
+import {
+  SLIDER_STEPS,
+  sliderToSpeed,
+  speedToSlider,
+} from '@core/speedSlider.ts';
 import { orbitalElementsAreApproximate } from '@data/elementValidity.ts';
 
 import { formatDate, formatDateTimeAttr } from './formatDate.ts';
@@ -129,6 +135,19 @@ export function createTimeControls(
   const simSpeed = document.createElement('p');
   simSpeed.setAttribute('id', 'sim-speed');
 
+  const sliderLabel = document.createElement('label');
+  sliderLabel.setAttribute('for', 'speed-slider');
+  sliderLabel.setAttribute('class', 'visually-hidden');
+  sliderLabel.textContent = i18n.t('time.slider.label');
+
+  const slider = document.createElement('input');
+  slider.setAttribute('type', 'range');
+  slider.setAttribute('id', 'speed-slider');
+  slider.setAttribute('data-testid', 'time-slider');
+  slider.setAttribute('min', '0');
+  slider.setAttribute('max', String(SLIDER_STEPS));
+  slider.setAttribute('step', '1');
+
   const live = document.createElement('div');
   live.setAttribute('class', 'visually-hidden');
   live.setAttribute('aria-live', 'polite');
@@ -139,6 +158,8 @@ export function createTimeControls(
     reverseButton,
     simDate,
     accuracy,
+    sliderLabel,
+    slider,
     simSpeed,
     live,
   );
@@ -169,6 +190,118 @@ export function createTimeControls(
   let lastPresetId: string | null | undefined;
   let lastAnnouncement = '';
   let announce = false;
+  let isDragging = false;
+  let lastValueText = '';
+
+  function presetById(id: string): SpeedPresetId | null {
+    for (const candidate of SPEED_PRESET_IDS) {
+      if (candidate === id) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  function snappedPreset(position: number): {
+    id: SpeedPresetId;
+    daysPerSecond: number;
+  } | null {
+    for (const preset of SPEED_PRESETS) {
+      const id = presetById(preset.id);
+      if (id === null) {
+        continue;
+      }
+
+      if (position === speedToSlider(preset.daysPerSecond)) {
+        return { id, daysPerSecond: preset.daysPerSecond };
+      }
+    }
+
+    return null;
+  }
+
+  function applySlider(position: number): void {
+    if (!Number.isFinite(position)) {
+      clock.setSpeed(sliderToSpeed(Number.NaN));
+      return;
+    }
+
+    // An integer step does not reproduce a preset speed. Position 219 maps
+    // back to about 0.99818 days/s, not 1, so a ±1% window would trap arrow
+    // keys. Snap only when the position is exactly the preset step.
+    const preset = snappedPreset(position);
+    if (preset !== null) {
+      if (clock.paused) {
+        clock.setSpeed(preset.daysPerSecond);
+      } else {
+        clock.applyPreset(preset.id);
+      }
+      return;
+    }
+
+    clock.setSpeed(sliderToSpeed(position));
+  }
+
+  function onInput(): void {
+    applySlider(Number(slider.value));
+  }
+
+  function onKeyDown(event: Event): void {
+    if (!(event instanceof KeyboardEvent)) {
+      return;
+    }
+
+    isDragging = true;
+    const current = Number(slider.value);
+    let next: number | null = null;
+
+    if (event.key === 'PageUp') {
+      next = Math.min(SLIDER_STEPS, current + SLIDER_STEPS / 10);
+    } else if (event.key === 'PageDown') {
+      next = Math.max(0, current - SLIDER_STEPS / 10);
+    } else if (event.key === 'Home') {
+      next = 0;
+    } else if (event.key === 'End') {
+      next = SLIDER_STEPS;
+    }
+
+    if (next === null) {
+      return;
+    }
+
+    event.preventDefault();
+    slider.value = String(next);
+    applySlider(next);
+  }
+
+  function onPointerDown(event: Event): void {
+    if (!(event instanceof PointerEvent)) {
+      return;
+    }
+
+    isDragging = true;
+    slider.setPointerCapture(event.pointerId);
+  }
+
+  function endDrag(): void {
+    isDragging = false;
+  }
+
+  const sliderListeners: readonly [string, EventListener][] = [
+    ['input', onInput],
+    ['keydown', onKeyDown],
+    ['pointerdown', onPointerDown],
+    ['pointerup', endDrag],
+    ['pointercancel', endDrag],
+    ['lostpointercapture', endDrag],
+    ['change', endDrag],
+    ['blur', endDrag],
+  ];
+
+  for (const [type, listener] of sliderListeners) {
+    slider.addEventListener(type, listener);
+  }
 
   function speedText(state: ClockState): string {
     if (state.paused) {
@@ -262,6 +395,24 @@ export function createTimeControls(
 
     lastSpeedText = setText(simSpeed, speedText(state), lastSpeedText);
 
+    const valueText = formatSpeedSpoken(
+      state.speed,
+      state.reversed,
+      state.paused,
+      i18n,
+    );
+    if (valueText !== lastValueText) {
+      slider.setAttribute('aria-valuetext', valueText);
+      lastValueText = valueText;
+    }
+
+    if (!isDragging) {
+      const nextValue = String(speedToSlider(state.speed));
+      if (slider.value !== nextValue) {
+        slider.value = nextValue;
+      }
+    }
+
     const nextAnnouncement = announcement(state);
     if (announce && nextAnnouncement !== lastAnnouncement) {
       live.textContent = nextAnnouncement;
@@ -280,6 +431,9 @@ export function createTimeControls(
       }
 
       disposed = true;
+      for (const [type, listener] of sliderListeners) {
+        slider.removeEventListener(type, listener);
+      }
       abort.abort();
       unsubscribe();
       section.remove();

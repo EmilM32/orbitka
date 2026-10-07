@@ -1,0 +1,518 @@
+{
+  "start-1280-high": {
+    "name": "start-1280-high",
+    "w": 1280,
+    "h": 720,
+    "q": "high",
+    "stats": {
+      "drawCalls": 38,
+      "debugDrawCalls": 0,
+      "triangles": 45850
+    },
+    "pos": [
+      {
+        "id": "sun",
+        "x": 640,
+        "y": 360
+      },
+      {
+        "id": "mercury",
+        "x": 651,
+        "y": 385
+      },
+      {
+        "id": "venus",
+        "x": 689,
+        "y": 360
+      },
+      {
+        "id": "earth",
+        "x": 695,
+        "y": 352
+      },
+      {
+        "id": "moon",
+        "x": 688,
+        "y": 350
+      },
+      {
+        "id": "mars",
+        "x": 642,
+        "y": 320
+      },
+      {
+        "id": "jupiter",
+        "x": 559,
+        "y": 307
+      },
+      {
+        "id": "io",
+        "x": 573,
+        "y": 307
+      },
+      {
+        "id": "europa",
+        "x": 546,
+        "y": 310
+      },
+      {
+        "id": "ganymede",
+        "x": 565,
+        "y": 314
+      },
+      {
+        "id": "callisto",
+        "x": 574,
+        "y": 310
+      },
+      {
+        "id": "saturn",
+        "x": 807,
+        "y": 347
+      },
+      {
+        "id": "uranus",
+        "x": 736,
+        "y": 254
+      },
+      {
+        "id": "neptune",
+        "x": 948,
+        "y": 358
+      }
+    ],
+    "sceneOnly": {
+      "drawCalls": 24,
+      "debugDrawCalls": 0,
+      "triangles": 45836
+    },
+    "external": []
+  },
+  "start-1280-low": {
+    "name": "start-1280-low",
+    "w": 1280,
+    "h": 720,
+    "q": "low",
+    "stats": {
+      "drawCalls": 25,
+      "debugDrawCalls": 0,
+      "triangles": 26690
+    },
+    "pos": [
+      {
+        "id": "sun",
+        "x": 640,
+        "y": 360
+      },
+      {
+        "id": "mercury",
+        "x": 651,
+        "y": 385
+      },
+      {
+        "id": "venus",
+        "x": 689,
+        "y": 360
+      },
+      {
+        "id": "earth",
+        "x": 695,
+        "y": 352
+      },
+      {
+        "id": "moon",
+        "x": 688,
+        "y": 350
+      },
+      {
+        "id": "mars",
+        "x": 642,
+        "y": 320
+      },
+      {
+        "id": "jupiter",
+        "x": 559,
+        "y": 307
+      },
+      {
+        "id": "io",
+        "x": 573,
+        "y": 307
+      },
+      {
+        "id": "europa",
+        "x": 546,
+        "y": 310
+      },
+      {
+        "id": "ganymede",
+        "x": 565,
+        "y": 314
+      },
+      {
+        "id": "callisto",
+        "x": 574,
+        "y": 310
+      },
+      {
+        "id": "saturn",
+        "x": 807,
+        "y": 347
+      },
+      {
+        "id": "uranus",
+        "x": 736,
+        "y": 254
+      },
+      {
+        "id": "neptune",
+        "x": 948,
+        "y": 358
+      }
+    ],
+    "sceneOnly": null,
+    "external": []
+  },
+  "jupiter-1280-high": {
+    "name": "jupiter-1280-high",
+    "w": 1280,
+    "h": 720,
+    "q": "high",
+    "select": "jupiter",
+    "vo": "132,0",
+    "stats": {
+      "drawCalls": 28,
+      "debugDrawCalls": 0,
+      "triangles": 7834
+    },
+    "pos": [
+      {
+        "id": "jupiter",
+        "x": 508,
+        "y": 360
+      },
+      {
+        "id": "io",
+        "x": 743,
+        "y": 367
+      },
+      {
+        "id": "europa",
+        "x": 267,
+        "y": 418
+      },
+      {
+        "id": "ganymede",
+        "x": 642,
+        "y": 522
+      },
+      {
+        "id": "callisto",
+        "x": 776,
+        "y": 412
+      }
+    ],
+    "sceneOnly": {
+      "drawCalls": 14,
+      "debugDrawCalls": 0,
+      "triangles": 7820
+    },
+    "external": []
+  },
+  "start-1280-high-2054": {
+    "name": "start-1280-high-2054",
+    "w": 1280,
+    "h": 720,
+    "q": "high",
+    "days": 20000,
+    "stats": {
+      "drawCalls": 38,
+      "debugDrawCalls": 0,
+      "triangles": 45850
+    },
+    "pos": [
+      {
+        "id": "sun",
+        "x": 640,
+        "y": 360
+      },
+      {
+        "id": "mercury",
+        "x": 674,
+        "y": 364
+      },
+      {
+        "id": "venus",
+        "x": 591,
+        "y": 360
+      },
+      {
+        "id": "earth",
+        "x": 696,
+        "y": 354
+      },
+      {
+        "id": "moon",
+        "x": 691,
+        "y": 356
+      },
+      {
+        "id": "mars",
+        "x": 686,
+        "y": 333
+      },
+      {
+        "id": "jupiter",
+        "x": 592,
+        "y": 441
+      },
+      {
+        "id": "io",
+        "x": 607,
+        "y": 435
+      },
+      {
+        "id": "europa",
+        "x": 578,
+        "y": 448
+      },
+      {
+        "id": "ganymede",
+        "x": 579,
+        "y": 449
+      },
+      {
+        "id": "callisto",
+        "x": 573,
+        "y": 442
+      },
+      {
+        "id": "saturn",
+        "x": 819,
+        "y": 378
+      },
+      {
+        "id": "uranus",
+        "x": 387,
+        "y": 382
+      },
+      {
+        "id": "neptune",
+        "x": 745,
+        "y": 238
+      }
+    ],
+    "sceneOnly": {
+      "drawCalls": 24,
+      "debugDrawCalls": 0,
+      "triangles": 45836
+    },
+    "external": []
+  },
+  "mercury-1280-high": {
+    "name": "mercury-1280-high",
+    "w": 1280,
+    "h": 720,
+    "q": "high",
+    "days": 9820,
+    "select": "mercury",
+    "vo": "132,0",
+    "stats": {
+      "drawCalls": 27,
+      "debugDrawCalls": 0,
+      "triangles": 20954
+    },
+    "pos": [
+      {
+        "id": "mercury",
+        "x": 508,
+        "y": 360
+      }
+    ],
+    "sceneOnly": {
+      "drawCalls": 13,
+      "debugDrawCalls": 0,
+      "triangles": 20940
+    },
+    "external": []
+  },
+  "saturn-1920-high": {
+    "name": "saturn-1920-high",
+    "w": 1920,
+    "h": 1080,
+    "q": "high",
+    "select": "saturn",
+    "vo": "41,25",
+    "stats": {
+      "drawCalls": 25,
+      "debugDrawCalls": 0,
+      "triangles": 4250
+    },
+    "pos": [
+      {
+        "id": "saturn",
+        "x": 919,
+        "y": 515
+      }
+    ],
+    "sceneOnly": {
+      "drawCalls": 11,
+      "debugDrawCalls": 0,
+      "triangles": 4236
+    },
+    "external": []
+  },
+  "start-768x1024-med": {
+    "name": "start-768x1024-med",
+    "w": 768,
+    "h": 1024,
+    "q": "med",
+    "touch": true,
+    "stats": {
+      "drawCalls": 25,
+      "debugDrawCalls": 0,
+      "triangles": 45838
+    },
+    "pos": [
+      {
+        "id": "sun",
+        "x": 384,
+        "y": 512
+      },
+      {
+        "id": "mercury",
+        "x": 393,
+        "y": 534
+      },
+      {
+        "id": "venus",
+        "x": 427,
+        "y": 512
+      },
+      {
+        "id": "earth",
+        "x": 433,
+        "y": 505
+      },
+      {
+        "id": "moon",
+        "x": 427,
+        "y": 503
+      },
+      {
+        "id": "mars",
+        "x": 386,
+        "y": 476
+      },
+      {
+        "id": "jupiter",
+        "x": 310,
+        "y": 463
+      },
+      {
+        "id": "io",
+        "x": 323,
+        "y": 464
+      },
+      {
+        "id": "europa",
+        "x": 298,
+        "y": 466
+      },
+      {
+        "id": "ganymede",
+        "x": 315,
+        "y": 470
+      },
+      {
+        "id": "callisto",
+        "x": 323,
+        "y": 466
+      },
+      {
+        "id": "saturn",
+        "x": 534,
+        "y": 500
+      },
+      {
+        "id": "uranus",
+        "x": 475,
+        "y": 411
+      },
+      {
+        "id": "neptune",
+        "x": 659,
+        "y": 510
+      }
+    ],
+    "sceneOnly": null,
+    "external": []
+  },
+  "saturn-1024x768-med": {
+    "name": "saturn-1024x768-med",
+    "w": 1024,
+    "h": 768,
+    "q": "med",
+    "touch": true,
+    "select": "saturn",
+    "vo": "0,89",
+    "stats": {
+      "drawCalls": 11,
+      "debugDrawCalls": 0,
+      "triangles": 4236
+    },
+    "pos": [
+      {
+        "id": "saturn",
+        "x": 512,
+        "y": 295
+      }
+    ],
+    "sceneOnly": null,
+    "external": []
+  },
+  "jupiter-768x1024-med": {
+    "name": "jupiter-768x1024-med",
+    "w": 768,
+    "h": 1024,
+    "q": "med",
+    "touch": true,
+    "select": "jupiter",
+    "vo": "0,247",
+    "wheel": 6,
+    "stats": {
+      "drawCalls": 14,
+      "debugDrawCalls": 0,
+      "triangles": 7820
+    },
+    "pos": [
+      {
+        "id": "jupiter",
+        "x": 384,
+        "y": 265
+      },
+      {
+        "id": "io",
+        "x": 572,
+        "y": 271
+      },
+      {
+        "id": "europa",
+        "x": 198,
+        "y": 309
+      },
+      {
+        "id": "ganymede",
+        "x": 481,
+        "y": 382
+      },
+      {
+        "id": "callisto",
+        "x": 591,
+        "y": 306
+      }
+    ],
+    "sceneOnly": null,
+    "external": []
+  }
+}

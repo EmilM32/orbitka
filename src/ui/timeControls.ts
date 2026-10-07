@@ -67,6 +67,7 @@ export function createTimeControls(
   parent: HTMLElement,
   clock: Clock,
   i18n: AppI18n,
+  before?: Node | null,
 ): { dispose(): void } {
   function copyFor(
     visibleKey:
@@ -163,7 +164,7 @@ export function createTimeControls(
     simSpeed,
     live,
   );
-  parent.append(section);
+  parent.insertBefore(section, before ?? null);
 
   const abort = new AbortController();
   pauseButton.addEventListener('click', () => clock.togglePause(), {

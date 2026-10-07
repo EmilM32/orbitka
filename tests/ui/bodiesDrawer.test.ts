@@ -270,6 +270,30 @@ test('system event focuses open button', () => {
   view.panel.dispose();
 });
 
+test('system event with a collapsed list focuses open button', () => {
+  document.body.replaceChildren();
+  const view = mount(true);
+
+  view.drawer.open();
+  const collapse =
+    document.querySelector<HTMLButtonElement>('#bodies-collapse');
+  if (collapse === null) {
+    throw new Error('missing collapse button');
+  }
+  collapse.click();
+  expect(collapse.getAttribute('aria-expanded')).toBe('false');
+  view.drawer.close();
+  expect(view.drawer.isOpen()).toBe(false);
+
+  view.selection.select('mars');
+  view.selection.showSystem();
+  expect(view.selection.getSelectedId()).toBeNull();
+  expect(document.activeElement).toBe(view.drawer.openButton);
+
+  view.drawer.dispose();
+  view.panel.dispose();
+});
+
 test('media change resets state', () => {
   document.body.replaceChildren();
   const view = mount(true);

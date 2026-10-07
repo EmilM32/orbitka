@@ -2,7 +2,7 @@
   position: fixed;
   bottom: 16px;
   left: 50%;
-  z-index: 1;
+  z-index: var(--layer-panel);
   transform: translateX(-50%);
   display: flex;
   flex-wrap: wrap;

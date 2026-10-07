@@ -168,7 +168,7 @@ test('css contract', () => {
   expect(CSS).toContain('position: fixed');
   expect(CSS).toContain('top: 8px');
   expect(CSS).toContain('right: 8px');
-  expect(CSS).toContain('z-index: 3');
+  expect(CSS).toContain('z-index: var(--layer-panel)');
   expect(CSS).toContain('flex-direction: column');
   expect(CSS).toContain('gap: 8px');
   expect(CSS).toMatch(/min-width:\s*44px/u);

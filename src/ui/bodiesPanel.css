@@ -2,7 +2,7 @@
   position: fixed;
   left: 8px;
   top: 60px;
-  z-index: 3;
+  z-index: var(--layer-panel);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;

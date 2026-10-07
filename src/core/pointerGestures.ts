@@ -8,8 +8,8 @@ export type WheelSample = {
   ctrlKey: boolean;
 };
 
-/** `none` starts no gesture. `trackpad` is scroll, not a zoom step. */
-export type WheelKind = 'none' | 'notch' | 'trackpad' | 'pinch';
+/** `trackpad` is scroll, not a zoom step. */
+export type WheelKind = 'notch' | 'trackpad' | 'pinch';
 
 export type WheelGestureMode = 'idle' | 'mouse' | 'trackpad';
 
@@ -103,13 +103,7 @@ export function classifyWheel(
   if (state.mode === 'idle') {
     state.mode = startingMode(sample);
   }
-  if (state.mode === 'mouse') {
-    return 'notch';
-  }
-  if (state.mode === 'trackpad') {
-    return 'trackpad';
-  }
-  return 'none';
+  return state.mode === 'mouse' ? 'notch' : 'trackpad';
 }
 
 export function wheelZoomFactor(kind: WheelKind, sample: WheelSample): number {
@@ -152,7 +146,13 @@ export function dragToRotation(
   return out;
 }
 
-function startingMode(sample: WheelSample): WheelGestureMode {
+/**
+ * The first event always locks a mode. Only a notch-sized integer `deltaY`
+ * (or a line/page `deltaMode`) means a mouse wheel; every smaller or
+ * fractional delta starts a trackpad gesture, so a ramp like 1, 2, 4 … 64
+ * never switches to zoom halfway through.
+ */
+function startingMode(sample: WheelSample): 'mouse' | 'trackpad' {
   if (sample.deltaMode !== 0) {
     return 'mouse';
   }
@@ -161,15 +161,7 @@ function startingMode(sample: WheelSample): WheelGestureMode {
     Number.isInteger(sample.deltaY) &&
     sample.deltaX === 0 &&
     Math.abs(sample.deltaY) >= CAMERA_CONFIG.wheelNotchMinDeltaPx;
-  if (notchSized) {
-    return 'mouse';
-  }
-
-  if (!Number.isInteger(sample.deltaY) || sample.deltaX !== 0) {
-    return 'trackpad';
-  }
-
-  return 'idle';
+  return notchSized ? 'mouse' : 'trackpad';
 }
 
 function clampSteps(steps: number): number {

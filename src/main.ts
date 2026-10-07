@@ -26,8 +26,11 @@ import { createRotationAnimator } from '@render/rotateBodies.ts';
 import { getRenderStats, trackDebugDrawCalls } from '@render/renderStats.ts';
 import { getBodyScenePosition as readBodyScenePosition } from '@render/scenePosition.ts';
 import { getBodyScreenPositions } from '@render/screenPositions.ts';
+import { createAnnouncer } from '@ui/announcer.ts';
+import { createBodiesPanel } from '@ui/bodiesPanel.ts';
 import { createDebugSession } from '@ui/debugSession.ts';
 import { createI18n } from '@ui/i18n.ts';
+import { createPageHeader } from '@ui/pageHeader.ts';
 import { createScaleNotice } from '@ui/scaleNotice.ts';
 import { createSelectionRing } from '@ui/selectionRing.ts';
 import { createTimeControls } from '@ui/timeControls.ts';
@@ -141,6 +144,14 @@ function mount(canvas: HTMLCanvasElement): App {
   const i18n = createI18n(pl, 'pl-PL');
   const scaleNotice = createScaleNotice(document.body, i18n);
   const timeControls = createTimeControls(document.body, clock, i18n);
+  const pageHeader = createPageHeader(document.body, i18n, canvas);
+  const bodiesPanel = createBodiesPanel(document.body, {
+    bodies: selectable,
+    selection,
+    i18n,
+    before: canvas,
+  });
+  const announcer = createAnnouncer(document.body, selection, i18n);
   const debugSession = createDebugSession(search, document.body);
   let lastUiMs = Number.NEGATIVE_INFINITY;
   let frameCount = 0;
@@ -230,6 +241,7 @@ function mount(canvas: HTMLCanvasElement): App {
       rotationAnimator.update(clock.days, clock.daysPerSecond);
       director.update(dtSeconds);
       cameraController.update(dtSeconds);
+      announcer.update(dtSeconds);
       if (!debug) {
         return;
       }
@@ -284,6 +296,9 @@ function mount(canvas: HTMLCanvasElement): App {
     dispose() {
       loop.stop();
       document.removeEventListener('visibilitychange', onVisibilityChange);
+      announcer.dispose();
+      bodiesPanel.dispose();
+      pageHeader.remove();
       director.dispose();
       viewportFade.dispose();
       ring.dispose();

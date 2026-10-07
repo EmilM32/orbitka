@@ -28,6 +28,7 @@ import { getBodyScenePosition as readBodyScenePosition } from '@render/scenePosi
 import { getBodyScreenPositions } from '@render/screenPositions.ts';
 import { createAnnouncer } from '@ui/announcer.ts';
 import { createBodiesPanel } from '@ui/bodiesPanel.ts';
+import { createBodyLabels } from '@ui/bodyLabels.ts';
 import { createDebugSession } from '@ui/debugSession.ts';
 import { createI18n } from '@ui/i18n.ts';
 import { createPageHeader } from '@ui/pageHeader.ts';
@@ -152,6 +153,12 @@ function mount(canvas: HTMLCanvasElement): App {
     before: canvas,
   });
   const announcer = createAnnouncer(document.body, selection, i18n);
+  const labels = createBodyLabels(document.body, {
+    bodies: selectable,
+    selection,
+    i18n,
+    frame: projector.frame,
+  });
   const debugSession = createDebugSession(search, document.body);
   let lastUiMs = Number.NEGATIVE_INFINITY;
   let frameCount = 0;
@@ -258,6 +265,7 @@ function mount(canvas: HTMLCanvasElement): App {
       view.renderer.render(view.scene, view.camera);
       if (cssWidth > 0 && cssHeight > 0) {
         projector.update(view.camera, cssWidth, cssHeight);
+        labels.update(cssWidth, cssHeight, simDt);
       }
       ring.update(simDt);
       if (debugSession === null) {
@@ -298,6 +306,7 @@ function mount(canvas: HTMLCanvasElement): App {
       document.removeEventListener('visibilitychange', onVisibilityChange);
       announcer.dispose();
       bodiesPanel.dispose();
+      labels.dispose();
       pageHeader.remove();
       director.dispose();
       viewportFade.dispose();

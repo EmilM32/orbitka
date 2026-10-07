@@ -2,10 +2,9 @@ import './selectionRing.css';
 
 import type { BodyScreenFrame } from '@core/bodyScreenFrame.ts';
 import type { Selection, SelectionEvent } from '@core/selection.ts';
+import { VIEW_CONFIG } from '@core/viewConfig.ts';
 
 const CONTENT_INTERVAL_SECONDS = 0.1;
-const RING_PADDING_PX = 4;
-const RING_MIN_RADIUS_PX = 12;
 
 export type SelectionRing = {
   element: HTMLElement;
@@ -91,7 +90,10 @@ export function createSelectionRing(
   }
 
   function writeBox(x: number, y: number, radiusPx: number): void {
-    const radius = Math.max(radiusPx + RING_PADDING_PX, RING_MIN_RADIUS_PX);
+    const radius = Math.max(
+      radiusPx + VIEW_CONFIG.selectionRingPaddingPx,
+      VIEW_CONFIG.selectionRingMinRadiusPx,
+    );
     const size = roundTenth(radius * 2);
     const transform =
       `translate(${roundTenth(x - radius)}px, ` +

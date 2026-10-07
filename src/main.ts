@@ -36,11 +36,21 @@ import { createPageHeader } from '@ui/pageHeader.ts';
 import { createScaleNotice } from '@ui/scaleNotice.ts';
 import { createSelectionRing } from '@ui/selectionRing.ts';
 import { createTimeControls } from '@ui/timeControls.ts';
+import { createViewControls } from '@ui/viewControls.ts';
 import { createViewportFade } from '@ui/viewportFade.ts';
 
 type App = {
   dispose: () => void;
 };
+
+function orbitStorage(): Pick<Storage, 'getItem' | 'setItem'> | null {
+  try {
+    return window.localStorage;
+  } catch {
+    // Reading localStorage can throw. The group then stays in memory only.
+    return null;
+  }
+}
 
 function findCanvas(): HTMLCanvasElement {
   const canvas = document.querySelector<HTMLCanvasElement>('#viewport');
@@ -153,7 +163,6 @@ function mount(canvas: HTMLCanvasElement): App {
     ariaLabel: i18n.t('canvas.ariaLabel'),
   });
   const scaleNotice = createScaleNotice(document.body, i18n);
-  const timeControls = createTimeControls(document.body, clock, i18n);
   const pageHeader = createPageHeader(document.body, i18n, canvas);
   const bodiesPanel = createBodiesPanel(document.body, {
     bodies: selectable,
@@ -161,6 +170,24 @@ function mount(canvas: HTMLCanvasElement): App {
     i18n,
     before: canvas,
   });
+  const viewControls = createViewControls(document.body, {
+    i18n,
+    selection,
+    storage: orbitStorage(),
+    onZoom: (factor) => {
+      cameraController.zoomBy(factor, false);
+    },
+    onOrbitsChange: (visible) => {
+      orbitLines.setOrbitLinesVisible(visible);
+    },
+    before: canvas.nextSibling ?? undefined,
+  });
+  const timeControls = createTimeControls(
+    document.body,
+    clock,
+    i18n,
+    viewControls.element.nextSibling,
+  );
   const announcer = createAnnouncer(document.body, selection, i18n);
   const labels = createBodyLabels(document.body, {
     bodies: selectable,
@@ -325,6 +352,7 @@ function mount(canvas: HTMLCanvasElement): App {
       unsubscribeSelection();
       selection.dispose();
       scaleNotice.dispose();
+      viewControls.dispose();
       timeControls.dispose();
       debugSession?.dispose();
       unsubscribeClock?.();

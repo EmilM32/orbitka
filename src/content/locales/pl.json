@@ -26,6 +26,8 @@
   "bodies.panel.title": "Ciała niebieskie",
   "bodies.panel.collapse": "Zwiń listę ciał",
   "bodies.panel.expand": "Rozwiń listę ciał",
+  "bodies.drawer.open": "Ciała",
+  "bodies.drawer.close": "Zamknij listę ciał",
   "bodies.item.ariaLabel": "Wybierz: {name}, {kind}",
   "bodies.sun.kind": "gwiazda",
   "bodies.mercury.kind": "planeta skalista",

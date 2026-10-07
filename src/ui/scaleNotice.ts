@@ -15,6 +15,7 @@ const PARAGRAPH_KEYS = [
 export function createScaleNotice(
   parent: HTMLElement,
   i18n: AppI18n,
+  before?: Node | null,
 ): { dispose(): void } {
   const root = document.createElement('div');
   root.setAttribute('id', 'scale-notice');
@@ -56,7 +57,7 @@ export function createScaleNotice(
 
   panel.append(title, ...paragraphs, closeButton);
   root.append(badge, whyButton, panel);
-  parent.append(root);
+  parent.insertBefore(root, before ?? null);
 
   let disposed = false;
   let open = false;

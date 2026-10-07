@@ -5,6 +5,7 @@ import {
   computeLabelOrder,
   labelCandidateOrigin,
   layoutLabels,
+  rectHitsDisc,
   type LabelLayout,
 } from '@core/labelLayout.ts';
 import { type SelectableBody } from '@core/selectableBodies.ts';
@@ -30,7 +31,6 @@ export type BodyLabelsOptions = {
   before?: Node;
 };
 
-const LABEL_PADDING_Y_PX = 8;
 const LAYOUT_INTERVAL_SECONDS = 1 / VIEW_CONFIG.labelLayoutHz;
 
 export function createBodyLabels(
@@ -68,7 +68,6 @@ export function createBodyLabels(
 
   const ids: string[] = [];
   const elements: HTMLElement[] = [];
-  const labelHeightPx = VIEW_CONFIG.labelFontPx * 1.2 + LABEL_PADDING_Y_PX;
   for (let index = 0; index < count; index += 1) {
     const id = bodies[index]?.id ?? '';
     ids.push(id);
@@ -93,7 +92,7 @@ export function createBodyLabels(
   for (let index = 0; index < count; index += 1) {
     const label = elements[index];
     labelWidth[index] = label === undefined ? 0 : measure(label);
-    labelHeight[index] = labelHeightPx;
+    labelHeight[index] = VIEW_CONFIG.labelHeightPx;
   }
 
   const order = new Uint16Array(count);
@@ -126,6 +125,7 @@ export function createBodyLabels(
     labelWidth,
     labelHeight,
     selectedIndex: -1,
+    sunIndex: findBody(ids, 'sun'),
     shown,
     outX,
     outY,
@@ -248,21 +248,58 @@ export function createBodyLabels(
     computeLabelOrder(order, ids, radiiKm, selectedId);
     layoutLabels(layout);
     for (let index = 0; index < count; index += 1) {
-      const hidden = (shown[index] ?? 0) === 0 ? 1 : 0;
-      if (lastHidden[index] === hidden) {
+      writeHidden(index, (shown[index] ?? 0) === 0 ? 1 : 0);
+    }
+  }
+
+  function writeHidden(index: number, hidden: number): void {
+    if (lastHidden[index] === hidden) {
+      return;
+    }
+    lastHidden[index] = hidden;
+    const label = elements[index];
+    if (label === undefined) {
+      return;
+    }
+    if (hidden === 1) {
+      label.classList.add('is-hidden');
+    } else {
+      label.classList.remove('is-hidden');
+    }
+  }
+
+  /**
+   * Between layouts a label follows its body and can slide onto another
+   * disc (fast time). Such a label hides until the next layout. Pinned
+   * labels (selected, Sun) stay, as in the layout.
+   */
+  function crossesOtherDisc(index: number, left: number, top: number): boolean {
+    if (index === selectedIndex || index === layout.sunIndex) {
+      return false;
+    }
+    const width = labelWidth[index] ?? 0;
+    const height = labelHeight[index] ?? 0;
+    for (let other = 0; other < count; other += 1) {
+      const slot = frameIndex[other] ?? 0;
+      if (other === index || (frame.visible[slot] ?? 0) === 0) {
         continue;
       }
-      lastHidden[index] = hidden;
-      const label = elements[index];
-      if (label === undefined) {
-        continue;
-      }
-      if (hidden === 1) {
-        label.classList.add('is-hidden');
-      } else {
-        label.classList.remove('is-hidden');
+      if (
+        rectHitsDisc(
+          left,
+          top,
+          width,
+          height,
+          frame.x[slot] ?? 0,
+          frame.y[slot] ?? 0,
+          frame.radiusPx[slot] ?? 0,
+          0,
+        )
+      ) {
+        return true;
       }
     }
+    return false;
   }
 
   function writeTransforms(): void {
@@ -283,6 +320,10 @@ export function createBodyLabels(
       const top = roundTenth(origin[1] ?? 0);
       if (!Number.isFinite(left) || !Number.isFinite(top)) {
         continue;
+      }
+      if ((shown[index] ?? 0) === 1 && crossesOtherDisc(index, left, top)) {
+        shown[index] = 0;
+        writeHidden(index, 1);
       }
       if (
         written[index] === 1 &&

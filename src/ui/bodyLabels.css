@@ -13,13 +13,14 @@
   top: 0;
   left: 0;
   box-sizing: border-box;
+  /* Equal to VIEW_CONFIG.labelHeightPx, the height the layout uses. */
+  height: 24px;
   margin: 0;
   padding: 4px 6px;
-  overflow: hidden;
   color: #ffffff;
   font-family: system-ui, sans-serif;
   font-size: 13px;
-  line-height: 1.2;
+  line-height: 16px;
   white-space: nowrap;
   pointer-events: none;
   background: rgba(10, 14, 30, 0.85);
@@ -40,8 +41,14 @@
 
 @media (pointer: fine) {
   .body-label {
-    min-height: 32px;
     pointer-events: auto;
+  }
+
+  /* 32 px click target without growing the drawn label. */
+  .body-label::before {
+    position: absolute;
+    inset: -4px 0;
+    content: '';
   }
 }
 

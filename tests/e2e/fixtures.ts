@@ -25,11 +25,15 @@ export const MOON_IDS = [
   'callisto',
 ] as const;
 
-// Kepler position at t = 0 projected onto a 1280×720 frame. Constants, not a mesh readout.
+// Kepler position at t = 0 (J2000 elements, Newton) on a 1280×720 frame.
+// Ecliptic (x, y, north z) is scaled by 8·AU^0.5, then mapped to scene
+// (x, north y, −y). Camera: polar 55°, azimuth 0°, distance hypot(75, 95),
+// FOV 45°, looking at the origin. Screen x = (ndcX·0.5+0.5)·1280,
+// y = (−ndcY·0.5+0.5)·720, rounded to 0.1 px. Constants, not a mesh readout.
 export const GOLDEN_SCREEN = {
-  mercury: { x: 628.7, y: 385.8 },
-  earth: { x: 630.2, y: 327.0 },
-  neptune: { x: 870.6, y: 571.1 },
+  mercury: { x: 628.7, y: 384.1 },
+  earth: { x: 630.3, y: 329.5 },
+  neptune: { x: 873.7, y: 557.9 },
 } as const;
 
 // visual.color from src/data/bodies.json, copied: e2e imports nothing from src.

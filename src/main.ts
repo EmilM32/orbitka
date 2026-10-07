@@ -4,6 +4,7 @@ import pl from '@content/locales/pl.json' with { type: 'json' };
 import { createClock, daysFromDate } from '@core/clock.ts';
 import { isDebugEnabled } from '@core/debugFlag.ts';
 import { createLoop } from '@core/loop.ts';
+import { createReducedMotion } from '@core/reducedMotion.ts';
 import { isStartPaused, parseStartDays } from '@core/startParams.ts';
 import { bodies } from '@data/bodies.ts';
 import { createBodyAnimator } from '@render/animateBodies.ts';
@@ -12,6 +13,7 @@ import { createBodies } from '@render/bodies.ts';
 import { addDebugAxes } from '@render/debugAxes.ts';
 import { createLights } from '@render/lights.ts';
 import { addOrbitLines } from '@render/orbitLines.ts';
+import { createCameraController } from '@render/cameraController.ts';
 import { createRenderer } from '@render/createRenderer.ts';
 import { createRotationAnimator } from '@render/rotateBodies.ts';
 import { getRenderStats, trackDebugDrawCalls } from '@render/renderStats.ts';
@@ -38,6 +40,14 @@ function findCanvas(): HTMLCanvasElement {
 
 function mount(canvas: HTMLCanvasElement): App {
   const view = createRenderer(canvas);
+  const reducedMotion = createReducedMotion(window.matchMedia.bind(window));
+  const cameraController = createCameraController({
+    camera: view.camera,
+    reducedMotion,
+  });
+  const unsubscribeResize = view.onResize((width, height) => {
+    cameraController.setAspect(width / height);
+  });
   const bodyView = createBodies(bodies);
   view.scene.add(bodyView.group);
   const orbitLines = addOrbitLines(view.scene, bodies);
@@ -147,6 +157,7 @@ function mount(canvas: HTMLCanvasElement): App {
       animator.update(clock.days);
       moonAnimator.update(clock.days, clock.daysPerSecond);
       rotationAnimator.update(clock.days, clock.daysPerSecond);
+      cameraController.update(dtSeconds);
       if (!debug) {
         return;
       }
@@ -207,6 +218,9 @@ function mount(canvas: HTMLCanvasElement): App {
       debugAxes?.dispose();
       orbitLines.dispose();
       bodyView.dispose();
+      unsubscribeResize();
+      cameraController.dispose();
+      reducedMotion.dispose();
       view.dispose();
     },
   };

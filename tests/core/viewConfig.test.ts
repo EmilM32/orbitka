@@ -22,6 +22,7 @@ const CAMERA_KEYS = [
 
 const UI_KEYS = [
   'labelFontPx',
+  'labelHeightPx',
   'labelMinContrast',
   'labelGapPx',
   'labelOffsetPx',
@@ -30,10 +31,13 @@ const UI_KEYS = [
   'tabletMaxWidthPx',
   'tabletMinWidthPx',
   'drawerWidthPx',
+  'selectionRingPaddingPx',
+  'selectionRingMinRadiusPx',
 ] as const;
 
 test('holds the brief values', () => {
   expect(VIEW_CONFIG.labelFontPx).toBe(13);
+  expect(VIEW_CONFIG.labelHeightPx).toBe(24);
   expect(VIEW_CONFIG.labelMinContrast).toBe(4.5);
   expect(VIEW_CONFIG.labelGapPx).toBe(4);
   expect(VIEW_CONFIG.labelOffsetPx).toBe(6);
@@ -42,9 +46,12 @@ test('holds the brief values', () => {
   expect(VIEW_CONFIG.tabletMaxWidthPx).toBe(1024);
   expect(VIEW_CONFIG.tabletMinWidthPx).toBe(768);
   expect(VIEW_CONFIG.drawerWidthPx).toBe(280);
+  expect(VIEW_CONFIG.selectionRingPaddingPx).toBe(4);
+  expect(VIEW_CONFIG.selectionRingMinRadiusPx).toBe(12);
 
   expect(Object.keys(VIEW_CONFIG)).toEqual([
     'labelFontPx',
+    'labelHeightPx',
     'labelMinContrast',
     'labelGapPx',
     'labelOffsetPx',
@@ -53,6 +60,8 @@ test('holds the brief values', () => {
     'tabletMaxWidthPx',
     'tabletMinWidthPx',
     'drawerWidthPx',
+    'selectionRingPaddingPx',
+    'selectionRingMinRadiusPx',
   ]);
 
   for (const key of CAMERA_KEYS) {

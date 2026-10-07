@@ -323,6 +323,68 @@ async function tabUntil(page: Page, stopId: string): Promise<string[]> {
   return ids;
 }
 
+test('open scale explanation lies on top and fits at 1280x800 / 1280x720 / 1024x768 / 768x1024', async ({
+  page,
+}) => {
+  for (const size of [
+    DESKTOP_WIDE,
+    { width: 1280, height: 720 },
+    TABLET_LANDSCAPE,
+    TABLET_PORTRAIT,
+  ]) {
+    const errors = await openAt(page, size);
+    await page.locator('#scale-why').click();
+    const dialog = page.locator('#scale-explanation');
+    await expect(dialog).toBeVisible();
+
+    const box = await boxOf(dialog);
+    const close = await boxOf(page.locator('#scale-close'));
+    const view = await boxOf(page.locator('[data-testid="view-controls"]'));
+    const time = await boxOf(page.locator('#time-controls'));
+    if (box === null || close === null || view === null || time === null) {
+      throw new Error('explanation, close, view, or time has no box');
+    }
+    expect(
+      fits(box, size),
+      `explanation leaves ${size.width}x${size.height}`,
+    ).toBe(true);
+    expect(fits(close, size), 'close leaves the window').toBe(true);
+    expect(close.y + close.height).toBeLessThanOrEqual(
+      box.y + box.height + 0.5,
+    );
+    expect(intersects(box, view), 'explanation overlaps view').toBe(false);
+    expect(intersects(box, time), 'explanation overlaps time').toBe(false);
+
+    // Nothing (bodies list, Ciała button, labels) is drawn over it.
+    const covered = await page.evaluate(({ x, y, width, height }) => {
+      const misses: string[] = [];
+      for (let row = 0; row <= 4; row += 1) {
+        for (let column = 0; column <= 4; column += 1) {
+          // 8 px in from the edge, clear of the rounded corners.
+          const px = x + 8 + ((width - 16) * column) / 4;
+          const py = y + 8 + ((height - 16) * row) / 4;
+          const hit = document.elementFromPoint(px, py);
+          if (hit?.closest('#scale-explanation') == null) {
+            misses.push(`${px},${py}: ${hit?.id ?? hit?.tagName ?? 'none'}`);
+          }
+        }
+      }
+      return misses;
+    }, box);
+    expect(covered).toEqual([]);
+    const closeHit = await page.evaluate(
+      ({ x, y, width, height }) =>
+        document.elementFromPoint(x + width / 2, y + height / 2)?.id ?? '',
+      close,
+    );
+    expect(closeHit).toBe('scale-close');
+
+    await page.locator('#scale-close').click();
+    await expect(dialog).toBeHidden();
+    expect(errors).toEqual([]);
+  }
+});
+
 test('debug overlay does not overlap list', async ({ page }) => {
   await page.setViewportSize(DESKTOP_WIDE);
   await page.goto('/?debug=1');

@@ -12,6 +12,7 @@ import {
 import { getSelectableBodies } from '@core/selectableBodies.ts';
 import { type SelectableBody } from '@core/selectableBodies.ts';
 import { createSelection, type Selection } from '@core/selection.ts';
+import { VIEW_CONFIG } from '@core/viewConfig.ts';
 import { bodies as catalog } from '@data/bodies.ts';
 import { createBodyLabels, type BodyLabels } from '@ui/bodyLabels.ts';
 import { createI18n, type Dictionary, type I18n } from '@ui/i18n.ts';
@@ -20,7 +21,7 @@ const i18n = createI18n(pl, 'pl-PL');
 const CSS = readFileSync('src/ui/bodyLabels.css', 'utf8');
 const SOURCE = readFileSync('src/ui/bodyLabels.ts', 'utf8');
 
-const LABEL_HEIGHT = 13 * 1.2 + 8;
+const LABEL_HEIGHT = VIEW_CONFIG.labelHeightPx;
 
 test('one label per body', () => {
   reset();
@@ -56,7 +57,7 @@ test('css contract', () => {
   expect(CSS).toContain('#ffffff');
   expect(CSS).toContain('rgba(10, 14, 30, 0.85)');
   expect(CSS).toContain('font-weight: 700');
-  expect(CSS).toContain('z-index: 1');
+  expect(CSS).toContain('z-index: var(--layer-overlay)');
   expect(CSS).not.toMatch(/transition/iu);
   expect(CSS).not.toMatch(/animation/iu);
   expect(CSS).toMatch(/#body-labels\s*\{[^}]*pointer-events:\s*none/u);
@@ -156,6 +157,47 @@ test('hidden labels get hidden state', () => {
   expect(labelFor('jupiter').classList.contains('is-hidden')).toBe(false);
   expect(labelFor('mars').classList.contains('is-hidden')).toBe(true);
   expect(CSS).toMatch(/\.is-hidden\s*\{[^}]*visibility:\s*hidden/u);
+  labels.dispose();
+  selection.dispose();
+});
+
+test('label sliding onto another disc hides until the next layout', () => {
+  reset();
+  const bodies = [
+    body('sun', 695700),
+    body('earth', 6371),
+    body('mars', 3389.5),
+  ];
+  const { labels, frame, selection } = mount(bodies, { measure: () => 50 });
+  place(frame, 'sun', 400, 300, 40);
+  place(frame, 'earth', 400, 150, 6);
+  place(frame, 'mars', 700, 150, 4);
+  labels.update(800, 600, 0.1);
+  expect(labelFor('earth').classList.contains('is-hidden')).toBe(false);
+  expect(labelFor('mars').classList.contains('is-hidden')).toBe(false);
+
+  // Fast time: before the next layout Earth's label reaches the Sun's disc.
+  place(frame, 'earth', 400, 360, 6);
+  labels.update(800, 600, 1 / 60);
+  expect(labelFor('earth').classList.contains('is-hidden')).toBe(true);
+  // A label clear of every disc stays as it was.
+  expect(labelFor('mars').classList.contains('is-hidden')).toBe(false);
+  // The Sun's own label is pinned and is not hidden by this check.
+  expect(labelFor('sun').classList.contains('is-hidden')).toBe(false);
+
+  // Back clear of the disc: still hidden until the layout runs again.
+  place(frame, 'earth', 400, 150, 6);
+  labels.update(800, 600, 1 / 60);
+  expect(labelFor('earth').classList.contains('is-hidden')).toBe(true);
+  labels.update(800, 600, 0.1);
+  expect(labelFor('earth').classList.contains('is-hidden')).toBe(false);
+
+  // A selected label is pinned too and never hidden by this check.
+  selection.select('mars');
+  place(frame, 'mars', 400, 360, 4);
+  labels.update(800, 600, 1 / 60);
+  expect(labelFor('mars').classList.contains('is-hidden')).toBe(false);
+
   labels.dispose();
   selection.dispose();
 });
@@ -344,11 +386,37 @@ test('coarse pointer labels ignore pointer events', () => {
     /@media \(pointer: coarse\)\s*\{[^}]*pointer-events:\s*none/u,
   );
   expect(CSS).not.toMatch(/::after/u);
-  const fine = /@media \(pointer: fine\)\s*\{([^}]*)\}/u.exec(CSS);
+  const fine = /@media \(pointer: fine\)\s*\{([\s\S]*?)\n\}/u.exec(CSS);
   expect(fine).not.toBeNull();
-  const minHeight = /min-height:\s*(\d+)px/u.exec(fine?.[1] ?? '');
-  expect(Number(minHeight?.[1])).toBeGreaterThanOrEqual(32);
-  expect(fine?.[1]).toMatch(/pointer-events:\s*auto/u);
+  expect(fine?.[1]).toMatch(/\.body-label\s*\{[^}]*pointer-events:\s*auto/u);
+  // The click target grows past the drawn label with a pseudo-element.
+  const target = /\.body-label::before\s*\{([^}]*)\}/u.exec(fine?.[1] ?? '');
+  expect(target).not.toBeNull();
+  const inset = /inset:\s*-(\d+)px 0/u.exec(target?.[1] ?? '');
+  expect(
+    VIEW_CONFIG.labelHeightPx + 2 * Number(inset?.[1]),
+  ).toBeGreaterThanOrEqual(32);
+});
+
+test('drawn label height is the layout height', () => {
+  const rule = /\.body-label\s*\{([^}]*)\}/u.exec(CSS);
+  expect(rule).not.toBeNull();
+  const body = rule?.[1] ?? '';
+  expect(body).toMatch(
+    new RegExp(`\\bheight:\\s*${VIEW_CONFIG.labelHeightPx}px`, 'u'),
+  );
+  expect(body).toMatch(/box-sizing:\s*border-box/u);
+  expect(body).not.toMatch(/min-height/u);
+  expect(CSS).not.toMatch(/min-height/u);
+  // The text box fits inside: line height plus vertical padding.
+  const lineHeight = /line-height:\s*(\d+)px/u.exec(body);
+  const padding = /padding:\s*(\d+)px/u.exec(body);
+  expect(Number(lineHeight?.[1]) + 2 * Number(padding?.[1])).toBe(
+    VIEW_CONFIG.labelHeightPx,
+  );
+  expect(Number(lineHeight?.[1])).toBeGreaterThanOrEqual(
+    VIEW_CONFIG.labelFontPx * 1.2,
+  );
 });
 
 test('missing body id and empty list', () => {

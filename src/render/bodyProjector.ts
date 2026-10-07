@@ -2,6 +2,7 @@ import { Vector3, type PerspectiveCamera } from 'three';
 
 import {
   createBodyScreenFrame,
+  sphereScreenRadiusPx,
   type BodyScreenFrame,
 } from '@core/bodyScreenFrame.ts';
 
@@ -60,6 +61,8 @@ export function createBodyProjector(
       const height = cachedHeight > 0 ? cachedHeight : heightCss;
       camera.updateMatrixWorld();
       const halfAngle = Math.tan((camera.fov * Math.PI) / 360);
+      const focalPx = halfAngle > 0 ? height / 2 / halfAngle : 0;
+      const fallbackPx = Math.hypot(width, height);
 
       for (let index = 0; index < frame.count; index += 1) {
         const entry = entries[index];
@@ -71,6 +74,7 @@ export function createBodyProjector(
         ndc.copy(world);
         ndc.applyMatrix4(camera.matrixWorldInverse);
         const depth = -ndc.z;
+        const lateral = Math.hypot(ndc.x, ndc.y);
         ndc.copy(world);
         ndc.project(camera);
 
@@ -92,11 +96,13 @@ export function createBodyProjector(
         frame.x[index] = x;
         frame.y[index] = y;
         frame.depth[index] = depth;
-        const radius =
-          depth > 0 && halfAngle > 0
-            ? (entry.displayRadius / (depth * halfAngle)) * (height / 2)
-            : 0;
-        frame.radiusPx[index] = Number.isFinite(radius) ? radius : 0;
+        frame.radiusPx[index] = sphereScreenRadiusPx(
+          entry.displayRadius,
+          lateral,
+          depth,
+          focalPx,
+          fallbackPx,
+        );
         const onScreen = x >= 0 && y >= 0 && x <= width && y <= height;
         frame.visible[index] = depth > 0 && ndc.z <= 1 && onScreen ? 1 : 0;
       }

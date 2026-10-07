@@ -474,6 +474,35 @@ test('drag interrupts a flight', async ({ page }) => {
   expect(await selectedId(page)).toBe('mars');
 });
 
+test.describe('touch', () => {
+  test.use({ hasTouch: true });
+
+  test('second finger interrupts a flight', async ({ page }) => {
+    await openApp(page);
+    await waitReady(page);
+
+    await page.getByTestId('body-item-mars').click();
+    expect((await cameraState(page)).flightActive).toBe(1);
+
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [
+        { x: 300, y: 300, id: 1 },
+        { x: 600, y: 300, id: 2 },
+      ],
+    });
+    // Both fingers rest without moving: no pinch zoom happens.
+    await waitForFrames(page, 2);
+    expect((await cameraState(page)).flightActive).toBe(0);
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchEnd',
+      touchPoints: [],
+    });
+    expect(await selectedId(page)).toBe('mars');
+  });
+});
+
 test('wheel zoom steps and limits', async ({ page }) => {
   await openApp(page);
   await waitReady(page);
@@ -633,6 +662,30 @@ test('keyboard only path on tablet', async ({ page }) => {
   const state = await waitForFlightEnd(page);
   expect(await selectedId(page)).toBeNull();
   expect(state.flightActive).toBe(0);
+  expect(await focusedName(page)).toBe('bodies-drawer-open');
+});
+
+test('Esc on tablet with a collapsed list focuses Ciała', async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await openApp(page);
+  await waitReady(page);
+
+  await page.getByTestId('bodies-drawer-open').click();
+  await page.getByTestId('bodies-collapse').click();
+  await expect(page.getByTestId('bodies-collapse')).toHaveAttribute(
+    'aria-expanded',
+    'false',
+  );
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-testid="bodies-drawer"]')).toBeHidden();
+
+  const jupiter = await screenPoint(page, 'jupiter');
+  requireVisible(jupiter, 'jupiter');
+  await page.mouse.click(jupiter.x, jupiter.y);
+  await expect.poll(() => selectedId(page)).toBe('jupiter');
+  await page.locator('#viewport').focus();
+  await page.keyboard.press('Escape');
+  await expect.poll(() => selectedId(page)).toBeNull();
   expect(await focusedName(page)).toBe('bodies-drawer-open');
 });
 

@@ -13,10 +13,15 @@ export type LabelLayout = {
   labelHeight: Float64Array;
   /** Index of the selected body, or -1 when nothing is selected. */
   selectedIndex: number;
+  /** Index of the Sun, or -1 when it is not in the list. */
+  sunIndex: number;
   shown: Uint8Array;
   outX: Float64Array;
   outY: Float64Array;
-  /** 0 = above the body, 1 = below. Meaningful when `shown` is 1. */
+  /**
+   * 0 = above the body, 1 = below, 2 = right, 3 = left. Meaningful when
+   * `shown` is 1.
+   */
   side: Uint8Array;
   width: number;
   height: number;
@@ -73,8 +78,10 @@ export function computeLabelOrder(
 
 /**
  * Picks above, then below. The first candidate that clears accepted labels
- * and other visible discs by `labelGapPx` is shown. The selected body stays
- * above the body when both candidates collide.
+ * and every visible disc (its own included, which matters once a label is
+ * clamped into the viewport) by `labelGapPx` is shown. Pinned labels (the
+ * selected body and the Sun) also try right and left, and stay above the
+ * body when every candidate collides. Other labels are hidden then.
  */
 export function layoutLabels(layout: LabelLayout): void {
   requirePositive('width', layout.width);
@@ -104,7 +111,8 @@ export function layoutLabels(layout: LabelLayout): void {
 
 /**
  * Top-left of one candidate, clamped into the viewport with a margin of 0.
- * `side` 0 is above the body, 1 is below. Writes x then y into `out`.
+ * `side` 0 is above the body, 1 below, 2 right, 3 left. Writes x then y
+ * into `out`.
  */
 export function labelCandidateOrigin(
   out: Float64Array,
@@ -119,8 +127,16 @@ export function labelCandidateOrigin(
 ): void {
   const offset = VIEW_CONFIG.labelOffsetPx;
   let left = x - labelWidth / 2;
-  let top =
-    side === 0 ? y - radiusPx - offset - labelHeight : y + radiusPx + offset;
+  let top = y - labelHeight / 2;
+  if (side === 0) {
+    top = y - radiusPx - offset - labelHeight;
+  } else if (side === 1) {
+    top = y + radiusPx + offset;
+  } else if (side === 2) {
+    left = x + radiusPx + offset;
+  } else {
+    left = x - radiusPx - offset - labelWidth;
+  }
   if (left < 0) {
     left = 0;
   }
@@ -156,8 +172,10 @@ function chooseSide(
   const x = layout.x[index] ?? 0;
   const y = layout.y[index] ?? 0;
   const radiusPx = layout.radiusPx[index] ?? 0;
+  const pinned = index === layout.selectedIndex || index === layout.sunIndex;
+  const lastSide = pinned ? 3 : 1;
 
-  for (let side = 0; side <= 1; side += 1) {
+  for (let side = 0; side <= lastSide; side += 1) {
     labelCandidateOrigin(
       candidate,
       side,
@@ -173,13 +191,13 @@ function chooseSide(
     const top = candidate[1] ?? 0;
     if (
       !hitsAccepted(layout, step, left, top, width, height, gap) &&
-      !hitsOtherDisc(layout, index, left, top, width, height, gap)
+      !hitsVisibleDisc(layout, left, top, width, height, gap)
     ) {
       return side;
     }
   }
 
-  if (index !== layout.selectedIndex) {
+  if (!pinned) {
     return -1;
   }
 
@@ -236,9 +254,8 @@ function hitsAccepted(
   return false;
 }
 
-function hitsOtherDisc(
+function hitsVisibleDisc(
   layout: LabelLayout,
-  self: number,
   left: number,
   top: number,
   width: number,
@@ -247,11 +264,11 @@ function hitsOtherDisc(
 ): boolean {
   const count = layout.count;
   for (let other = 0; other < count; other += 1) {
-    if (other === self || (layout.visible[other] ?? 0) === 0) {
+    if ((layout.visible[other] ?? 0) === 0) {
       continue;
     }
     if (
-      discHits(
+      rectHitsDisc(
         left,
         top,
         width,
@@ -288,7 +305,8 @@ function rectsHit(
   return true;
 }
 
-function discHits(
+/** True when the rectangle comes closer than `gap` to the disc. */
+export function rectHitsDisc(
   left: number,
   top: number,
   width: number,

@@ -2,8 +2,7 @@
   position: fixed;
   top: 8px;
   left: 8px;
-  /* The debug overlay is z-index 2. The open panel starts on the same row, so this stays above it. */
-  z-index: 3;
+  z-index: var(--layer-panel);
   display: flex;
   flex-wrap: nowrap;
   gap: 8px;
@@ -16,6 +15,11 @@
   pointer-events: none;
   font-family: system-ui, sans-serif;
   color: #ffffff;
+}
+
+/* The open explanation lies over the bodies list and the drawer. */
+#scale-notice.is-open {
+  z-index: var(--layer-dialog);
 }
 
 #scale-badge {
@@ -63,18 +67,29 @@
   top: calc(100% + 8px);
   left: 0;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   width: min(420px, calc(100vw - 16px));
   max-width: min(420px, calc(100vw - 16px));
-  max-height: 60vh;
+  /* From its top (60 px) down to 16 px above the time panel. */
+  max-height: calc(100vh - 60px - var(--time-panel-height, 0px) - 16px - 16px);
   margin: 0;
   padding: 12px;
-  overflow: auto;
+  overflow: hidden;
   color: #ffffff;
-  background: rgba(10, 14, 30, 0.85);
+  /* Opaque: it lies over the bodies list, whose text must not show through. */
+  background: #0a0e1e;
   border-radius: 8px;
   font-size: 16px;
   line-height: 1.4;
   pointer-events: auto;
+}
+
+.scale-explanation-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 #scale-explanation[hidden] {
@@ -91,7 +106,13 @@
   margin: 0 0 8px;
 }
 
+#scale-explanation p:last-child {
+  margin-bottom: 0;
+}
+
 #scale-close {
+  flex: 0 0 auto;
+  align-self: flex-start;
   box-sizing: border-box;
   min-width: 44px;
   min-height: 44px;

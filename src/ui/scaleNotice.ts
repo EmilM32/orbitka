@@ -55,7 +55,11 @@ export function createScaleNotice(
   closeButton.setAttribute('id', 'scale-close');
   closeButton.textContent = i18n.t('scaleNotice.closeLabel');
 
-  panel.append(title, ...paragraphs, closeButton);
+  // Only the text scrolls; the close button stays below it.
+  const body = document.createElement('div');
+  body.setAttribute('class', 'scale-explanation-body');
+  body.append(title, ...paragraphs);
+  panel.append(body, closeButton);
   root.append(badge, whyButton, panel);
   parent.insertBefore(root, before ?? null);
 
@@ -69,6 +73,7 @@ export function createScaleNotice(
 
     open = next;
     panel.hidden = !next;
+    root.classList.toggle('is-open', next);
     whyButton.setAttribute('aria-expanded', next ? 'true' : 'false');
     if (next) {
       title.focus();

@@ -28,6 +28,14 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Chromium and its system libraries ship in the image, so the job never
+    # runs apt-get (the Ubuntu mirror hung `playwright install --with-deps`).
+    # The tag must match @playwright/test in package.json (tests/repo/ci.test.ts).
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      options: --ipc=host
+    env:
+      HOME: /root
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -35,8 +43,9 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+        timeout-minutes: 5
       - run: npm run test:e2e
+        timeout-minutes: 8
       - if: failure()
         uses: actions/upload-artifact@v4
         with:

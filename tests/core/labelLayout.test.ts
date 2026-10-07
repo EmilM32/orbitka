@@ -188,18 +188,132 @@ test('other body discs are obstacles', () => {
     if ((layout.visible[selected] ?? 0) === 1) {
       expect(layout.shown[selected]).toBe(1);
     }
+    const sun = layout.sunIndex;
+    if ((layout.visible[sun] ?? 0) === 1) {
+      expect(layout.shown[sun]).toBe(1);
+    }
     for (let index = 0; index < layout.count; index += 1) {
-      if ((layout.shown[index] ?? 0) === 0 || index === selected) {
+      const pinned = index === selected || index === sun;
+      if ((layout.shown[index] ?? 0) === 0 || pinned) {
         continue;
       }
       for (let other = 0; other < layout.count; other += 1) {
-        if (other === index || (layout.visible[other] ?? 0) === 0) {
+        if ((layout.visible[other] ?? 0) === 0) {
           continue;
         }
+        // Own disc included: a clamped label must not cover its body either.
         expect(coversDisc(layout, index, other)).toBe(false);
       }
     }
   }
+});
+
+// Start view 1280×720 shape: Mercury's disc sits under the Sun's label slot
+// above, Mars's disc over the slot below.
+function sunBetweenTwoPlanets(): LabelLayout {
+  const ids = ['sun', 'mercury', 'mars'];
+  const layout = createLayout(ids, [695700, 2439.7, 3389.5]);
+  const sun = { x: 640, y: 370, radiusPx: 38 };
+  layout.x[0] = sun.x;
+  layout.y[0] = sun.y;
+  layout.radiusPx[0] = sun.radiusPx;
+  layout.x[1] = sun.x + 10;
+  layout.y[1] = sun.y - sun.radiusPx - 18;
+  layout.radiusPx[1] = 3;
+  layout.x[2] = sun.x - 12;
+  layout.y[2] = sun.y + sun.radiusPx + 20;
+  layout.radiusPx[2] = 3;
+  for (let index = 0; index < ids.length; index += 1) {
+    layout.visible[index] = 1;
+    layout.labelWidth[index] = 60;
+    layout.labelHeight[index] = START_LABEL.height;
+  }
+  layout.width = 1280;
+  layout.height = 720;
+  return layout;
+}
+
+test('the Sun keeps its label when planets block above and below', () => {
+  const ids = ['sun', 'mercury', 'mars'];
+  const layout = sunBetweenTwoPlanets();
+  orderAndLayout(layout, ids, null);
+
+  expect(layout.shown[0]).toBe(1);
+  expect([2, 3]).toContain(layout.side[0]);
+  expect(coversDisc(layout, 0, 0)).toBe(false);
+  expect(coversDisc(layout, 0, 1)).toBe(false);
+  expect(coversDisc(layout, 0, 2)).toBe(false);
+  for (const planet of [1, 2]) {
+    if ((layout.shown[planet] ?? 0) === 1) {
+      expect(coversDisc(layout, planet, 0)).toBe(false);
+    }
+  }
+
+  // With a planet selected the Sun still keeps its label, after it.
+  orderAndLayout(layout, ids, 'mars');
+  expect(names(layout.order, ids).slice(0, 2)).toEqual(['mars', 'sun']);
+  expect(layout.shown[0]).toBe(1);
+  expect(layout.shown[2]).toBe(1);
+  expectNoLabelOverlap(layout);
+});
+
+test('a pinned label stays above when every candidate collides', () => {
+  const ids = ['sun', 'jupiter'];
+  const layout = createLayout(ids, [695700, 69911]);
+  layout.x[0] = 200;
+  layout.y[0] = 200;
+  layout.radiusPx[0] = 20;
+  layout.x[1] = 200;
+  layout.y[1] = 200;
+  layout.radiusPx[1] = 120;
+  layout.visible[0] = 1;
+  layout.visible[1] = 1;
+  layout.labelWidth[0] = 50;
+  layout.labelWidth[1] = 50;
+  layout.labelHeight[0] = 24;
+  layout.labelHeight[1] = 24;
+  layout.width = 400;
+  layout.height = 400;
+  orderAndLayout(layout, ids, null);
+  expect(layout.shown[0]).toBe(1);
+  expect(layout.side[0]).toBe(0);
+  expect(layout.outY[0]).toBeCloseTo(200 - 20 - VIEW_CONFIG.labelOffsetPx - 24);
+});
+
+test('a clamped label does not cover its own body', () => {
+  const layout = createLayout(['earth'], [6371]);
+  layout.x[0] = 200;
+  layout.y[0] = 12;
+  layout.radiusPx[0] = 8;
+  layout.visible[0] = 1;
+  layout.labelWidth[0] = 50;
+  layout.labelHeight[0] = 24;
+  layout.width = 400;
+  layout.height = 300;
+  orderAndLayout(layout, ['earth'], null);
+  expect(layout.shown[0]).toBe(1);
+  expect(layout.side[0]).toBe(1);
+  expect(coversDisc(layout, 0, 0)).toBe(false);
+  expect(layout.outY[0]).toBe(12 + 8 + VIEW_CONFIG.labelOffsetPx);
+});
+
+test('Mercury, Venus and the Sun in one place show only the Sun', () => {
+  const ids = ['sun', 'mercury', 'venus'];
+  const layout = createLayout(ids, [695700, 2439.7, 6051.8]);
+  for (let index = 0; index < ids.length; index += 1) {
+    layout.x[index] = 300 + index;
+    layout.y[index] = 200;
+    layout.radiusPx[index] = index === 0 ? 30 : 4;
+    layout.visible[index] = 1;
+    layout.labelWidth[index] = 60;
+    layout.labelHeight[index] = 24;
+  }
+  layout.width = 600;
+  layout.height = 400;
+  orderAndLayout(layout, ids, null);
+  expect(readShown(layout, ids)).toEqual({ sun: 1, mercury: 0, venus: 0 });
+  orderAndLayout(layout, ids, 'venus');
+  expect(readShown(layout, ids)).toEqual({ sun: 1, mercury: 0, venus: 1 });
 });
 
 test('Jupiter label does not cover Saturn center at 1280x720', () => {
@@ -382,6 +496,7 @@ function createLayout(
     labelWidth: new Float64Array(count),
     labelHeight: new Float64Array(count),
     selectedIndex: -1,
+    sunIndex: ids.indexOf('sun'),
     shown: new Uint8Array(count),
     outX: new Float64Array(count),
     outY: new Float64Array(count),

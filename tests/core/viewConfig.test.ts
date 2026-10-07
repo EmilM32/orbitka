@@ -22,6 +22,7 @@ const CAMERA_KEYS = [
 
 const UI_KEYS = [
   'labelFontPx',
+  'labelHeightPx',
   'labelMinContrast',
   'labelGapPx',
   'labelOffsetPx',
@@ -36,6 +37,7 @@ const UI_KEYS = [
 
 test('holds the brief values', () => {
   expect(VIEW_CONFIG.labelFontPx).toBe(13);
+  expect(VIEW_CONFIG.labelHeightPx).toBe(24);
   expect(VIEW_CONFIG.labelMinContrast).toBe(4.5);
   expect(VIEW_CONFIG.labelGapPx).toBe(4);
   expect(VIEW_CONFIG.labelOffsetPx).toBe(6);
@@ -49,6 +51,7 @@ test('holds the brief values', () => {
 
   expect(Object.keys(VIEW_CONFIG)).toEqual([
     'labelFontPx',
+    'labelHeightPx',
     'labelMinContrast',
     'labelGapPx',
     'labelOffsetPx',

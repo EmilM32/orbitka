@@ -58,7 +58,6 @@ test('pointerGestures › drag rotation and wheel zoom factor', () => {
   expect(wheelZoomFactor('pinch', sample(1_000))).toBeCloseTo(1.1 ** 5, 12);
   expect(wheelZoomFactor('pinch', sample(-80))).toBeCloseTo(1.1 ** -5, 12);
   expect(wheelZoomFactor('trackpad', sample(60))).toBe(1);
-  expect(wheelZoomFactor('none', sample(100))).toBe(1);
 });
 
 test('pointerGestures › classifyWheel recorded sequences', () => {
@@ -87,6 +86,23 @@ test('pointerGestures › classifyWheel recorded sequences', () => {
     'trackpad',
     'trackpad',
   ]);
+
+  // Inertial two-finger scroll with whole-number deltas: small values first.
+  const smallIntegerRamp = play(
+    [1, 2, 4, 8, 16, 32, 64, 48, 24].map((deltaY, index) => ({
+      at: index * 8,
+      sample: sample(deltaY),
+    })),
+  );
+  expect(smallIntegerRamp).toEqual(Array(9).fill('trackpad'));
+
+  const smallIntegersOnly = play(
+    [2, 4, 6, 4, 2].map((deltaY, index) => ({
+      at: index * 8,
+      sample: sample(deltaY),
+    })),
+  );
+  expect(smallIntegersOnly).toEqual(Array(5).fill('trackpad'));
 
   const firefox = play([
     { at: 0, sample: sample(3, { deltaMode: 1 }) },

@@ -103,7 +103,6 @@ export function createCameraPointerInput(
   const tapListeners: TapListener[] = [];
   let disposed = false;
   let sawTwoPointers = false;
-  let pinchNotified = false;
   let lastSpan = 0;
 
   surface.addEventListener('pointerdown', onPointerDown);
@@ -186,8 +185,10 @@ export function createCameraPointerInput(
     slot.dragging = false;
     if (slotA.active && slotB.active) {
       sawTwoPointers = true;
-      pinchNotified = false;
       lastSpan = currentSpan();
+      // A second finger is user input on its own: it ends a flight even
+      // before the fingers move. The pinch that follows does not notify again.
+      controller.notifyUserInput();
     }
     surface.setPointerCapture(pointer.pointerId);
   }
@@ -311,7 +312,6 @@ export function createCameraPointerInput(
     }
     if (!other.active) {
       sawTwoPointers = false;
-      pinchNotified = false;
       lastSpan = 0;
     }
     if (release) {
@@ -390,10 +390,6 @@ export function createCameraPointerInput(
     }
 
     controller.zoomBy(factor, true, false);
-    if (!pinchNotified) {
-      pinchNotified = true;
-      controller.notifyUserInput();
-    }
   }
 
   function rotateByPixels(dx: number, dy: number): void {

@@ -474,6 +474,35 @@ test('drag interrupts a flight', async ({ page }) => {
   expect(await selectedId(page)).toBe('mars');
 });
 
+test.describe('touch', () => {
+  test.use({ hasTouch: true });
+
+  test('second finger interrupts a flight', async ({ page }) => {
+    await openApp(page);
+    await waitReady(page);
+
+    await page.getByTestId('body-item-mars').click();
+    expect((await cameraState(page)).flightActive).toBe(1);
+
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [
+        { x: 300, y: 300, id: 1 },
+        { x: 600, y: 300, id: 2 },
+      ],
+    });
+    // Both fingers rest without moving: no pinch zoom happens.
+    await waitForFrames(page, 2);
+    expect((await cameraState(page)).flightActive).toBe(0);
+    await cdp.send('Input.dispatchTouchEvent', {
+      type: 'touchEnd',
+      touchPoints: [],
+    });
+    expect(await selectedId(page)).toBe('mars');
+  });
+});
+
 test('wheel zoom steps and limits', async ({ page }) => {
   await openApp(page);
   await waitReady(page);

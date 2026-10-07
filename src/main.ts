@@ -18,8 +18,14 @@ import { createBodyProjector } from '@render/bodyProjector.ts';
 import { addDebugAxes } from '@render/debugAxes.ts';
 import { createLights } from '@render/lights.ts';
 import { addOrbitLines } from '@render/orbitLines.ts';
-import { createCameraController } from '@render/cameraController.ts';
-import { createCameraDirector } from '@render/cameraDirector.ts';
+import {
+  createCameraController,
+  type CameraControllerState,
+} from '@render/cameraController.ts';
+import {
+  createCameraDirector,
+  type CameraFlightSnapshot,
+} from '@render/cameraDirector.ts';
 import { createCameraPointerInput } from '@render/cameraPointerInput.ts';
 import { createCanvasKeyboard } from '@render/canvasKeyboard.ts';
 import { createRenderer } from '@render/createRenderer.ts';
@@ -53,6 +59,25 @@ function orbitStorage(): Pick<Storage, 'getItem' | 'setItem'> | null {
     // Reading localStorage can throw. The group then stays in memory only.
     return null;
   }
+}
+
+function materialOpacity(object: unknown): number {
+  if (
+    typeof object !== 'object' ||
+    object === null ||
+    !('material' in object)
+  ) {
+    return 0;
+  }
+
+  const material = (object as { material: unknown }).material;
+  const entry = Array.isArray(material) ? material[0] : material;
+  if (typeof entry !== 'object' || entry === null || !('opacity' in entry)) {
+    return 0;
+  }
+
+  const opacity = (entry as { opacity: unknown }).opacity;
+  return typeof opacity === 'number' && Number.isFinite(opacity) ? opacity : 0;
 }
 
 function findCanvas(): HTMLCanvasElement {
@@ -234,6 +259,31 @@ function mount(canvas: HTMLCanvasElement): App {
       type: string;
       position: { x: number; y: number; z: number };
     }[] = [];
+    const cameraState: CameraControllerState = {
+      azimuthDeg: 0,
+      polarDeg: 0,
+      distance: 0,
+      distanceMin: 0,
+      distanceMax: 1,
+      targetX: 0,
+      targetY: 0,
+      targetZ: 0,
+    };
+    const flightState: CameraFlightSnapshot = {
+      active: 0,
+      kind: 0,
+      progress: 0,
+    };
+    const radiusById = new Map<string, number>();
+    for (const body of directorBodies) {
+      radiusById.set(body.id, body.displayRadius);
+    }
+    const planetIds: string[] = [];
+    for (const body of selectable) {
+      if (body.type === 'planet') {
+        planetIds.push(body.id);
+      }
+    }
     window.__orbitka = {
       get frameCount() {
         return frameCount;
@@ -279,6 +329,41 @@ function mount(canvas: HTMLCanvasElement): App {
             y: frameSnapshot.earth.y,
             z: frameSnapshot.earth.z,
           },
+        };
+      },
+      getCameraState() {
+        cameraController.getState(cameraState);
+        director.getFlightState(flightState);
+        const selectedId = selection.getSelectedId();
+        return {
+          azimuthDeg: cameraState.azimuthDeg,
+          polarDeg: cameraState.polarDeg,
+          distance: cameraState.distance,
+          distanceMin: cameraState.distanceMin,
+          distanceMax: cameraState.distanceMax,
+          targetX: cameraState.targetX,
+          targetY: cameraState.targetY,
+          targetZ: cameraState.targetZ,
+          flightActive: flightState.active,
+          flightKind: flightState.kind,
+          flightProgress: flightState.progress,
+          selectedRadius:
+            selectedId === null ? 0 : (radiusById.get(selectedId) ?? 0),
+        };
+      },
+      getSelectedId() {
+        return selection.getSelectedId();
+      },
+      getOrbitState() {
+        const opacities: number[] = [];
+        for (const id of planetIds) {
+          opacities.push(
+            materialOpacity(orbitLines.group.getObjectByName(`orbit-${id}`)),
+          );
+        }
+        return {
+          visible: orbitLines.group.visible ? 1 : 0,
+          opacities,
         };
       },
     };

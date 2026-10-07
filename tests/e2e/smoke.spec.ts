@@ -239,6 +239,17 @@ test('DRAW_CALL_BUDGET', async ({ page }) => {
 test('hook only with debug', async ({ page }) => {
   await page.goto('/');
   await page.locator('canvas').waitFor();
-  const hook = await page.evaluate(() => window.__orbitka);
-  expect(hook).toBeUndefined();
+  const hook = await page.evaluate(() => {
+    const value = window.__orbitka;
+    return {
+      present: value !== undefined,
+      getCameraState: typeof value?.getCameraState,
+      getSelectedId: typeof value?.getSelectedId,
+      getOrbitState: typeof value?.getOrbitState,
+    };
+  });
+  expect(hook.present).toBe(false);
+  expect(hook.getCameraState).toBe('undefined');
+  expect(hook.getSelectedId).toBe('undefined');
+  expect(hook.getOrbitState).toBe('undefined');
 });

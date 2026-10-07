@@ -31,6 +31,28 @@ export type OrbitkaFrameSnapshot = {
   earth: OrbitkaScenePosition;
 };
 
+/** Numbers only. `flightKind`: 0 none, 1 body, 2 system. */
+export type OrbitkaCameraState = {
+  azimuthDeg: number;
+  polarDeg: number;
+  distance: number;
+  distanceMin: number;
+  distanceMax: number;
+  targetX: number;
+  targetY: number;
+  targetZ: number;
+  flightActive: number;
+  flightKind: number;
+  flightProgress: number;
+  selectedRadius: number;
+};
+
+/** `visible` is 0 or 1. `opacities` is Mercury through Neptune. */
+export type OrbitkaOrbitState = {
+  visible: number;
+  opacities: number[];
+};
+
 declare global {
   interface Window {
     __orbitka?: {
@@ -40,6 +62,9 @@ declare global {
       getClock: () => OrbitkaClockState;
       getBodyScenePosition: (id: string) => OrbitkaScenePosition | null;
       getFrameSnapshot: () => OrbitkaFrameSnapshot | null;
+      getCameraState: () => OrbitkaCameraState;
+      getSelectedId: () => string | null;
+      getOrbitState: () => OrbitkaOrbitState;
     };
   }
 }

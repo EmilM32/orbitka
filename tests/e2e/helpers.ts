@@ -91,6 +91,12 @@ export async function expectPaintedFrame(
 export async function readCanvasPixels(
   page: Page,
   probes: readonly BodyProbe[],
+  pixel: {
+    brightMin: number;
+    litMin: number;
+    chromaTolerance: number;
+    windowRadius: number;
+  } = PIXEL,
 ): Promise<CanvasPixels> {
   const canvas = page.locator('canvas');
   const box = await canvas.boundingBox();
@@ -203,7 +209,7 @@ export async function readCanvasPixels(
       bodies: probes,
       cssWidth: box.width,
       cssHeight: box.height,
-      pixel: PIXEL,
+      pixel,
     },
   );
 }

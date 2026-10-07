@@ -193,15 +193,16 @@ test('hook › shape', async ({ page }) => {
   expect(report.snapshot).not.toBeNull();
   expect(Number.isFinite(report.snapshot?.days)).toBe(true);
   expect(Number.isFinite(report.snapshot?.earth.x)).toBe(true);
-  expect(report.keys.sort()).toEqual(
-    [
+  // Camera keys from EMI-190 are a superset. Time keys must stay present.
+  expect(report.keys).toEqual(
+    expect.arrayContaining([
       'frameCount',
       'getBodyScenePosition',
       'getBodyScreenPositions',
       'getClock',
       'getFrameSnapshot',
       'getRenderStats',
-    ].sort(),
+    ]),
   );
 });
 

@@ -1,5 +1,13 @@
 export const VIEWPORT = { width: 1280, height: 720 } as const;
 
+// Independent copy of the 1280×720 start view (aspect 16:9, multiplier 1).
+// Distance is hypot(75, 95); zoom limits are 0.2× and 1.5× that distance.
+// Not imported from src.
+export const START_DISTANCE = 121.037;
+export const START_POLAR_DEG = 55;
+export const ZOOM_MIN = 24.207;
+export const ZOOM_MAX = 181.556;
+
 export const DRAWN_BODY_IDS = [
   'sun',
   'mercury',

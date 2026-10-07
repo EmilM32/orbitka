@@ -7,11 +7,13 @@ import {
   type Texture,
 } from 'three';
 
-import { createCamera, frameCamera } from './camera.ts';
+import { createCamera } from './camera.ts';
 import { resolvePixelRatio } from './pixelRatio.ts';
 import { watchDevicePixelRatio } from './watchDevicePixelRatio.ts';
 
 const CLEAR_COLOR = 0x000000;
+
+export type ResizeListener = (width: number, height: number) => void;
 
 export type SceneView = {
   renderer: WebGLRenderer;
@@ -20,6 +22,7 @@ export type SceneView = {
   syncPixelRatio: () => void;
   requestFrame: (tick: () => void) => void;
   cancelFrame: () => void;
+  onResize: (listener: ResizeListener) => () => void;
   dispose: () => void;
 };
 
@@ -28,7 +31,12 @@ export function createRenderer(canvas: HTMLCanvasElement): SceneView {
   renderer.setClearColor(CLEAR_COLOR, 1);
 
   const scene = new Scene();
-  const camera = createCamera(1);
+  const initialWidth = document.body.clientWidth;
+  const initialHeight = document.body.clientHeight;
+  const initialAspect =
+    initialWidth > 0 && initialHeight > 0 ? initialWidth / initialHeight : 1;
+  const camera = createCamera(initialAspect);
+  const resizeListeners: ResizeListener[] = [];
 
   let appliedDevicePixelRatio = window.devicePixelRatio;
 
@@ -45,7 +53,12 @@ export function createRenderer(canvas: HTMLCanvasElement): SceneView {
       resolvePixelRatio(appliedDevicePixelRatio, coarsePointer),
     );
     renderer.setSize(width, height, false);
-    frameCamera(camera, width / height);
+    // Do not reframe. Distance scaling belongs to the camera controller.
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+    for (let index = 0; index < resizeListeners.length; index += 1) {
+      resizeListeners[index]?.(width, height);
+    }
   };
 
   resize();
@@ -75,6 +88,15 @@ export function createRenderer(canvas: HTMLCanvasElement): SceneView {
     },
     cancelFrame() {
       renderer.setAnimationLoop(null);
+    },
+    onResize(listener: ResizeListener) {
+      resizeListeners.push(listener);
+      return () => {
+        const index = resizeListeners.indexOf(listener);
+        if (index >= 0) {
+          resizeListeners.splice(index, 1);
+        }
+      };
     },
     dispose() {
       if (disposed) {

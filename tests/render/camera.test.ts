@@ -26,9 +26,38 @@ test('camera › parameters', () => {
   expect(camera.near).toBe(0.1);
   expect(camera.far).toBe(2000);
   expect(camera.position.x).toBeCloseTo(0, 8);
-  expect(camera.position.y).toBeCloseTo(75, 8);
-  expect(camera.position.z).toBeCloseTo(95, 8);
+  expect(camera.position.y).toBeCloseTo(69.424, 3);
+  expect(camera.position.z).toBeCloseTo(99.148, 3);
   expect(direction.distanceTo(towardOrigin)).toBeLessThanOrEqual(1e-8);
+});
+
+test('camera › start pose', () => {
+  const wide = createCamera(16 / 9);
+  const distance = Math.hypot(75, 95);
+  const polar = (55 * Math.PI) / 180;
+  expect(wide.position.x).toBeCloseTo(0, 8);
+  expect(wide.position.y).toBeCloseTo(distance * Math.cos(polar), 8);
+  expect(wide.position.z).toBeCloseTo(distance * Math.sin(polar), 8);
+  expect(wide.position.y).toBeCloseTo(69.424, 3);
+  expect(wide.position.z).toBeCloseTo(99.148, 3);
+
+  const towardOrigin = new Vector3(0, 0, 0).sub(wide.position).normalize();
+  const direction = new Vector3();
+  wide.getWorldDirection(direction);
+  expect(direction.distanceTo(towardOrigin)).toBeLessThanOrEqual(1e-8);
+
+  const portrait = createCamera(9 / 16);
+  const portraitDistance = Math.hypot(
+    portrait.position.x,
+    portrait.position.y,
+    portrait.position.z,
+  );
+  expect(portraitDistance / distance).toBeCloseTo(
+    cameraDistanceMultiplier(9 / 16),
+    8,
+  );
+  const portraitPolar = Math.acos(portrait.position.y / portraitDistance);
+  expect(portraitPolar).toBeCloseTo(polar, 8);
 });
 
 test('camera › multiplier', () => {
@@ -43,7 +72,7 @@ test('camera › multiplier', () => {
   }
 });
 
-test('camera › Neptune visibility', () => {
+test('camera › orbit extent fits', () => {
   const neptune = getBody('neptune');
   if (neptune.type === 'moon' || neptune.orbit === undefined) {
     throw new Error('Neptune has no orbit');

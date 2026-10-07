@@ -388,6 +388,8 @@ test('one finger rotates, two finger pinch', () => {
     timeStamp: 1010,
   });
   expect(read().distance).toBe(distance);
+  // The second finger alone notifies; the pinch that follows does not again.
+  expect(userInputs).toBe(1);
 
   pointer(surface, 'pointermove', {
     pointerId: 2,

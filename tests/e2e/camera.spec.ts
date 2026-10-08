@@ -366,7 +366,7 @@ test('select Mars from the list flies to it', async ({ page }) => {
 
   await page.getByTestId('body-item-mars').click();
   await expect(page.getByTestId('body-item-mars')).toHaveAttribute(
-    'aria-pressed',
+    'aria-current',
     'true',
   );
   expect(await selectedId(page)).toBe('mars');
@@ -479,7 +479,7 @@ test('label click selects the body', async ({ page }) => {
   await label.click();
   expect(await selectedId(page)).toBe('saturn');
   await expect(page.getByTestId('body-item-saturn')).toHaveAttribute(
-    'aria-pressed',
+    'aria-current',
     'true',
   );
   await waitForFlightEnd(page);
@@ -664,7 +664,12 @@ test('keyboard only path on desktop', async ({ page }) => {
   await openApp(page);
   await waitReady(page);
 
-  await tabUntil(page, 'body-item-mars');
+  // One Tab stop for the list (roving tabindex), then the arrows.
+  await tabUntil(page, 'body-item-sun');
+  for (let step = 0; step < 4; step += 1) {
+    await page.keyboard.press('ArrowDown');
+  }
+  expect(await focusedName(page)).toBe('body-item-mars');
   await page.keyboard.press('Enter');
   await waitForFlightEnd(page);
   expect(await selectedId(page)).toBe('mars');
@@ -694,6 +699,30 @@ test('keyboard only path on desktop', async ({ page }) => {
   await expectSystemView(page, 'body-item-mars');
 });
 
+test('Escape on list returns to system view', async ({ page }) => {
+  await openApp(page);
+  await waitReady(page);
+
+  await flyTo(page, 'mars');
+  await page.getByTestId('body-item-mars').focus();
+  await page.keyboard.press('ArrowDown');
+  expect(await focusedName(page)).toBe('body-item-jupiter');
+  // In the rail the focused dot shows its name; the first Esc closes it.
+  await expect(
+    page.locator('.o-tooltip', { hasText: /^Jowisz$/u }),
+  ).toBeVisible();
+  await page.keyboard.press('Escape');
+  expect(await selectedId(page)).toBe('mars');
+  await page.keyboard.press('Escape');
+  await expectSystemView(page, 'body-item-jupiter');
+  await expect(page.locator('#bodies-panel')).not.toHaveClass(/is-rail/u);
+
+  await flyTo(page, 'saturn');
+  await page.getByTestId('body-item-saturn').focus();
+  await page.keyboard.press('Home');
+  await expectSystemView(page, 'body-item-saturn');
+});
+
 test('keyboard only path on tablet', async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 768 });
   await openApp(page);
@@ -703,7 +732,10 @@ test('keyboard only path on tablet', async ({ page }) => {
   await page.keyboard.press('Enter');
   expect(await focusedName(page)).toBe('body-item-sun');
 
-  await tabTo(page, 'body-item-mars');
+  for (let step = 0; step < 4; step += 1) {
+    await page.keyboard.press('ArrowDown');
+  }
+  expect(await focusedName(page)).toBe('body-item-mars');
   await page.keyboard.press('Enter');
   expect(await selectedId(page)).toBe('mars');
   expect(await focusedName(page)).toBe('bodies-drawer-open');
@@ -717,17 +749,16 @@ test('keyboard only path on tablet', async ({ page }) => {
   expect(await focusedName(page)).toBe('bodies-drawer-open');
 });
 
-test('Esc on tablet with a collapsed list focuses Ciała', async ({ page }) => {
+test('Esc on tablet after a pick on the canvas focuses Planety', async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1024, height: 768 });
   await openApp(page);
   await waitReady(page);
 
+  // The drawer has no rail: no fold button there (SPEC §5.4).
   await page.getByTestId('bodies-drawer-open').click();
-  await page.getByTestId('bodies-collapse').click();
-  await expect(page.getByTestId('bodies-collapse')).toHaveAttribute(
-    'aria-expanded',
-    'false',
-  );
+  await expect(page.getByTestId('bodies-collapse')).toBeHidden();
   await page.keyboard.press('Escape');
   await expect(page.locator('[data-testid="bodies-drawer"]')).toBeHidden();
 

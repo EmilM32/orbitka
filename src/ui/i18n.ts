@@ -62,6 +62,8 @@ export type I18n<D extends DictionaryInput> = {
     params?: MessageParams,
   ): string;
   formatNumber(value: number, maximumFractionDigits?: number): string;
+  /** BCP 47 tag the numbers are formatted with, e.g. `pl-PL`. */
+  readonly locale: string;
 };
 
 const PLACEHOLDER = /^[A-Za-z_][A-Za-z0-9_]*$/u;
@@ -204,5 +206,5 @@ export function createI18n<const D extends DictionaryInput>(
     return fill(key, template, { ...params, count: formatNumber(rounded) });
   }
 
-  return { t, plural, formatNumber };
+  return { t, plural, formatNumber, locale };
 }

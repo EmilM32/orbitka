@@ -5,6 +5,7 @@ import { parseBodyContentCatalog } from '@content/bodyContent.ts';
 import pl from '@content/locales/pl.json' with { type: 'json' };
 import bodyContentRaw from '@content/pl/bodies.json' with { type: 'json' };
 import { createClock, daysFromDate } from '@core/clock.ts';
+import { shouldShowRail } from '@core/bodiesRail.ts';
 import { createCoachTracker } from '@core/coach.ts';
 import { isDebugEnabled } from '@core/debugFlag.ts';
 import { createLoop } from '@core/loop.ts';
@@ -238,12 +239,24 @@ function mount(canvas: HTMLCanvasElement): App {
   const pageHeader = createPageHeader(document.body, i18n, canvas);
   const scaleNotice = createScaleNotice(pageHeader, i18n);
   let bodiesDrawer: BodiesDrawer | null = null;
+  const bodyById = new Map(bodies.map((body) => [body.id, body]));
   const bodiesPanel = createBodiesPanel(document.body, {
-    bodies: selectable,
+    bodies: selectable.map((body) => {
+      const def = bodyById.get(body.id);
+      return {
+        id: body.id,
+        color: def?.visual.color ?? '#ffffff',
+        axisAu:
+          def?.type === 'planet' ? (def.orbit?.semiMajorAxisAu ?? null) : null,
+      };
+    }),
     selection,
     i18n,
     before: canvas,
     getFocusFallback: () => bodiesDrawer?.getFocusFallback() ?? null,
+    onUserCollapsedChange: () => {
+      updateListMode();
+    },
   });
   bodiesDrawer = createBodiesDrawer(document.body, {
     panel: bodiesPanel,
@@ -252,6 +265,31 @@ function mount(canvas: HTMLCanvasElement): App {
     matchMedia: window.matchMedia.bind(window),
     before: canvas,
   });
+  // The list folds into the rail beside an open card up to 1440 px; the
+  // tablet drawer has no rail (SPEC §5.4).
+  const tabletListQuery = window.matchMedia(
+    `(max-width: ${VIEW_CONFIG.tabletMaxWidthPx}px)`,
+  );
+  const railWidthQuery = window.matchMedia(
+    `(max-width: ${VIEW_CONFIG.railMaxWidthPx}px)`,
+  );
+  const updateListMode = (): void => {
+    const rail =
+      !tabletListQuery.matches &&
+      shouldShowRail({
+        viewportWidthPx: window.innerWidth,
+        hasSelection: selection.getSelectedId() !== null,
+        userCollapsed: bodiesPanel.isUserCollapsed(),
+      });
+    bodiesPanel.setMode(rail ? 'rail' : 'list');
+  };
+  const unsubscribeListMode = selection.subscribe((event) => {
+    if (event.kind !== 'hover') {
+      updateListMode();
+    }
+  });
+  tabletListQuery.addEventListener('change', updateListMode);
+  railWidthQuery.addEventListener('change', updateListMode);
   const viewControls = createViewControls(document.body, {
     i18n,
     selection,
@@ -541,6 +579,9 @@ function mount(canvas: HTMLCanvasElement): App {
       loop.stop();
       document.removeEventListener('visibilitychange', onVisibilityChange);
       announcer.dispose();
+      unsubscribeListMode();
+      tabletListQuery.removeEventListener('change', updateListMode);
+      railWidthQuery.removeEventListener('change', updateListMode);
       bodiesPanel.dispose();
       bodiesDrawer?.dispose();
       bodyCard.dispose();

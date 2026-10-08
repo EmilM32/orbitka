@@ -5,17 +5,20 @@ import { expect, test, vi } from 'vitest';
 import pl from '@content/locales/pl.json' with { type: 'json' };
 import { type MatchMedia } from '@core/reducedMotion.ts';
 import { createSelection, type Selection } from '@core/selection.ts';
-import { type SelectableBody } from '@core/selectableBodies.ts';
 import { VIEW_CONFIG } from '@core/viewConfig.ts';
 import { createBodiesDrawer, type BodiesDrawer } from '@ui/bodiesDrawer.ts';
-import { createBodiesPanel, type BodiesPanel } from '@ui/bodiesPanel.ts';
+import {
+  createBodiesPanel,
+  type BodiesPanel,
+  type BodiesPanelBody,
+} from '@ui/bodiesPanel.ts';
 import { createI18n } from '@ui/i18n.ts';
 
 const i18n = createI18n(pl, 'pl-PL');
 
-const BODIES: readonly SelectableBody[] = [
-  { id: 'sun', type: 'star', radiusKm: 696340 },
-  { id: 'mars', type: 'planet', radiusKm: 3389.5 },
+const BODIES: readonly BodiesPanelBody[] = [
+  { id: 'sun', color: '#fdb813', axisAu: null },
+  { id: 'mars', color: '#c1440e', axisAu: 1.52371034 },
 ];
 
 type MediaControl = {
@@ -270,30 +273,6 @@ test('system event focuses open button', () => {
   view.panel.dispose();
 });
 
-test('system event with a collapsed list focuses open button', () => {
-  document.body.replaceChildren();
-  const view = mount(true);
-
-  view.drawer.open();
-  const collapse =
-    document.querySelector<HTMLButtonElement>('#bodies-collapse');
-  if (collapse === null) {
-    throw new Error('missing collapse button');
-  }
-  collapse.click();
-  expect(collapse.getAttribute('aria-expanded')).toBe('false');
-  view.drawer.close();
-  expect(view.drawer.isOpen()).toBe(false);
-
-  view.selection.select('mars');
-  view.selection.showSystem();
-  expect(view.selection.getSelectedId()).toBeNull();
-  expect(document.activeElement).toBe(view.drawer.openButton);
-
-  view.drawer.dispose();
-  view.panel.dispose();
-});
-
 test('media change resets state', () => {
   document.body.replaceChildren();
   const view = mount(true);
@@ -315,7 +294,7 @@ test('media change resets state', () => {
   expect(view.drawer.isOpen()).toBe(false);
   expect(view.drawer.getFocusFallback()).toBe(view.drawer.openButton);
   expect(view.selection.getSelectedId()).toBe('mars');
-  expect(item('mars').getAttribute('aria-pressed')).toBe('true');
+  expect(item('mars').getAttribute('aria-current')).toBe('true');
 
   view.drawer.dispose();
   view.panel.dispose();
@@ -325,7 +304,7 @@ test('labels from i18n', () => {
   document.body.replaceChildren();
   const view = mount(true);
 
-  expect(view.drawer.openButton.textContent).toBe('Ciała');
+  expect(view.drawer.openButton.textContent).toBe('Planety');
   expect(view.drawer.openButton.textContent).toBe(i18n.t('bodies.drawer.open'));
   expect(closeButton().textContent).toBe('Zamknij listę ciał');
   expect(closeButton().textContent).toBe(i18n.t('bodies.drawer.close'));

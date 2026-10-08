@@ -48,6 +48,7 @@ test('holds the brief values', () => {
   expect(VIEW_CONFIG.drawerWidthPx).toBe(280);
   expect(VIEW_CONFIG.selectionRingPaddingPx).toBe(8);
   expect(VIEW_CONFIG.selectionRingMinRadiusPx).toBe(12);
+  expect(VIEW_CONFIG.railMaxWidthPx).toBe(1440);
 
   expect(Object.keys(VIEW_CONFIG)).toEqual([
     'labelFontPx',
@@ -60,6 +61,7 @@ test('holds the brief values', () => {
     'tabletMaxWidthPx',
     'tabletMinWidthPx',
     'drawerWidthPx',
+    'railMaxWidthPx',
     'selectionRingPaddingPx',
     'selectionRingMinRadiusPx',
   ]);

@@ -215,7 +215,8 @@ test('tab order', async ({ page }) => {
       break;
     }
   }
-  expect(order[0]).toBe('body-item-saturn');
+  // The list is one Tab stop (roving tabindex).
+  expect(order[0]).toBe('viewport');
   const fromCanvas = order.slice(order.indexOf('viewport'));
   expect(fromCanvas[0]).toBe('viewport');
   expect(fromCanvas[1]).toBe('body-card-close');

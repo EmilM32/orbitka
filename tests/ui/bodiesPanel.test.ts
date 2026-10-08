@@ -2,14 +2,18 @@
 
 import { readFileSync } from 'node:fs';
 
-import { expect, test } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
 
 import pl from '@content/locales/pl.json' with { type: 'json' };
+import { shouldShowRail } from '@core/bodiesRail.ts';
 import { getSelectableBodies } from '@core/selectableBodies.ts';
-import { type SelectableBody } from '@core/selectableBodies.ts';
 import { createSelection, type Selection } from '@core/selection.ts';
 import { bodies as catalog } from '@data/bodies.ts';
-import { createBodiesPanel, type BodiesPanel } from '@ui/bodiesPanel.ts';
+import {
+  createBodiesPanel,
+  type BodiesPanel,
+  type BodiesPanelBody,
+} from '@ui/bodiesPanel.ts';
 import { createI18n, type I18n, type Dictionary } from '@ui/i18n.ts';
 import { createPageHeader } from '@ui/pageHeader.ts';
 
@@ -31,22 +35,74 @@ const ORDER = [
   'neptune',
 ];
 
+// The same mapping main.ts makes from bodies.json.
+function panelBodies(): BodiesPanelBody[] {
+  return getSelectableBodies(catalog).map((body) => {
+    const def = catalog.find((entry) => entry.id === body.id);
+    return {
+      id: body.id,
+      color: def?.visual.color ?? '#ffffff',
+      axisAu:
+        def?.type === 'planet' ? (def.orbit?.semiMajorAxisAu ?? null) : null,
+    };
+  });
+}
+
 function reset(): void {
   document.body.replaceChildren();
 }
 
+afterEach(() => {
+  vi.useRealTimers();
+  reset();
+});
+
 function mount(
-  bodies: readonly SelectableBody[],
+  bodies: readonly BodiesPanelBody[] = panelBodies(),
   selection = createSelection(bodies.map((body) => body.id)),
-  options: { getFocusFallback?: () => HTMLElement | null } = {},
+  options: {
+    getFocusFallback?: () => HTMLElement | null;
+    onUserCollapsedChange?: () => void;
+  } = {},
 ): { panel: BodiesPanel; selection: Selection } {
   const panel = createBodiesPanel(document.body, {
     bodies,
     selection,
     i18n,
-    getFocusFallback: options.getFocusFallback,
+    ...options,
   });
   return { panel, selection };
+}
+
+// Wires the mode the way main.ts does at a 1280 px window.
+function mountAt1280(): { panel: BodiesPanel; selection: Selection } {
+  const bodies = panelBodies();
+  const selection = createSelection(bodies.map((body) => body.id));
+  const holder: { panel: BodiesPanel | null } = { panel: null };
+  const update = (): void => {
+    const panel = holder.panel;
+    if (panel === null) {
+      return;
+    }
+    panel.setMode(
+      shouldShowRail({
+        viewportWidthPx: 1280,
+        hasSelection: selection.getSelectedId() !== null,
+        userCollapsed: panel.isUserCollapsed(),
+      })
+        ? 'rail'
+        : 'list',
+    );
+  };
+  holder.panel = mount(bodies, selection, {
+    onUserCollapsedChange: update,
+  }).panel;
+  selection.subscribe((event) => {
+    if (event.kind !== 'hover') {
+      update();
+    }
+  });
+  return { panel: holder.panel, selection };
 }
 
 function item(id: string): HTMLButtonElement {
@@ -59,44 +115,105 @@ function item(id: string): HTMLButtonElement {
   return button;
 }
 
-function pressedIds(): string[] {
+function toggle(): HTMLButtonElement {
+  const button = document.querySelector<HTMLButtonElement>('#bodies-collapse');
+  if (button === null) {
+    throw new Error('missing collapse button');
+  }
+  return button;
+}
+
+function nav(): HTMLElement {
+  const element = document.querySelector<HTMLElement>('#bodies-panel');
+  if (element === null) {
+    throw new Error('missing nav');
+  }
+  return element;
+}
+
+function key(target: HTMLElement, name: string): KeyboardEvent {
+  const event = new KeyboardEvent('keydown', {
+    key: name,
+    bubbles: true,
+    cancelable: true,
+  });
+  target.dispatchEvent(event);
+  return event;
+}
+
+function currentIds(): string[] {
   return [...document.querySelectorAll<HTMLButtonElement>('.bodies-item')]
-    .filter((button) => button.getAttribute('aria-pressed') === 'true')
+    .filter((button) => button.getAttribute('aria-current') === 'true')
     .map((button) => button.getAttribute('data-body-id') ?? '');
 }
 
-test('renders one button per body', () => {
-  reset();
-  const selectable = getSelectableBodies(catalog);
-  mount(selectable);
-  const buttons = [
-    ...document.querySelectorAll<HTMLButtonElement>('.bodies-item'),
-  ];
-  expect(buttons.map((button) => button.getAttribute('data-body-id'))).toEqual(
-    ORDER,
+test('renders nav with groups and au values', () => {
+  mount();
+  const element = nav();
+  expect(element.tagName).toBe('NAV');
+  expect(element.getAttribute('aria-label')).toBe('Ciała niebieskie');
+  expect(element.classList.contains('o-glass')).toBe(true);
+  expect(document.querySelector('#bodies-panel-title')?.textContent).toBe(
+    'Ciała niebieskie',
   );
-  expect(buttons).toHaveLength(9);
 
-  reset();
-  const three: SelectableBody[] = [
-    { id: 'sun', type: 'star', radiusKm: 1 },
-    { id: 'earth', type: 'planet', radiusKm: 1 },
-    { id: 'mars', type: 'planet', radiusKm: 1 },
-  ];
-  mount(three);
+  const groups = [...element.querySelectorAll('.bodies-group')];
+  expect(groups.map((group) => group.getAttribute('role'))).toEqual([
+    'presentation',
+    'presentation',
+    'presentation',
+    'presentation',
+  ]);
   expect(
-    [...document.querySelectorAll('.bodies-item')].map((button) =>
-      button.getAttribute('data-body-id'),
+    groups.map(
+      (group) => group.querySelector('.bodies-group-title')?.textContent,
     ),
-  ).toEqual(['sun', 'earth', 'mars']);
+  ).toEqual([
+    'Gwiazda',
+    'Planety skaliste',
+    'Gazowe olbrzymy',
+    'Lodowe olbrzymy',
+  ]);
+
+  const buttons = [
+    ...element.querySelectorAll<HTMLButtonElement>('.bodies-item'),
+  ];
+  expect(buttons.map((button) => button.dataset['bodyId'])).toEqual(ORDER);
+  for (const button of buttons) {
+    expect(button.tagName).toBe('BUTTON');
+    expect(button.getAttribute('type')).toBe('button');
+    expect(button.hasAttribute('aria-pressed')).toBe(false);
+    expect(button.classList.contains('o-item')).toBe(true);
+    const titleId = button.getAttribute('aria-describedby') ?? '';
+    expect(
+      button.closest('.bodies-group')?.querySelector(`#${titleId}`),
+    ).not.toBeNull();
+  }
+
+  const values = buttons.map(
+    (button) => button.querySelector('.bodies-item-au')?.textContent ?? null,
+  );
+  expect(values).toEqual([
+    null,
+    '0,39 j.a.',
+    '0,72 j.a.',
+    '1,00 j.a.',
+    '1,52 j.a.',
+    '5,20 j.a.',
+    '9,54 j.a.',
+    '19,19 j.a.',
+    '30,07 j.a.',
+  ]);
+  expect(
+    item('mars').querySelector('.bodies-dot')?.getAttribute('style'),
+  ).toMatch(/background/u);
+  expect(document.querySelector('.bodies-colhead')?.textContent).toContain(
+    'od Słońca',
+  );
 });
 
-test('labels and kinds', () => {
-  reset();
-  mount(getSelectableBodies(catalog));
-  const earth = item('earth');
-  expect(earth.textContent).toContain('Ziemia');
-  expect(earth.textContent).toContain('planeta skalista');
+test('item labels', () => {
+  mount();
   expect(item('mars').getAttribute('aria-label')).toBe(
     'Wybierz: Mars, planeta skalista',
   );
@@ -106,137 +223,265 @@ test('labels and kinds', () => {
   expect(item('sun').getAttribute('aria-label')).toBe(
     'Wybierz: Słońce, gwiazda',
   );
-  expect(document.querySelector('#bodies-panel-title')?.textContent).toBe(
-    'Ciała niebieskie',
-  );
+  expect(item('earth').textContent).toContain('Ziemia');
 });
 
-test('items are native buttons', () => {
-  reset();
-  mount(getSelectableBodies(catalog));
-  for (const button of document.querySelectorAll('.bodies-item')) {
-    expect(button.tagName).toBe('BUTTON');
-    expect(button.getAttribute('type')).toBe('button');
-  }
-  expect(SOURCE).not.toMatch(/keydown/u);
+test('au info button has the tooltip', () => {
+  mount();
+  const info = document.querySelector<HTMLButtonElement>(
+    '[data-testid="bodies-au-info"]',
+  );
+  expect(info?.getAttribute('aria-label')).toBe('Co to jest j.a.?');
+  expect(info?.getAttribute('aria-describedby')).toBe('tip-au');
+  const tip = document.querySelector('#tip-au');
+  expect(tip?.getAttribute('role')).toBe('tooltip');
+  expect(tip?.querySelector('strong')?.textContent).toBe('1 j.a.');
+  expect(tip?.textContent).toBe(
+    '1 j.a. (jednostka astronomiczna) = odległość Ziemi od Słońca, ok. 150 mln km.',
+  );
+  info?.focus();
+  expect((tip as HTMLElement | null)?.hidden).toBe(false);
+  expect(SOURCE).not.toContain('innerHTML');
 });
 
 test('click selects', () => {
-  reset();
-  const { selection } = mount(getSelectableBodies(catalog));
+  const { selection } = mount();
   item('mars').click();
   expect(selection.getSelectedId()).toBe('mars');
 });
 
-test('aria-pressed follows selection', () => {
-  reset();
-  const selectable = getSelectableBodies(catalog);
+test('selected item has aria-current', () => {
+  const bodies = panelBodies();
   const selection = createSelection([
-    ...selectable.map((body) => body.id),
+    ...bodies.map((body) => body.id),
     'pluto',
   ]);
-  mount(selectable, selection);
+  mount(bodies, selection);
+  selection.select('mars');
+  expect(currentIds()).toEqual(['mars']);
   item('earth').click();
-  expect(pressedIds()).toEqual(['earth']);
-  item('mars').click();
-  expect(pressedIds()).toEqual(['mars']);
+  expect(currentIds()).toEqual(['earth']);
   selection.select('pluto');
-  expect(pressedIds()).toEqual(['mars']);
+  expect(currentIds()).toEqual(['earth']);
+  selection.showSystem();
+  expect(currentIds()).toEqual([]);
+  expect(document.querySelectorAll('[aria-pressed]')).toHaveLength(0);
 });
 
-test('selected name is bold', () => {
-  reset();
-  mount(getSelectableBodies(catalog));
-  item('earth').click();
-  expect(item('earth').classList.contains('is-selected')).toBe(true);
-  expect(item('mars').classList.contains('is-selected')).toBe(false);
-  expect(CSS).toMatch(
-    /\.bodies-item\.is-selected \.bodies-item-name\s*\{[^}]*font-weight:\s*700/u,
+test('arrow keys move focus', () => {
+  mount();
+  const tabStops = (): string[] =>
+    [...document.querySelectorAll<HTMLButtonElement>('.bodies-item')]
+      .filter((button) => button.tabIndex === 0)
+      .map((button) => button.dataset['bodyId'] ?? '');
+  expect(tabStops()).toEqual(['sun']);
+
+  item('sun').focus();
+  key(item('sun'), 'ArrowUp');
+  expect(document.activeElement).toBe(item('sun'));
+  key(item('sun'), 'ArrowDown');
+  expect(document.activeElement).toBe(item('mercury'));
+  expect(tabStops()).toEqual(['mercury']);
+
+  item('neptune').focus();
+  key(item('neptune'), 'ArrowDown');
+  expect(document.activeElement).toBe(item('neptune'));
+});
+
+test('selected item is the tab stop', () => {
+  const { selection } = mount();
+  selection.select('saturn');
+  expect(item('saturn').tabIndex).toBe(0);
+  expect(item('sun').tabIndex).toBe(-1);
+});
+
+test('Escape and Home show the system', () => {
+  const { selection } = mount();
+  const showSystem = vi.spyOn(selection, 'showSystem');
+
+  item('mars').focus();
+  const idle = key(item('mars'), 'Escape');
+  expect(showSystem).not.toHaveBeenCalled();
+  expect(idle.defaultPrevented).toBe(false);
+
+  selection.select('jupiter');
+  item('mars').focus();
+  const escape = key(item('mars'), 'Escape');
+  expect(showSystem).toHaveBeenCalledTimes(1);
+  expect(escape.defaultPrevented).toBe(true);
+  expect(selection.getSelectedId()).toBeNull();
+  expect(document.activeElement).toBe(item('mars'));
+
+  selection.select('jupiter');
+  item('jupiter').focus();
+  key(item('jupiter'), 'Home');
+  expect(showSystem).toHaveBeenCalledTimes(2);
+  expect(document.activeElement).toBe(item('jupiter'));
+});
+
+test('Escape with an open tooltip closes only the tooltip', () => {
+  const { panel, selection } = mount();
+  selection.select('jupiter');
+  panel.setMode('rail');
+  const dot = item('mars');
+  dot.focus();
+  const tip = document.querySelector<HTMLElement>('.o-tooltip:not(#tip-au)');
+  const open = [...document.querySelectorAll<HTMLElement>('.o-tooltip')].find(
+    (element) => !element.hidden,
   );
-});
-
-test('focus stays on button after select', () => {
-  reset();
-  mount(getSelectableBodies(catalog));
-  const earth = item('earth');
-  earth.focus();
-  earth.click();
-  expect(document.activeElement).toBe(earth);
-  expect(earth.isConnected).toBe(true);
+  expect(tip).not.toBeNull();
+  expect(open?.textContent).toBe('Mars');
+  key(dot, 'Escape');
+  expect(open?.hidden).toBe(true);
+  expect(selection.getSelectedId()).toBe('jupiter');
+  key(dot, 'Escape');
+  expect(selection.getSelectedId()).toBeNull();
 });
 
 test('focus returns to previous item on system', () => {
-  reset();
   const fallback = document.createElement('button');
   const outside = document.createElement('button');
   document.body.append(fallback, outside);
-  const selectable = getSelectableBodies(catalog);
-  const selection = createSelection(selectable.map((body) => body.id));
-  const { panel } = mount(selectable, selection, {
+  const { panel, selection } = mount(panelBodies(), undefined, {
     getFocusFallback: () => fallback,
   });
-  const earth = item('earth');
-  earth.click();
+  item('earth').click();
   outside.focus();
   selection.showSystem();
-  expect(document.activeElement).toBe(earth);
+  expect(document.activeElement).toBe(item('earth'));
 
-  item('mars').click();
-  panel.setCollapsed(true);
-  outside.focus();
-  selection.showSystem();
-  expect(document.activeElement).toBe(
-    document.querySelector('#bodies-collapse'),
-  );
-
-  panel.setCollapsed(false);
   item('earth').click();
   panel.element.hidden = true;
   outside.focus();
   selection.showSystem();
   expect(document.activeElement).toBe(fallback);
-
-  reset();
-  const idleOutside = document.createElement('button');
-  document.body.append(idleOutside);
-  const idleSelection = createSelection(selectable.map((body) => body.id));
-  mount(selectable, idleSelection, { getFocusFallback: () => fallback });
-  idleOutside.focus();
-  idleSelection.showSystem();
-  expect(document.activeElement).toBe(idleOutside);
 });
 
-test('collapse toggles list', () => {
+test('rail mode', () => {
+  const { panel, selection } = mountAt1280();
+  expect(panel.getMode()).toBe('list');
+  expect(toggle().getAttribute('aria-expanded')).toBe('true');
+  expect(toggle().getAttribute('aria-label')).toBe('Zwiń listę do paska');
+  expect(toggle().getAttribute('aria-controls')).toBe('bodies-list');
+
+  selection.select('jupiter');
+  expect(panel.getMode()).toBe('rail');
+  expect(nav().classList.contains('is-rail')).toBe(true);
+  expect(toggle().getAttribute('aria-expanded')).toBe('false');
+  expect(toggle().getAttribute('aria-label')).toBe('Rozwiń listę ciał');
+  const dots = [
+    ...document.querySelectorAll<HTMLButtonElement>('.bodies-item'),
+  ];
+  expect(dots).toHaveLength(9);
+  expect(dots.map((dot) => dot.getAttribute('aria-label'))).toEqual([
+    'Słońce',
+    'Merkury',
+    'Wenus',
+    'Ziemia',
+    'Mars',
+    'Jowisz',
+    'Saturn',
+    'Uran',
+    'Neptun',
+  ]);
+  expect(item('jupiter').getAttribute('aria-current')).toBe('true');
+  // Nine name tooltips plus the AU one; none describes its dot twice.
+  expect(document.querySelectorAll('.o-tooltip')).toHaveLength(10);
+  expect(item('mars').hasAttribute('aria-describedby')).toBe(true);
+  expect(item('mars').getAttribute('aria-describedby')).toBe(
+    'bodies-group-rocky',
+  );
+
+  // Expand with a selection: the list opens over the scene.
+  toggle().click();
+  expect(panel.getMode()).toBe('rail');
+  expect(nav().classList.contains('is-overlay')).toBe(true);
+  expect(nav().classList.contains('is-rail')).toBe(false);
+  expect(toggle().getAttribute('aria-expanded')).toBe('true');
+  expect(item('mars').getAttribute('aria-label')).toBe(
+    'Wybierz: Mars, planeta skalista',
+  );
+
+  item('saturn').click();
+  expect(nav().classList.contains('is-overlay')).toBe(false);
+  expect(nav().classList.contains('is-rail')).toBe(true);
+
+  selection.showSystem();
+  expect(panel.getMode()).toBe('list');
+  expect(nav().classList.contains('is-rail')).toBe(false);
+  expect(document.querySelectorAll('.o-tooltip')).toHaveLength(1);
+});
+
+test('overlay closes on Escape and outside pointer', () => {
+  const { selection } = mountAt1280();
+  selection.select('jupiter');
+  toggle().click();
+  expect(nav().classList.contains('is-overlay')).toBe(true);
+  item('mars').focus();
+  key(item('mars'), 'Escape');
+  expect(nav().classList.contains('is-overlay')).toBe(false);
+  expect(selection.getSelectedId()).toBe('jupiter');
+
+  toggle().click();
+  expect(nav().classList.contains('is-overlay')).toBe(true);
+  const outside = document.createElement('div');
+  document.body.append(outside);
+  outside.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+  expect(nav().classList.contains('is-overlay')).toBe(false);
+
+  toggle().click();
+  toggle().click();
+  expect(nav().classList.contains('is-overlay')).toBe(false);
+});
+
+test('user fold keeps the rail after the card closes', () => {
+  const { panel, selection } = mountAt1280();
+  toggle().click();
+  expect(panel.getMode()).toBe('rail');
+  selection.select('mars');
+  selection.showSystem();
+  expect(panel.getMode()).toBe('rail');
+  // Expand without a selection: back to the full list, not an overlay.
+  toggle().click();
+  expect(panel.getMode()).toBe('list');
+  expect(nav().classList.contains('is-overlay')).toBe(false);
+});
+
+test('fold button sets userCollapsed', () => {
+  const onChange = vi.fn();
+  const { panel } = mount(panelBodies(), undefined, {
+    onUserCollapsedChange: onChange,
+  });
+  toggle().click();
+  expect(panel.isUserCollapsed()).toBe(true);
+  expect(onChange).toHaveBeenCalledTimes(1);
+  // The owner decides the mode.
+  expect(panel.getMode()).toBe('list');
+  panel.setMode('rail');
+  toggle().click();
+  expect(panel.isUserCollapsed()).toBe(false);
+  expect(onChange).toHaveBeenCalledTimes(2);
+
   reset();
-  const { selection } = mount(getSelectableBodies(catalog));
-  const toggle = document.querySelector<HTMLButtonElement>('#bodies-collapse');
-  const list = document.querySelector<HTMLElement>('#bodies-list');
-  if (toggle === null || list === null) {
-    throw new Error('missing collapse controls');
-  }
-  expect(toggle.getAttribute('aria-expanded')).toBe('true');
-  expect(toggle.getAttribute('aria-controls')).toBe('bodies-list');
-  expect(toggle.getAttribute('aria-label')).toBe('Zwiń listę ciał');
-  expect(list.hidden).toBe(false);
+  const alone = mount().panel;
+  toggle().click();
+  expect(alone.getMode()).toBe('rail');
+  toggle().click();
+  expect(alone.getMode()).toBe('list');
+});
 
-  item('earth').click();
-  expect(item('earth').getAttribute('aria-pressed')).toBe('true');
-  toggle.click();
-  expect(toggle.getAttribute('aria-expanded')).toBe('false');
-  expect(toggle.getAttribute('aria-label')).toBe('Rozwiń listę ciał');
-  expect(list.hidden).toBe(true);
-  expect(item('earth').getAttribute('aria-pressed')).toBe('true');
-  expect(selection.getSelectedId()).toBe('earth');
-
-  toggle.click();
-  expect(toggle.getAttribute('aria-expanded')).toBe('true');
-  expect(list.hidden).toBe(false);
-  expect(item('earth').getAttribute('aria-pressed')).toBe('true');
+test('focus stays on the item when the mode changes', () => {
+  const { panel, selection } = mount();
+  item('mars').focus();
+  selection.select('mars');
+  panel.setMode('rail');
+  expect(document.activeElement).toBe(item('mars'));
+  panel.setMode('list');
+  expect(document.activeElement).toBe(item('mars'));
 });
 
 test('hover class from selection', () => {
-  reset();
-  const { selection } = mount(getSelectableBodies(catalog));
+  const { selection } = mount();
   selection.setHovered('earth');
   expect(item('earth').classList.contains('is-hovered')).toBe(true);
   selection.setHovered('mars');
@@ -247,7 +492,6 @@ test('hover class from selection', () => {
 });
 
 test('empty list throws', () => {
-  reset();
   const selection = createSelection(['sun']);
   expect(() =>
     createBodiesPanel(document.body, { bodies: [], selection, i18n }),
@@ -258,15 +502,20 @@ test('empty list throws', () => {
   );
 });
 
+test('unknown body id throws', () => {
+  expect(() =>
+    mount([{ id: 'pluto', color: '#ffffff', axisAu: 39.5 }]),
+  ).toThrow('bodyGroup: parameter "id" must be a known body id, got pluto');
+});
+
 test('header panel canvas order', () => {
-  reset();
   const canvas = document.createElement('canvas');
   document.body.append(canvas);
   const header = createPageHeader(document.body, i18n, canvas);
-  const selectable = getSelectableBodies(catalog);
+  const bodies = panelBodies();
   createBodiesPanel(document.body, {
-    bodies: selectable,
-    selection: createSelection(selectable.map((body) => body.id)),
+    bodies,
+    selection: createSelection(bodies.map((body) => body.id)),
     i18n,
     before: canvas,
   });
@@ -282,54 +531,49 @@ test('header panel canvas order', () => {
 });
 
 test('css contract', () => {
-  expect(CSS).toContain('width: 220px');
-  expect(CSS).toContain('left: 8px');
-  expect(CSS).toContain('top: 60px');
+  expect(CSS).toContain('width: var(--list-w)');
+  expect(CSS).toContain('width: var(--rail-w)');
+  expect(CSS).toContain('left: var(--edge)');
+  expect(CSS).toContain('transition: width var(--dur) var(--ease-out)');
+  expect(CSS).toContain('transition: opacity var(--dur-fast) var(--ease-out)');
+  // 38 px rows, 44 px on the tablet.
+  expect(CSS).toContain('height: 2.375rem');
+  expect(CSS).toMatch(
+    /@media \(pointer: coarse\), \(max-width: 1024px\)\s*\{[^}]*\.bodies-item\s*\{[^}]*height:\s*var\(--hit\)/u,
+  );
+  expect(CSS).toContain('font-variant-numeric: tabular-nums');
+  // Without motion: a fade, no running width.
+  expect(CSS).toMatch(
+    /@media \(prefers-reduced-motion: reduce\)\s*\{[^}]*transition:\s*none/u,
+  );
   // Focus is the global ring from controls.css (EMI-217), never yellow.
   expect(CSS).not.toContain('focus-visible');
-  expect(CSS).not.toContain('#ffd54a');
-  expect(CSS).toContain('min-height: 32px');
-  expect(CSS).toMatch(
-    /@media \(pointer: coarse\)\s*\{[^}]*min-height:\s*44px/u,
-  );
-  expect(CSS).toContain('font-weight: 700');
-  expect(CSS).not.toMatch(/transition/iu);
-  expect(CSS).not.toMatch(/animation/iu);
-  expect(CSS).toContain('overflow-wrap: anywhere');
-  expect(CSS).toContain(
-    'max-height: calc(100vh - 76px - var(--time-panel-height, 0px) - 24px)',
-  );
-});
-
-test('text contrast at least 4.5', () => {
-  // --c-text (#f2f4fa) on the panel over white, the worst backdrop.
-  expect(CSS).toContain('color: var(--c-text)');
-  expect(CSS).toContain('rgba(10, 14, 30, 0.85)');
-  const panel = composite([10, 14, 30], 0.85, [255, 255, 255]);
-  expect(contrast([242, 244, 250], panel)).toBeGreaterThanOrEqual(4.5);
+  expect(CSS).not.toContain('aria-pressed');
 });
 
 test('pl.json keys', () => {
   const copy: Record<string, string> = {
     'app.title': 'Orbitka: Układ Słoneczny',
     'bodies.panel.title': 'Ciała niebieskie',
-    'bodies.panel.collapse': 'Zwiń listę ciał',
+    'bodies.panel.collapse': 'Zwiń listę do paska',
     'bodies.panel.expand': 'Rozwiń listę ciał',
+    'bodies.drawer.open': 'Planety',
     'bodies.item.ariaLabel': 'Wybierz: {name}, {kind}',
-    'bodies.sun.kind': 'gwiazda',
-    'bodies.mercury.kind': 'planeta skalista',
-    'bodies.venus.kind': 'planeta skalista',
-    'bodies.earth.kind': 'planeta skalista',
-    'bodies.mars.kind': 'planeta skalista',
-    'bodies.jupiter.kind': 'gazowy olbrzym',
-    'bodies.saturn.kind': 'gazowy olbrzym',
-    'bodies.uranus.kind': 'lodowy olbrzym',
-    'bodies.neptune.kind': 'lodowy olbrzym',
+    'bodies.group.star': 'Gwiazda',
+    'bodies.group.rocky': 'Planety skaliste',
+    'bodies.group.gas': 'Gazowe olbrzymy',
+    'bodies.group.ice': 'Lodowe olbrzymy',
+    'bodies.column.distance': 'od Słońca',
+    'bodies.au.ariaLabel': 'Co to jest j.a.?',
+    'bodies.au.tipStrong': '1 j.a.',
+    'bodies.au.tipRest':
+      '(jednostka astronomiczna) = odległość Ziemi od Słońca, ok. 150 mln km.',
+    'bodies.au.value': '{value} j.a.',
     'selection.announce.selected': 'Wybrano: {name}. Kamera przybliżona.',
     'selection.announce.system': 'Widok całego układu.',
   };
-  for (const [key, value] of Object.entries(copy)) {
-    expect(messages[key]).toBe(value);
+  for (const [name, value] of Object.entries(copy)) {
+    expect(messages[name]).toBe(value);
   }
   for (const id of ORDER) {
     const kind = messages[`bodies.${id}.kind`];
@@ -342,16 +586,12 @@ test('pl.json keys', () => {
 });
 
 test('missing kind throws', () => {
-  reset();
   const dictionary: Record<string, unknown> = { ...pl };
   delete dictionary['bodies.mars.kind'];
   const partial = createI18n(dictionary as Dictionary, 'pl-PL');
-  const bodies: SelectableBody[] = [
-    { id: 'mars', type: 'planet', radiusKm: 1 },
-  ];
   expect(() =>
     createBodiesPanel(document.body, {
-      bodies,
+      bodies: [{ id: 'mars', color: '#c1440e', axisAu: 1.52 }],
       selection: createSelection(['mars']),
       i18n: partial as I18n<Dictionary>,
     }),
@@ -359,56 +599,21 @@ test('missing kind throws', () => {
 });
 
 test('dispose cleans up', () => {
-  reset();
-  const { panel, selection } = mount(getSelectableBodies(catalog));
+  const { panel, selection } = mount();
+  panel.setMode('rail');
   panel.dispose();
   expect(panel.element.isConnected).toBe(false);
+  expect(document.querySelectorAll('.o-tooltip')).toHaveLength(0);
   expect(() => selection.select('earth')).not.toThrow();
   expect(document.querySelector('#bodies-panel')).toBeNull();
   panel.dispose();
 });
 
-test('setCollapsed same value is a no-op', () => {
-  reset();
-  const { panel } = mount(getSelectableBodies(catalog));
-  const toggle = document.querySelector('#bodies-collapse');
-  const label = toggle?.getAttribute('aria-label');
-  panel.setCollapsed(false);
-  expect(panel.isCollapsed()).toBe(false);
-  expect(toggle?.getAttribute('aria-label')).toBe(label);
-  expect(toggle?.getAttribute('aria-expanded')).toBe('true');
+test('setMode same value is a no-op', () => {
+  const { panel } = mount();
+  const label = toggle().getAttribute('aria-label');
+  panel.setMode('list');
+  expect(panel.getMode()).toBe('list');
+  expect(toggle().getAttribute('aria-label')).toBe(label);
+  expect(toggle().getAttribute('aria-expanded')).toBe('true');
 });
-
-function channel(value: number): number {
-  const srgb = value / 255;
-  return srgb <= 0.04045 ? srgb / 12.92 : ((srgb + 0.055) / 1.055) ** 2.4;
-}
-
-function luminance(rgb: readonly [number, number, number]): number {
-  return (
-    0.2126 * channel(rgb[0]) +
-    0.7152 * channel(rgb[1]) +
-    0.0722 * channel(rgb[2])
-  );
-}
-
-function contrast(
-  foreground: readonly [number, number, number],
-  background: readonly [number, number, number],
-): number {
-  const lighter = Math.max(luminance(foreground), luminance(background));
-  const darker = Math.min(luminance(foreground), luminance(background));
-  return (lighter + 0.05) / (darker + 0.05);
-}
-
-function composite(
-  color: readonly [number, number, number],
-  alpha: number,
-  background: readonly [number, number, number],
-): [number, number, number] {
-  return [
-    color[0] * alpha + background[0] * (1 - alpha),
-    color[1] * alpha + background[1] * (1 - alpha),
-    color[2] * alpha + background[2] * (1 - alpha),
-  ];
-}

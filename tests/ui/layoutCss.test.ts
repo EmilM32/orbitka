@@ -32,6 +32,6 @@ test('tablet rules', () => {
 });
 
 test('debug overlay offset', () => {
-  expect(CSS).toContain('left: 236px');
+  expect(CSS).toContain('left: calc(var(--edge) + var(--list-w) + var(--s-2))');
   expect(CSS).toContain('top: 112px');
 });

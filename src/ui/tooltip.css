@@ -1,0 +1,33 @@
+/* Shared tooltip (SPEC §5.3, §5.4): the AU note and the rail dot names. */
+.o-tooltip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: var(--z-tooltip);
+  box-sizing: border-box;
+  max-width: min(17.5rem, calc(100vw - 1rem));
+  padding: var(--s-2) 0.625rem;
+  color: var(--c-text);
+  font: var(--fw-regular) var(--fs-sm) / 1.35 var(--font-ui);
+  background: var(--c-surface-strong);
+  border: var(--border);
+  border-radius: 0.5rem;
+  box-shadow: var(--shadow-panel);
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+@starting-style {
+  .o-tooltip {
+    opacity: 0;
+  }
+}
+
+.o-tooltip[hidden] {
+  display: none;
+}
+
+.o-tooltip strong {
+  font-weight: var(--fw-strong);
+}

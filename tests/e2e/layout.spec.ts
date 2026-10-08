@@ -427,12 +427,15 @@ test('open scale explanation lies on top and fits at 1280x800 / 1280x720 / 1024x
     const dialog = page.locator('#scale-explanation');
     await expect(dialog).toBeVisible();
 
+    // Wait for the 220 ms entry (fade and scale .98 → 1) to end.
+    await expect
+      .poll(() => dialog.evaluate((el) => getComputedStyle(el).opacity))
+      .toBe('1');
+    await page.waitForTimeout(250);
     const box = await boxOf(dialog);
     const close = await boxOf(page.locator('#scale-close'));
-    const view = await boxOf(page.locator('[data-testid="view-controls"]'));
-    const time = await boxOf(page.locator('#time-controls'));
-    if (box === null || close === null || view === null || time === null) {
-      throw new Error('explanation, close, view, or time has no box');
+    if (box === null || close === null) {
+      throw new Error('explanation or close has no box');
     }
     expect(
       fits(box, size),
@@ -442,10 +445,16 @@ test('open scale explanation lies on top and fits at 1280x800 / 1280x720 / 1024x
     expect(close.y + close.height).toBeLessThanOrEqual(
       box.y + box.height + 0.5,
     );
-    expect(intersects(box, view), 'explanation overlaps view').toBe(false);
-    expect(intersects(box, time), 'explanation overlaps time').toBe(false);
+    // Centered (SPEC §5.11).
+    expect(
+      Math.abs(box.x + box.width / 2 - size.width / 2),
+    ).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(box.y + box.height / 2 - size.height / 2),
+    ).toBeLessThanOrEqual(1);
+    expect(box.width).toBeLessThanOrEqual(Math.min(580, size.width - 32) + 0.5);
 
-    // Nothing (bodies list, Ciała button, labels) is drawn over it.
+    // Nothing (bodies list, Planety button, labels, time) is drawn over it.
     const covered = await page.evaluate(({ x, y, width, height }) => {
       const misses: string[] = [];
       for (let row = 0; row <= 4; row += 1) {
@@ -472,6 +481,67 @@ test('open scale explanation lies on top and fits at 1280x800 / 1280x720 / 1024x
     await page.locator('#scale-close').click();
     await expect(dialog).toBeHidden();
     expect(errors).toEqual([]);
+  }
+});
+
+test('why dialog traps focus', async ({ page }) => {
+  const errors = await openAt(
+    page,
+    { width: 1280, height: 720 },
+    '/?debug=1&days=0&paused=1',
+  );
+  const before = await page.evaluate(() => window.__orbitka?.getCameraState());
+  const why = page.locator('#scale-why');
+  await why.click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expect(page.locator('#scale-close')).toBeFocused();
+
+  for (let step = 0; step < 5; step += 1) {
+    await page.keyboard.press('Tab');
+    expect(
+      await page.evaluate(
+        () => document.activeElement?.closest('[role="dialog"]') != null,
+      ),
+    ).toBe(true);
+  }
+  // The rest of the page is inert while the dialog is open.
+  await expect(page.locator('#viewport')).toHaveAttribute('inert', '');
+
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(why).toBeFocused();
+  await expect(page.locator('#viewport')).not.toHaveAttribute('inert', '');
+  // Esc closed the dialog only: the camera did not fly to the whole system.
+  const after = await page.evaluate(() => window.__orbitka?.getCameraState());
+  expect(after?.flightActive).toBe(0);
+  expect(after?.distance).toBeCloseTo(before?.distance ?? 0, 6);
+  expect(after?.azimuthDeg).toBeCloseTo(before?.azimuthDeg ?? 0, 6);
+  expect(errors).toEqual([]);
+});
+
+test('why dialog fits at 1280x600', async ({ page }) => {
+  const size = { width: 1280, height: 600 };
+  await openAt(page, size);
+  await page.locator('#scale-why').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await page.waitForTimeout(300);
+  const box = await boxOf(dialog);
+  if (box === null) {
+    throw new Error('dialog has no box');
+  }
+  expect(fits(box, size)).toBe(true);
+  await expect(page.locator('#scale-close')).toBeInViewport({ ratio: 1 });
+  // The points scroll and get a Tab stop for the keyboard.
+  const scrolls = await page
+    .locator('.scale-explanation-body')
+    .evaluate((el) => el.scrollHeight > el.clientHeight);
+  if (scrolls) {
+    await expect(page.locator('.scale-explanation-body')).toHaveAttribute(
+      'tabindex',
+      '0',
+    );
   }
 });
 

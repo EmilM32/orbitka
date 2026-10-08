@@ -15,11 +15,6 @@
   pointer-events: none;
 }
 
-/* The open scale explanation lies over the bodies list and the drawer. */
-.topbar:has(#scale-notice.is-open) {
-  z-index: var(--z-dialog);
-}
-
 .brand {
   display: inline-flex;
   flex: none;

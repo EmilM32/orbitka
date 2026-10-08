@@ -63,14 +63,6 @@
     );
   }
 
-  /* The explanation opens under the second row, not under the top bar. */
-  #scale-explanation {
-    max-height: calc(
-      100vh - var(--drawer-top) - var(--time-panel-height, 0px) - 2 *
-        var(--edge)
-    );
-  }
-
   #time-controls {
     left: 16px;
     right: 16px;

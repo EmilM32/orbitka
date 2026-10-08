@@ -1,22 +1,25 @@
 import './scaleNotice.css';
 
+import { createFocusTrap } from './focusTrap.ts';
 import { type Dictionary, type I18n } from './i18n.ts';
+import { createIcon } from './icons.ts';
 
 type AppI18n = I18n<Dictionary>;
 
-const PARAGRAPH_KEYS = [
-  'scaleNotice.paragraph1',
-  'scaleNotice.paragraph2',
-  'scaleNotice.paragraph3',
-  'scaleNotice.paragraph4',
-  'scaleNotice.paragraph5',
-] as const;
+const POINTS = [1, 2, 3, 4] as const;
 
+// The scale chip in the top bar and its "Dlaczego?" dialog (SPEC §5.11). The
+// dialog is not a native <dialog>: the top layer would ignore the --z-*
+// tokens, and the "Gotowe!" toast must stay above it (SPEC §4). So the focus
+// trap and inert are done by hand. The dialog and its scrim live in <body>,
+// next to the containers they make inert.
 export function createScaleNotice(
   parent: HTMLElement,
   i18n: AppI18n,
   before?: Node | null,
 ): { dispose(): void } {
+  const page = parent.ownerDocument.body;
+
   const root = document.createElement('div');
   root.setAttribute('id', 'scale-notice');
   root.className = 'o-glass o-chip';
@@ -31,91 +34,152 @@ export function createScaleNotice(
   whyButton.setAttribute('id', 'scale-why');
   whyButton.className = 'o-btn';
   whyButton.setAttribute('aria-haspopup', 'dialog');
-  whyButton.setAttribute('aria-expanded', 'false');
-  whyButton.setAttribute('aria-controls', 'scale-explanation');
   whyButton.textContent = i18n.t('scaleNotice.why');
   whyButton.setAttribute('aria-label', i18n.t('scaleNotice.buttonLabel'));
+  root.append(badge, whyButton);
 
-  const panel = document.createElement('section');
-  panel.setAttribute('id', 'scale-explanation');
-  panel.setAttribute('role', 'region');
-  panel.setAttribute('aria-labelledby', 'scale-explanation-title');
-  panel.hidden = true;
+  const scrim = document.createElement('div');
+  scrim.className = 'scrim';
+  scrim.setAttribute('data-testid', 'scale-scrim');
+  scrim.hidden = true;
 
+  const dialog = document.createElement('div');
+  dialog.setAttribute('id', 'scale-explanation');
+  dialog.className = 'o-glass';
+  dialog.setAttribute('role', 'dialog');
+  dialog.setAttribute('aria-modal', 'true');
+  dialog.setAttribute('aria-labelledby', 'scale-explanation-title');
+  dialog.hidden = true;
+
+  const head = document.createElement('div');
+  head.className = 'scale-explanation-head';
   const title = document.createElement('h2');
   title.setAttribute('id', 'scale-explanation-title');
-  title.setAttribute('tabindex', '-1');
   title.textContent = i18n.t('scaleNotice.title');
+  const dismiss = document.createElement('button');
+  dismiss.setAttribute('type', 'button');
+  dismiss.setAttribute('id', 'scale-dismiss');
+  dismiss.className = 'o-btn';
+  dismiss.setAttribute('aria-label', i18n.t('scaleNotice.closeLabel'));
+  dismiss.append(createIcon('close'));
+  head.append(title, dismiss);
 
-  const paragraphs = PARAGRAPH_KEYS.map((key) => {
-    const paragraph = document.createElement('p');
-    paragraph.textContent = i18n.t(key);
-    return paragraph;
-  });
-
-  const closeButton = document.createElement('button');
-  closeButton.setAttribute('type', 'button');
-  closeButton.setAttribute('id', 'scale-close');
-  closeButton.textContent = i18n.t('scaleNotice.closeLabel');
-
-  // Only the text scrolls; the close button stays below it.
+  // Only the points scroll; the footer with "Rozumiem" stays in view.
   const body = document.createElement('div');
   body.setAttribute('class', 'scale-explanation-body');
-  body.append(title, ...paragraphs);
-  panel.append(body, closeButton);
-  root.append(badge, whyButton, panel);
-  parent.insertBefore(root, before ?? null);
+  const list = document.createElement('ol');
+  list.className = 'scale-points';
+  for (const point of POINTS) {
+    const item = document.createElement('li');
+    const text = document.createElement('span');
+    const strong = document.createElement('strong');
+    strong.textContent = i18n.t(`scaleNotice.point${point}.title`);
+    text.append(strong, ` ${i18n.t(`scaleNotice.point${point}.body`)}`);
+    item.append(text);
+    list.append(item);
+  }
+  body.append(list);
 
+  const foot = document.createElement('div');
+  foot.className = 'scale-explanation-foot';
+  const source = document.createElement('p');
+  source.className = 'scale-source';
+  source.textContent = i18n.t('scaleNotice.source');
+  const confirm = document.createElement('button');
+  confirm.setAttribute('type', 'button');
+  confirm.setAttribute('id', 'scale-close');
+  confirm.className = 'o-btn o-btn--primary';
+  confirm.textContent = i18n.t('scaleNotice.confirm');
+  foot.append(source, confirm);
+
+  dialog.append(head, body, foot);
+  parent.insertBefore(root, before ?? null);
+  page.append(scrim, dialog);
+
+  const trap = createFocusTrap(dialog);
+  // Containers this dialog made inert; ones inert for another reason stay so.
+  const madeInert: Element[] = [];
   let disposed = false;
   let open = false;
 
-  function setOpen(next: boolean, restoreFocus: boolean): void {
-    if (disposed) {
+  function setBackgroundInert(inert: boolean): void {
+    if (!inert) {
+      for (const element of madeInert) {
+        element.removeAttribute('inert');
+      }
+      madeInert.length = 0;
       return;
     }
-
-    open = next;
-    panel.hidden = !next;
-    root.classList.toggle('is-open', next);
-    whyButton.setAttribute('aria-expanded', next ? 'true' : 'false');
-    if (next) {
-      title.focus();
-      return;
-    }
-
-    if (restoreFocus) {
-      whyButton.focus();
+    for (const element of page.children) {
+      if (
+        element === scrim ||
+        element === dialog ||
+        element.hasAttribute('inert')
+      ) {
+        continue;
+      }
+      element.setAttribute('inert', '');
+      madeInert.push(element);
     }
   }
 
-  function onWhyClick(): void {
-    setOpen(!open, false);
+  // The points get a Tab stop only when they scroll (keyboard scrolling).
+  function updateScrollStop(): void {
+    if (body.scrollHeight > body.clientHeight) {
+      body.setAttribute('tabindex', '0');
+    } else {
+      body.removeAttribute('tabindex');
+    }
   }
 
-  function onCloseClick(): void {
-    setOpen(false, true);
+  function openDialog(): void {
+    if (disposed || open) {
+      return;
+    }
+    open = true;
+    scrim.hidden = false;
+    dialog.hidden = false;
+    setBackgroundInert(true);
+    updateScrollStop();
+    window.addEventListener('resize', updateScrollStop);
+    trap.activate(confirm);
+  }
+
+  function closeDialog(): void {
+    if (disposed || !open) {
+      return;
+    }
+    open = false;
+    trap.deactivate();
+    window.removeEventListener('resize', updateScrollStop);
+    setBackgroundInert(false);
+    scrim.hidden = true;
+    dialog.hidden = true;
+    whyButton.focus();
   }
 
   function onKeyDown(event: KeyboardEvent): void {
     if (disposed || event.key !== 'Escape' || !open) {
       return;
     }
-
-    if (!root.contains(document.activeElement)) {
-      return;
-    }
-
-    setOpen(false, true);
+    // Esc closes the dialog only; it must not reach the canvas (whole system view).
+    event.preventDefault();
+    event.stopPropagation();
+    closeDialog();
   }
 
   function onPointerDown(event: PointerEvent): void {
     event.stopPropagation();
   }
 
-  whyButton.addEventListener('click', onWhyClick);
-  closeButton.addEventListener('click', onCloseClick);
-  root.addEventListener('keydown', onKeyDown);
+  whyButton.addEventListener('click', openDialog);
+  confirm.addEventListener('click', closeDialog);
+  dismiss.addEventListener('click', closeDialog);
+  scrim.addEventListener('click', closeDialog);
+  dialog.addEventListener('keydown', onKeyDown);
   root.addEventListener('pointerdown', onPointerDown);
+  scrim.addEventListener('pointerdown', onPointerDown);
+  dialog.addEventListener('pointerdown', onPointerDown);
 
   return {
     dispose() {
@@ -123,12 +187,21 @@ export function createScaleNotice(
         return;
       }
 
+      trap.dispose();
+      setBackgroundInert(false);
+      window.removeEventListener('resize', updateScrollStop);
       disposed = true;
-      whyButton.removeEventListener('click', onWhyClick);
-      closeButton.removeEventListener('click', onCloseClick);
-      root.removeEventListener('keydown', onKeyDown);
+      whyButton.removeEventListener('click', openDialog);
+      confirm.removeEventListener('click', closeDialog);
+      dismiss.removeEventListener('click', closeDialog);
+      scrim.removeEventListener('click', closeDialog);
+      dialog.removeEventListener('keydown', onKeyDown);
       root.removeEventListener('pointerdown', onPointerDown);
+      scrim.removeEventListener('pointerdown', onPointerDown);
+      dialog.removeEventListener('pointerdown', onPointerDown);
       root.remove();
+      scrim.remove();
+      dialog.remove();
     },
   };
 }

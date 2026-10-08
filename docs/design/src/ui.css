@@ -956,7 +956,7 @@ button {
 }
 .mbar .b.earth {
   background: var(--c-earth);
-  box-shadow: inset 0 0 0 1px var(--c-earth-edge);
+  box-shadow: inset 0 0 0 1px var(--c-earth-outline);
 }
 .mbar .ticks {
   position: absolute;

@@ -1,13 +1,80 @@
+@import './ui/tokens.css';
 /*
- * Stacking layers. Every z-index in the app uses one of these, so the order
- * lives in one place.
+ * Fonts: Inter (UI) and Space Grotesk (date, names), OFL 1.1, self-hosted in
+ * public/assets/fonts (ATTRIBUTION.md). Absolute URLs: a relative path into
+ * public/ makes Vite emit a second, hashed copy and the preload misses it.
  */
-:root {
-  --layer-overlay: 1;
-  --layer-debug: 2;
-  --layer-panel: 3;
-  --layer-drawer: 4;
-  --layer-dialog: 5;
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url('/assets/fonts/inter-latin-ext-400-normal.woff2') format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url('/assets/fonts/inter-latin-400-normal.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url('/assets/fonts/inter-latin-ext-600-normal.woff2') format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url('/assets/fonts/inter-latin-600-normal.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url('/assets/fonts/space-grotesk-latin-ext-700-normal.woff2')
+    format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url('/assets/fonts/space-grotesk-latin-700-normal.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
 }
 
 html,
@@ -17,11 +84,22 @@ body,
   width: 100%;
   height: 100%;
   display: block;
-  background: #000;
+  background: var(--c-space);
 }
 
 body {
   overflow: hidden;
+  color: var(--c-text);
+  font-family: var(--font-ui);
+  font-weight: var(--fw-regular);
+}
+
+/* 1800×1000 and larger (classroom projector, 1920×1080): 18 px at 1800,
+ * 19.2 px (×1.2) at 1920. Scene labels stay in px (labelLayout measures px). */
+@media (min-width: 1800px) and (min-height: 1000px) {
+  :root {
+    font-size: clamp(16px, 1vw, 19.2px);
+  }
 }
 
 #viewport {
@@ -29,6 +107,6 @@ body {
 }
 
 #viewport:focus-visible {
-  outline: 2px solid #ffd54a;
+  outline: 2px solid var(--c-focus);
   outline-offset: -2px;
 }

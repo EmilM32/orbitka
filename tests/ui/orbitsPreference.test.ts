@@ -168,16 +168,16 @@ test('css contract', () => {
   expect(CSS).toContain('position: fixed');
   expect(CSS).toContain('top: 8px');
   expect(CSS).toContain('right: 8px');
-  expect(CSS).toContain('z-index: var(--layer-panel)');
+  expect(CSS).toContain('z-index: var(--z-panels)');
   expect(CSS).toContain('flex-direction: column');
   expect(CSS).toContain('gap: 8px');
   expect(CSS).toMatch(/min-width:\s*44px/u);
   expect(CSS).toMatch(/min-height:\s*44px/u);
-  expect(CSS).toContain('outline: 2px solid #ffd54a');
-  expect(CSS).toContain('outline-offset: 2px');
+  // Focus is the global ring from controls.css (EMI-217), never yellow.
+  expect(CSS).not.toContain('focus-visible');
   expect(CSS).toContain('border: 1px solid #8a93ad');
   expect(CSS).toContain('border-radius: 6px');
-  expect(CSS).toContain('background: #24325c');
+  expect(CSS).toContain('background: var(--c-surface-active)');
   expect(CSS).not.toMatch(/transition/iu);
   expect(CSS).not.toMatch(/animation/iu);
 });
@@ -186,7 +186,10 @@ test('text contrast at least 4.5', () => {
   const background = CSS.match(
     /background:\s*rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/u,
   );
-  const foreground = CSS.match(/color:\s*#([0-9a-f]{6})/iu);
+  // color: var(--c-text) is #f2f4fa in tokens.css.
+  const foreground = CSS.includes('color: var(--c-text)')
+    ? ['', 'f2f4fa']
+    : null;
   expect(background).not.toBeNull();
   expect(foreground).not.toBeNull();
   if (background === null || foreground === null) {

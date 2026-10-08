@@ -1,4 +1,5 @@
 import './style.css';
+import '@ui/controls.ts';
 
 import { parseBodyContentCatalog } from '@content/bodyContent.ts';
 import pl from '@content/locales/pl.json' with { type: 'json' };
@@ -209,7 +210,7 @@ function mount(canvas: HTMLCanvasElement): App {
     ariaLabel: i18n.t('canvas.ariaLabel'),
   });
   const pageHeader = createPageHeader(document.body, i18n, canvas);
-  const scaleNotice = createScaleNotice(document.body, i18n, canvas);
+  const scaleNotice = createScaleNotice(pageHeader, i18n);
   let bodiesDrawer: BodiesDrawer | null = null;
   const bodiesPanel = createBodiesPanel(document.body, {
     bodies: selectable,

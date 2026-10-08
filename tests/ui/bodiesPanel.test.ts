@@ -285,8 +285,9 @@ test('css contract', () => {
   expect(CSS).toContain('width: 220px');
   expect(CSS).toContain('left: 8px');
   expect(CSS).toContain('top: 60px');
-  expect(CSS).toContain('outline: 2px solid #ffd54a');
-  expect(CSS).toContain('outline-offset: 2px');
+  // Focus is the global ring from controls.css (EMI-217), never yellow.
+  expect(CSS).not.toContain('focus-visible');
+  expect(CSS).not.toContain('#ffd54a');
   expect(CSS).toContain('min-height: 32px');
   expect(CSS).toMatch(
     /@media \(pointer: coarse\)\s*\{[^}]*min-height:\s*44px/u,
@@ -301,13 +302,11 @@ test('css contract', () => {
 });
 
 test('text contrast at least 4.5', () => {
-  expect(CSS).toContain('#ffffff');
+  // --c-text (#f2f4fa) on the panel over white, the worst backdrop.
+  expect(CSS).toContain('color: var(--c-text)');
   expect(CSS).toContain('rgba(10, 14, 30, 0.85)');
-  expect(CSS).toContain('#ffd54a');
   const panel = composite([10, 14, 30], 0.85, [255, 255, 255]);
-  expect(contrast([255, 255, 255], panel)).toBeGreaterThanOrEqual(4.5);
-  expect(contrast([255, 213, 74], [0, 0, 0])).toBeGreaterThanOrEqual(3);
-  expect(contrast([255, 213, 74], panel)).toBeGreaterThanOrEqual(3);
+  expect(contrast([242, 244, 250], panel)).toBeGreaterThanOrEqual(4.5);
 });
 
 test('pl.json keys', () => {

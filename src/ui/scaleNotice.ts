@@ -19,6 +19,7 @@ export function createScaleNotice(
 ): { dispose(): void } {
   const root = document.createElement('div');
   root.setAttribute('id', 'scale-notice');
+  root.className = 'o-glass o-chip';
 
   const badge = document.createElement('p');
   badge.setAttribute('id', 'scale-badge');
@@ -28,6 +29,8 @@ export function createScaleNotice(
   const whyButton = document.createElement('button');
   whyButton.setAttribute('type', 'button');
   whyButton.setAttribute('id', 'scale-why');
+  whyButton.className = 'o-btn';
+  whyButton.setAttribute('aria-haspopup', 'dialog');
   whyButton.setAttribute('aria-expanded', 'false');
   whyButton.setAttribute('aria-controls', 'scale-explanation');
   whyButton.textContent = i18n.t('scaleNotice.why');

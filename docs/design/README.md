@@ -13,17 +13,19 @@ Makiety finalne kierunku A „Obserwatorium” z treningiem pilota i miernikiem 
 ## Zawartość
 
 - `mockups/`: PNG makiet pod stałymi nazwami (`start-1280x720.png`, `jupiter-card-1280x720.png`, `tablet-768x1024-drawer.png`, `components.png` i pozostałe stany). Każdy plik < 1 MB.
-- `src/`: statyczne HTML i CSS makiet (`ui.css`, `fonts.css`). Otwierają się offline z `file://`, bez zapytań zewnętrznych.
-- `tokens.css`: kanoniczne tokeny (kolory, typografia, odstępy, promienie, cienie).
-- `contrast.md`: kontrasty WCAG (38 par, wszystkie AA).
+- `src/`: statyczne HTML i CSS makiet (`ui.css`). Makiety podpinają względnie tokeny i fonty aplikacji (`../../../src/ui/tokens.css`, `../../../src/style.css`), a `ui.css` dokłada tylko style makiet, bez własnych custom properties w `:root`.
+- `contrast.md`: kontrasty WCAG (38 par, wszystkie AA). Test `tests/ui/tokensContrast.test.ts` liczy je na wartościach z `src/ui/tokens.css`.
 - `SPEC.md`: pełna specyfikacja kierunku (stany, układy, trening pilota, miernik, tryb lekki).
 - `scene/`: rendery sceny three.js używane jako tło makiet HTML (`meta.json`: draw calle i trójkąty).
-- `fonts/`: Space Grotesk i Inter (woff2) z licencjami OFL 1.1 (`OFL-space-grotesk.txt`, `OFL-inter.txt`), potrzebne, żeby makiety renderowały się offline. Zadanie fundamentu stylu A powinno przenieść je do aplikacji i wskazać stąd tę samą kopię, zamiast ją duplikować.
 - `overview.png`: wszystkie makiety na jednej planszy.
+
+Tokeny (`src/ui/tokens.css`) i fonty (`public/assets/fonts/`, licencje w `ATTRIBUTION.md`) mają w repo jedną kopię, wspólną dla aplikacji i makiet.
 
 ## Jak oglądać
 
-Otwórz `src/*.html` w przeglądarce (także bez sieci) i porównaj z `mockups/*.png`.
+Uruchom `npm run dev` i otwórz makietę przez serwer Vite, np. `http://localhost:5173/docs/design/src/start-1280x720.html`, a potem porównaj ją z `mockups/*.png`. Fonty ładują się wtedy z `/assets/fonts/`.
+
+Makieta otwarta z `file://` też działa, ale na fontach systemowych, bo adresy fontów są bezwzględne (`/assets/fonts/…`).
 
 Katalog `docs/` nie trafia do paczki Vite (`npm run build`).
 

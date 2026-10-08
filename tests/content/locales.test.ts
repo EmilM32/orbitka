@@ -34,6 +34,7 @@ test('locales › body names', () => {
 
 test('locales › shape', () => {
   expect(messages['time.accuracy.approximate']).toBe('Pozycje przybliżone');
+  expect(messages['app.brand']).toBe('Orbitka');
 
   for (const value of Object.values(messages)) {
     if (typeof value === 'string') {

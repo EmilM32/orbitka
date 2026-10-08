@@ -2,7 +2,7 @@
   position: fixed;
   top: 0;
   left: 0;
-  z-index: var(--layer-overlay);
+  z-index: var(--z-labels);
   box-sizing: border-box;
   margin: 0;
   padding: 0;

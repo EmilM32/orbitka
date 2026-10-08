@@ -1,65 +1,42 @@
+/* The scale chip in the top bar (SPEC §5.1): "Skala uproszczona" and "Dlaczego?". */
 #scale-notice {
-  position: fixed;
-  top: 8px;
-  left: 8px;
-  z-index: var(--layer-panel);
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 8px;
-  align-items: center;
-  box-sizing: border-box;
-  width: max-content;
-  max-width: calc(100vw - 16px);
+  position: relative;
+  flex: 0 1 auto;
+  min-width: 0;
   margin: 0;
-  padding: 0;
-  pointer-events: none;
-  font-family: system-ui, sans-serif;
-  color: #ffffff;
-}
-
-/* The open explanation lies over the bodies list and the drawer. */
-#scale-notice.is-open {
-  z-index: var(--layer-dialog);
+  padding: var(--s-1) var(--s-1) var(--s-1) var(--s-3);
+  pointer-events: auto;
 }
 
 #scale-badge {
   box-sizing: border-box;
-  flex: 1 1 auto;
   min-width: 0;
-  max-width: calc(100vw - 16px - 52px);
   margin: 0;
-  padding: 4px 8px;
-  font-size: 12px;
-  line-height: 16px;
-  color: #ffffff;
-  background: rgba(10, 14, 30, 0.85);
-  border-radius: 8px;
-  pointer-events: none;
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 #scale-why {
-  box-sizing: border-box;
   flex: 0 0 auto;
-  min-width: 44px;
-  min-height: 44px;
-  padding: 8px 12px;
-  color: #ffffff;
-  font-family: inherit;
-  font-size: 16px;
-  line-height: 1.2;
-  white-space: nowrap;
-  background: rgba(10, 14, 30, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  border-radius: 8px;
-  pointer-events: auto;
-  touch-action: manipulation;
+  min-width: var(--hit);
+  min-height: 2.25rem;
+  padding: 0 var(--s-3);
+  font-size: var(--fs-sm);
+  background: var(--c-surface-hover);
+  border-radius: var(--radius-pill);
 }
 
-#scale-why:focus-visible,
-#scale-close:focus-visible,
-#scale-explanation-title:focus-visible {
-  outline: 3px solid #ffd54a;
-  outline-offset: 2px;
+#scale-why:hover {
+  background: var(--c-surface-active);
+}
+
+@media (max-width: 1024px), (pointer: coarse) {
+  #scale-why {
+    min-height: var(--hit);
+  }
 }
 
 #scale-explanation {
@@ -72,12 +49,13 @@
   gap: 8px;
   width: min(420px, calc(100vw - 16px));
   max-width: min(420px, calc(100vw - 16px));
-  /* From its top (60 px) down to 16 px above the time panel. */
+  /* From its top (about 60 px) down to 16 px above the time panel. */
   max-height: calc(100vh - 60px - var(--time-panel-height, 0px) - 16px - 16px);
   margin: 0;
   padding: 12px;
   overflow: hidden;
-  color: #ffffff;
+  color: var(--c-text);
+  white-space: normal;
   /* Opaque: it lies over the bodies list, whose text must not show through. */
   background: #0a0e1e;
   border-radius: 8px;
@@ -117,11 +95,11 @@
   min-width: 44px;
   min-height: 44px;
   padding: 8px 12px;
-  color: #ffffff;
+  color: var(--c-text);
   font-size: 16px;
   font-family: inherit;
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  border: 1px solid var(--c-control-border);
   border-radius: 8px;
   pointer-events: auto;
   touch-action: manipulation;

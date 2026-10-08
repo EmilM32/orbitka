@@ -2,14 +2,14 @@
   position: fixed;
   top: 8px;
   right: 8px;
-  z-index: var(--layer-panel);
+  z-index: var(--z-panels);
   display: flex;
   flex-direction: column;
   gap: 8px;
   margin: 0;
   padding: 0;
-  color: #ffffff;
-  font-family: system-ui, sans-serif;
+  color: var(--c-text);
+  font-family: var(--font-ui);
   font-size: 16px;
   line-height: 1.2;
 }
@@ -23,7 +23,7 @@
   min-width: 44px;
   min-height: 44px;
   padding: 8px 12px;
-  color: #ffffff;
+  color: var(--c-text);
   background: rgba(10, 14, 30, 0.85);
   border: 1px solid #8a93ad;
   border-radius: 6px;
@@ -31,13 +31,9 @@
   touch-action: manipulation;
 }
 
-#view-controls button:focus-visible {
-  outline: 2px solid #ffd54a;
-  outline-offset: 2px;
-}
-
 #view-controls button[aria-pressed='true'] {
-  background: #24325c;
+  background: var(--c-surface-active);
+  border-color: var(--c-active-border);
 }
 
 .view-orbits-off {

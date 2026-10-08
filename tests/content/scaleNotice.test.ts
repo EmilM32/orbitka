@@ -14,9 +14,7 @@ const PARAGRAPHS = [
 
 test('scaleNotice › texts', () => {
   expect(messages['scaleNotice.why']).toBe('Dlaczego?');
-  expect(messages['scaleNotice.badge']).toBe(
-    'Skala uproszczona: odległości i rozmiary nie są w proporcji',
-  );
+  expect(messages['scaleNotice.badge']).toBe('Skala uproszczona');
   expect(messages['scaleNotice.buttonLabel']).toBe(
     'Pokaż wyjaśnienie, dlaczego skala jest uproszczona',
   );

@@ -1,0 +1,157 @@
+/*
+ * Base control classes of style A (SPEC §2, §5, §8). Components add their own
+ * layout; these rules keep selection, focus, hover and disabled the same
+ * everywhere: selection is a yellow line or outline, focus is the blue ring,
+ * a yellow fill belongs to .o-btn--primary only.
+ */
+
+:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+.o-glass {
+  background: var(--c-surface);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: var(--border);
+  box-shadow: var(--shadow-panel);
+}
+
+.icon {
+  flex: none;
+  display: block;
+  width: 1.25em;
+  height: 1.25em;
+}
+
+.o-btn {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  min-width: var(--hit);
+  min-height: var(--hit);
+  margin: 0;
+  padding: 0 0.875rem;
+  color: var(--c-text);
+  font: var(--fw-strong) var(--fs-md) / 1 var(--font-ui);
+  white-space: nowrap;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+.o-btn:hover {
+  background: var(--c-surface-hover);
+}
+
+.o-btn:active {
+  background: var(--c-surface-active);
+}
+
+.o-btn--outline {
+  border-color: var(--c-control-border);
+}
+
+.o-btn--ghost {
+  color: var(--c-text-2);
+}
+
+.o-btn--ghost:hover {
+  color: var(--c-text);
+}
+
+.o-btn--primary {
+  color: var(--c-accent-ink);
+  background: var(--c-accent);
+}
+
+.o-btn--primary:hover {
+  background: var(--c-accent-hover);
+}
+
+.o-btn--primary:active {
+  background: var(--c-accent-pressed);
+}
+
+/* Pressed toggle: white 16 % and a white outline, the state dot in mint. */
+.o-toggle[aria-pressed='true'] {
+  background: var(--c-surface-active);
+  border-color: var(--c-active-border);
+}
+
+.o-toggle .o-toggle-state {
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border: 1.5px solid var(--c-control-border);
+  border-radius: 50%;
+}
+
+.o-toggle[aria-pressed='true'] .o-toggle-state {
+  background: var(--c-on);
+  border-color: var(--c-on);
+}
+
+/* Current list item: a 3 px yellow line on the left and bold text, no fill. */
+.o-item {
+  position: relative;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.o-item:hover {
+  background: var(--c-surface-hover);
+}
+
+.o-item[aria-current='true'] {
+  font-weight: var(--fw-display);
+}
+
+.o-item[aria-current='true']::before {
+  position: absolute;
+  top: 0.4375rem;
+  bottom: 0.4375rem;
+  left: 2px;
+  width: 3px;
+  content: '';
+  background: var(--c-accent);
+  border-radius: 3px;
+}
+
+.o-chip {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: 2.25rem;
+  padding: 0 var(--s-1) 0 var(--s-3);
+  color: var(--c-text-2);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+  border-radius: var(--radius-pill);
+}
+
+/* Disabled controls stay in the Tab order (aria-disabled). */
+[aria-disabled='true'],
+:disabled {
+  color: var(--c-text-disabled);
+  cursor: not-allowed;
+}
+
+.o-btn[aria-disabled='true']:hover,
+.o-btn:disabled:hover {
+  background: transparent;
+}
+
+.o-btn--primary[aria-disabled='true'],
+.o-btn--primary:disabled {
+  color: #8a7b5c;
+  background: rgba(255, 194, 75, 0.22);
+}

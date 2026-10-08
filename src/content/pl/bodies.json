@@ -1,0 +1,112 @@
+{
+  "sun": {
+    "kind": "gwiazda",
+    "funFact": {
+      "text": "W Słońcu zmieściłoby się ponad milion planet takich jak Ziemia.",
+      "source": {
+        "name": "NASA Planetary Fact Sheet",
+        "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/"
+      }
+    },
+    "description": "Słońce to gwiazda w środku naszego układu. Jego grawitacja utrzymuje na orbitach wszystkie planety, a jego światło ogrzewa Ziemię."
+  },
+  "mercury": {
+    "kind": "planeta skalista",
+    "funFact": {
+      "text": "Merkury jest najmniejszą planetą Układu Słonecznego.",
+      "source": {
+        "name": "NASA Planetary Fact Sheet",
+        "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/"
+      }
+    },
+    "description": "Merkury krąży najbliżej Słońca. Nie ma prawdziwej atmosfery, dlatego w dzień jest na nim bardzo gorąco, a w nocy bardzo zimno."
+  },
+  "venus": {
+    "kind": "planeta skalista",
+    "funFact": {
+      "text": "Wenus jest najgorętszą planetą, choć to Merkury jest bliżej Słońca.",
+      "source": {
+        "name": "NASA Planetary Fact Sheet",
+        "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/"
+      }
+    },
+    "description": "Wenus ma gęstą atmosferę z dwutlenku węgla, która zatrzymuje ciepło. Wenus obraca się w przeciwną stronę niż większość planet."
+  },
+  "earth": {
+    "kind": "planeta skalista",
+    "funFact": {
+      "text": "Ziemia ma największą średnią gęstość ze wszystkich planet Układu Słonecznego.",
+      "source": {
+        "name": "NASA Planetary Fact Sheet",
+        "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/"
+      }
+    },
+    "description": "Ziemia to nasza planeta. Ma atmosferę z azotu i tlenu, oceany ciekłej wody i jest jedynym znanym miejscem, gdzie istnieje życie."
+  },
+  "moon": {
+    "kind": "księżyc",
+    "funFact": {
+      "text": "Księżyc oddala się od Ziemi o około 3,8 cm na rok.",
+      "source": {
+        "name": "NASA Planetary Fact Sheet",
+        "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/"
+      }
+    },
+    "description": "Księżyc to naturalny satelita Ziemi. Zawsze widzimy tę samą jego stronę, bo obrót wokół osi trwa tyle samo co okrążenie Ziemi."
+  },
+  "mars": {
+    "kind": "planeta skalista",
+    "funFact": {
+      "text": "Przyciąganie na Marsie jest około 2,6 raza słabsze niż na Ziemi.",
+      "source": {
+        "name": "NASA Planetary Fact Sheet",
+        "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/"
+      }
+    },
+    "description": "Mars to czerwona planeta. Kolor nadaje mu tlenek żelaza w pyle i skałach. Ma cienką atmosferę i dwa małe księżyce."
+  },
+  "jupiter": {
+    "kind": "gazowy olbrzym",
+    "funFact": {
+      "text": "Wielka Czerwona Plama na Jowiszu jest szersza niż cała Ziemia.",
+      "source": {
+        "name": "NASA Planetary Fact Sheet",
+        "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/"
+      }
+    },
+    "description": "Jowisz to największa planeta Układu Słonecznego. Składa się głównie z wodoru i helu i nie ma twardej powierzchni."
+  },
+  "saturn": {
+    "kind": "gazowy olbrzym",
+    "funFact": {
+      "text": "Średnia gęstość Saturna jest mniejsza niż gęstość wody.",
+      "source": {
+        "name": "NASA Planetary Fact Sheet",
+        "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/"
+      }
+    },
+    "description": "Saturn słynie z jasnych pierścieni z lodu i skał. Tak jak Jowisz składa się głównie z wodoru i helu."
+  },
+  "uranus": {
+    "kind": "lodowy olbrzym",
+    "funFact": {
+      "text": "Uran jest tak przechylony, że obraca się prawie na boku.",
+      "source": {
+        "name": "NASA Planetary Fact Sheet",
+        "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/"
+      }
+    },
+    "description": "Uran zawiera dużo lodów: wody, amoniaku i metanu. Metan w atmosferze nadaje mu niebieskozielony kolor."
+  },
+  "neptune": {
+    "kind": "lodowy olbrzym",
+    "funFact": {
+      "text": "Światło ze Słońca leci do Neptuna ponad cztery godziny.",
+      "source": {
+        "name": "NASA Planetary Fact Sheet",
+        "url": "https://nssdc.gsfc.nasa.gov/planetary/factsheet/"
+      }
+    },
+    "description": "Neptun to najdalsza planeta od Słońca. Wieją na nim najszybsze wiatry w Układzie Słonecznym."
+  }
+}

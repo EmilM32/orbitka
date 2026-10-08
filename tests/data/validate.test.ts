@@ -425,3 +425,22 @@ test('validate › ring texture may be a file name', () => {
 
   expect(validateBodies(list).ok).toBe(true);
 });
+
+test.each(['Jupiter', 'jupiter/2k', 'jupiter.jpg', '', 42])(
+  'validate › rejects texture key %j',
+  (texture) => {
+    const list = entries();
+    group(find(list, 'jupiter'), 'visual').texture = texture;
+
+    expect(errorsOf(list)).toEqual([
+      'jupiter: field visual.texture must be null or match ^[a-z0-9-]+$',
+    ]);
+  },
+);
+
+test('validate › texture key may be null', () => {
+  const list = entries();
+  group(find(list, 'jupiter'), 'visual').texture = null;
+
+  expect(validateBodies(list).ok).toBe(true);
+});

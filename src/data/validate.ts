@@ -60,6 +60,12 @@ const id: Rule = (value) =>
     ? null
     : 'may contain only lowercase letters, digits, and hyphens';
 
+// A key into public/assets/textures/{512,1k,2k}/<key>.jpg (ADR-010 point 10).
+const textureKey: Rule = (value) =>
+  value === null || (typeof value === 'string' && ID_PATTERN.test(value))
+    ? null
+    : 'must be null or match ^[a-z0-9-]+$';
+
 const textOrNull: Rule = (value) =>
   value === null || text(value) === null
     ? null
@@ -180,7 +186,7 @@ function isValidBody(
 
   const visual = check.group(raw, 'visual');
   if (visual) {
-    check.field(visual, 'visual.', 'texture', textOrNull);
+    check.field(visual, 'visual.', 'texture', textureKey);
     check.field(visual, 'visual.', 'color', color);
     const ring = check.group(visual, 'ring', true, 'visual.');
     if (ring) {

@@ -1,0 +1,12 @@
+{
+  "sun": "https://www.solarsystemscope.com/textures/download/2k_sun.jpg",
+  "mercury": "https://www.solarsystemscope.com/textures/download/2k_mercury.jpg",
+  "venus": "https://www.solarsystemscope.com/textures/download/2k_venus_atmosphere.jpg",
+  "earth": "https://www.solarsystemscope.com/textures/download/2k_earth_daymap.jpg",
+  "moon": "https://www.solarsystemscope.com/textures/download/2k_moon.jpg",
+  "mars": "https://www.solarsystemscope.com/textures/download/2k_mars.jpg",
+  "jupiter": "https://www.solarsystemscope.com/textures/download/2k_jupiter.jpg",
+  "saturn": "https://www.solarsystemscope.com/textures/download/2k_saturn.jpg",
+  "uranus": "https://www.solarsystemscope.com/textures/download/2k_uranus.jpg",
+  "neptune": "https://www.solarsystemscope.com/textures/download/2k_neptune.jpg"
+}

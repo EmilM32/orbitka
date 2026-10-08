@@ -1,12 +1,17 @@
 import { MeshBasicMaterial, SphereGeometry } from 'three';
 import { expect, test } from 'vitest';
 
-import { SPHERE_SEGMENTS, createSphere } from '@render/sphereFactory.ts';
+import {
+  SPHERE_SEGMENTS,
+  SPHERE_SEGMENTS_DETAILED,
+  createSphere,
+} from '@render/sphereFactory.ts';
 
 test('sphereFactory › segments', () => {
   expect(SPHERE_SEGMENTS.moon).toBe(32);
   expect(SPHERE_SEGMENTS.planet).toBe(48);
   expect(SPHERE_SEGMENTS.sun).toBe(64);
+  expect(SPHERE_SEGMENTS_DETAILED).toEqual({ moon: 32, planet: 64, sun: 96 });
 
   const material = new MeshBasicMaterial();
   const planet = createSphere(1, SPHERE_SEGMENTS.planet, material);

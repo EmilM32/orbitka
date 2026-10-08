@@ -21,6 +21,13 @@ async function openApp(page: Page): Promise<void> {
   await page.waitForFunction(
     () => (window.__orbitka?.getBodyScreenPositions().length ?? 0) > 0,
   );
+  // The budget counts the textures too: wait for all ten 512 versions.
+  await page.waitForFunction(
+    () =>
+      Object.values(window.__orbitka?.getTextureState().bodies ?? {}).filter(
+        (value) => value !== null,
+      ).length === 10,
+  );
   await waitForFrames(page, 3);
 }
 
@@ -48,6 +55,7 @@ async function expectWithinBudget(
 // Measured start view (days=0, 1280×720): 22 draw calls on main before
 // EMI-221, plus 1 for Saturn's ring (EMI-221), 1 for the stars and 1 for the
 // Sun's glow (EMI-222).
+// Textures add no draw calls (EMI-225).
 const START_DRAW_CALLS = 25;
 
 test('start view within budget', async ({ page }) => {
@@ -62,7 +70,8 @@ test('saturn view within budget', async ({ page }) => {
   await page.waitForFunction(
     () =>
       window.__orbitka?.getSelectedId() === 'saturn' &&
-      window.__orbitka.getCameraState().flightActive === 0,
+      window.__orbitka.getCameraState().flightActive === 0 &&
+      window.__orbitka.getTextureState().bodies.saturn === '2k',
   );
   await waitForFrames(page, 3);
   await expectWithinBudget(page);

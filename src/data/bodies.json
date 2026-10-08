@@ -7,7 +7,7 @@
     "radiusKm": 695700,
     "mass": 1988400,
     "rotation": { "periodHours": 609.12, "axialTiltDeg": 7.25 },
-    "visual": { "texture": null, "color": "#FDB813" },
+    "visual": { "texture": "sun", "color": "#FDB813" },
     "contentKey": "sun"
   },
   {
@@ -28,7 +28,7 @@
       "periodDays": 87.97
     },
     "rotation": { "periodHours": 1407.6, "axialTiltDeg": 0.034 },
-    "visual": { "texture": null, "color": "#9C9C9C" },
+    "visual": { "texture": "mercury", "color": "#9C9C9C" },
     "contentKey": "mercury"
   },
   {
@@ -49,7 +49,7 @@
       "periodDays": 224.7
     },
     "rotation": { "periodHours": 5832.6, "axialTiltDeg": 177.36 },
-    "visual": { "texture": null, "color": "#E6C88A" },
+    "visual": { "texture": "venus", "color": "#E6C88A" },
     "contentKey": "venus"
   },
   {
@@ -70,7 +70,7 @@
       "periodDays": 365.26
     },
     "rotation": { "periodHours": 23.9345, "axialTiltDeg": 23.44 },
-    "visual": { "texture": null, "color": "#3A78C2" },
+    "visual": { "texture": "earth", "color": "#3A78C2" },
     "contentKey": "earth"
   },
   {
@@ -91,7 +91,7 @@
       "periodDays": 27.322
     },
     "rotation": { "periodHours": 655.72, "axialTiltDeg": 6.68 },
-    "visual": { "texture": null, "color": "#B8B8B8" },
+    "visual": { "texture": "moon", "color": "#B8B8B8" },
     "contentKey": "moon"
   },
   {
@@ -112,7 +112,7 @@
       "periodDays": 686.98
     },
     "rotation": { "periodHours": 24.6229, "axialTiltDeg": 25.19 },
-    "visual": { "texture": null, "color": "#C1440E" },
+    "visual": { "texture": "mars", "color": "#C1440E" },
     "contentKey": "mars"
   },
   {
@@ -133,7 +133,7 @@
       "periodDays": 4332.82
     },
     "rotation": { "periodHours": 9.925, "axialTiltDeg": 3.13 },
-    "visual": { "texture": null, "color": "#D2A679" },
+    "visual": { "texture": "jupiter", "color": "#D2A679" },
     "contentKey": "jupiter"
   },
   {
@@ -239,7 +239,7 @@
     },
     "rotation": { "periodHours": 10.656, "axialTiltDeg": 26.73 },
     "visual": {
-      "texture": null,
+      "texture": "saturn",
       "ring": {
         "texture": null,
         "innerRadiusKm": 74500,
@@ -267,7 +267,7 @@
       "periodDays": 30687.4
     },
     "rotation": { "periodHours": 17.24, "axialTiltDeg": 97.77 },
-    "visual": { "texture": null, "color": "#7FD6E0" },
+    "visual": { "texture": "uranus", "color": "#7FD6E0" },
     "contentKey": "uranus"
   },
   {
@@ -288,7 +288,7 @@
       "periodDays": 60189.66
     },
     "rotation": { "periodHours": 16.11, "axialTiltDeg": 28.32 },
-    "visual": { "texture": null, "color": "#3F5FD0" },
+    "visual": { "texture": "neptune", "color": "#3F5FD0" },
     "contentKey": "neptune"
   }
 ]

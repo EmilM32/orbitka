@@ -1,11 +1,16 @@
-import { MeshBasicMaterial, MeshStandardMaterial, SphereGeometry } from 'three';
+import {
+  Color,
+  MeshBasicMaterial,
+  MeshStandardMaterial,
+  SphereGeometry,
+} from 'three';
 import { expect, test, vi } from 'vitest';
 
 import { bodies, getBody } from '@data/bodies.ts';
 import type { BodyDef } from '@data/types.ts';
 import { createBodyAnimator } from '@render/animateBodies.ts';
 import { createMoonAnimator } from '@render/animateMoons.ts';
-import { createBodies } from '@render/bodies.ts';
+import { SUN_DISC_TINT, createBodies } from '@render/bodies.ts';
 import { SPHERE_SEGMENTS } from '@render/sphereFactory.ts';
 import {
   moonRadiiToScene,
@@ -135,7 +140,8 @@ test('bodies › materials', () => {
         view.dispose();
         throw new Error(`expected MeshBasicMaterial: ${body.id}`);
       }
-      expect(material.color.getHexString()).toBe(color);
+      // Tinted by SUN_DISC_TINT, see "sun disc tint".
+      expect(material.color.getHexString()).not.toBe(color);
     } else {
       expect(material).toBeInstanceOf(MeshStandardMaterial);
       if (!(material instanceof MeshStandardMaterial)) {
@@ -324,4 +330,18 @@ test('bodies › edge cases', () => {
   expect(() => createBodies([{ ...moon, parentId: null }])).toThrow(
     'createBodies: moon "moon" has no parent "null"',
   );
+});
+
+test('bodies › sun disc tint', () => {
+  expect(SUN_DISC_TINT).toEqual([1.15, 1.0, 0.8]);
+  const view = createBodies([getBody('sun')]);
+  const material = view.meshes.get('sun')?.material;
+  if (!(material instanceof MeshBasicMaterial)) {
+    throw new Error('expected MeshBasicMaterial');
+  }
+  const base = new Color(getBody('sun').visual.color);
+  expect(material.color.r).toBeCloseTo(base.r * 1.15, 10);
+  expect(material.color.g).toBeCloseTo(base.g, 10);
+  expect(material.color.b).toBeCloseTo(base.b * 0.8, 10);
+  view.dispose();
 });

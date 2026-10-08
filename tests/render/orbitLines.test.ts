@@ -2,7 +2,9 @@ import {
   BufferGeometry,
   LineBasicMaterial,
   LineLoop,
+  PerspectiveCamera,
   Scene,
+  ShaderLib,
   Vector3,
   type BufferGeometry as BufferGeometryType,
 } from 'three';
@@ -15,11 +17,13 @@ import { bodies, getBody } from '@data/bodies.ts';
 import type { BodyDef, OrbitDef } from '@data/types.ts';
 import {
   ORBIT_COLOR,
+  ORBIT_GAP_RADIUS_FACTOR,
   ORBIT_OPACITY,
   ORBIT_SEGMENTS,
   addOrbitLines,
   computeOrbitPoints,
   createOrbitLines,
+  patchOrbitGap,
 } from '@render/orbitLines.ts';
 import { eclipticToScene } from '@render/coords.ts';
 import { bodyPositionAu } from '@sim/kepler.ts';
@@ -515,4 +519,140 @@ test('addOrbitLines › adds the group to the scene', () => {
   lines.dispose();
   expect(scene.children).toHaveLength(0);
   expect(() => lines.dispose()).not.toThrow();
+});
+
+function gapMaterials(
+  lines: ReturnType<typeof createOrbitLines>,
+  defs: readonly BodyDef[] = bodies,
+): LineBasicMaterial[] {
+  const found = new Set<LineBasicMaterial>();
+  const collect = (): void => {
+    for (const child of lines.group.children) {
+      if (
+        child instanceof LineLoop &&
+        child.material instanceof LineBasicMaterial
+      ) {
+        found.add(child.material);
+      }
+    }
+  };
+  collect();
+  const planet = defs.find((def) => def.type === 'planet');
+  lines.setSelectedBody(planet?.id ?? null);
+  collect();
+  return [...found];
+}
+
+type FakeShader = {
+  vertexShader: string;
+  fragmentShader: string;
+  uniforms: Record<string, { value: unknown }>;
+};
+
+function compile(material: LineBasicMaterial): FakeShader {
+  const shader: FakeShader = {
+    vertexShader: ShaderLib.basic.vertexShader,
+    fragmentShader: ShaderLib.basic.fragmentShader,
+    uniforms: {},
+  };
+  material.onBeforeCompile(
+    shader as unknown as Parameters<LineBasicMaterial['onBeforeCompile']>[0],
+    undefined as never,
+  );
+  return shader;
+}
+
+test('orbitLines › gap patch on all three materials', () => {
+  const lines = createOrbitLines(bodies);
+  const materials = gapMaterials(lines);
+  expect(materials).toHaveLength(3);
+
+  const uniforms = new Set<unknown>();
+  for (const material of materials) {
+    const shader = compile(material);
+    expect(shader.fragmentShader).toContain('discard');
+    expect(shader.fragmentShader).toContain('uniform vec3 uGapC;');
+    expect(shader.fragmentShader).toContain('uniform float uGapR;');
+    expect(shader.vertexShader).toContain('vGapViewPosition = mvPosition.xyz;');
+    expect(shader.uniforms.uGapC?.value).toBeInstanceOf(Vector3);
+    uniforms.add(shader.uniforms.uGapR);
+  }
+  // One shared uniform object, so setGap reaches every material.
+  expect(uniforms.size).toBe(1);
+  lines.dispose();
+});
+
+test('orbitLines › patchOrbitGap fails loudly on an unknown shader', () => {
+  expect(() =>
+    patchOrbitGap(
+      {
+        vertexShader: 'void main() {}',
+        fragmentShader: 'void main() {}',
+        uniforms: {},
+      } as unknown as Parameters<typeof patchOrbitGap>[0],
+      { uGapC: { value: new Vector3() }, uGapR: { value: 0 } },
+    ),
+  ).toThrow('orbit gap patch: shader has no "#include <project_vertex>"');
+});
+
+test('orbitLines › setGap updates uniforms', () => {
+  expect(ORBIT_GAP_RADIUS_FACTOR).toBe(1.25);
+  const lines = createOrbitLines(bodies);
+  const [material] = gapMaterials(lines);
+  if (material === undefined) {
+    throw new Error('missing material');
+  }
+  const { uniforms } = compile(material);
+  const camera = new PerspectiveCamera(45, 16 / 9, 0.1, 2000);
+  camera.position.set(0, 0, 50);
+  camera.lookAt(0, 0, 0);
+
+  const center = new Vector3(10, 0, 0);
+  lines.setGap(center, 2, camera);
+  expect(uniforms.uGapR?.value).toBeCloseTo(2 * 1.25, 10);
+  const viewCenter = uniforms.uGapC?.value as Vector3;
+  expect(viewCenter.x).toBeCloseTo(10, 8);
+  expect(viewCenter.y).toBeCloseTo(0, 8);
+  expect(viewCenter.z).toBeCloseTo(-50, 8);
+  // The world center is not changed.
+  expect(center.toArray()).toEqual([10, 0, 0]);
+
+  // A moved camera is picked up without a render in between.
+  camera.position.set(0, 0, 80);
+  lines.setGap(center, 2, camera);
+  expect(viewCenter.z).toBeCloseTo(-80, 8);
+
+  lines.setGap(null, 2, camera);
+  expect(uniforms.uGapR?.value).toBe(0);
+  lines.setGap(center, 0, camera);
+  expect(uniforms.uGapR?.value).toBe(0);
+  lines.dispose();
+});
+
+test.each([-1, Number.NaN, Number.POSITIVE_INFINITY])(
+  'orbitLines › setGap rejects invalid radius %s',
+  (radius) => {
+    const lines = createOrbitLines(bodies);
+    const camera = new PerspectiveCamera();
+    const call = () => lines.setGap(new Vector3(), radius, camera);
+    expect(call).toThrow(RangeError);
+    expect(call).toThrow(
+      `setGap: parameter "radius" must be finite and >= 0, got ${radius}`,
+    );
+    expect(() => lines.setGap(null, radius, camera)).toThrow(RangeError);
+    lines.dispose();
+  },
+);
+
+test('orbitLines › setGap does not allocate', () => {
+  const lines = createOrbitLines(bodies);
+  const camera = new PerspectiveCamera();
+  const center = new Vector3(3, 1, 2);
+  const spy = vi.spyOn(Vector3.prototype, 'clone');
+  for (let frame = 0; frame < 10; frame += 1) {
+    lines.setGap(center, 1, camera);
+  }
+  expect(spy).not.toHaveBeenCalled();
+  spy.mockRestore();
+  lines.dispose();
 });

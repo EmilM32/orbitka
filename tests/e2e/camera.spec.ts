@@ -1020,3 +1020,45 @@ for (const viewport of [
     );
   });
 }
+
+// ADR-010 point 10, copied: e2e imports nothing from src.
+const ORBIT_GAP_RADIUS_FACTOR = 1.25;
+
+test('orbit does not cross the selected disc', async ({ page }, testInfo) => {
+  await openApp(page);
+  await waitReady(page);
+  expect(
+    (await page.evaluate(() => window.__orbitka?.getOrbitState()))?.gapRadius,
+  ).toBe(0);
+
+  const state = await flyTo(page, 'jupiter');
+  const point = await expectCentered(page, 'jupiter');
+  const orbit = await page.evaluate(() => window.__orbitka?.getOrbitState());
+  expect(orbit?.gapRadius).toBeCloseTo(
+    state.selectedRadius * ORBIT_GAP_RADIUS_FACTOR,
+    6,
+  );
+
+  // Jupiter's own orbit runs through its center. The pixels there are the
+  // disc's color, not the orbit line's (ORBIT_COLOR).
+  const pixels = await readCanvasPixels(
+    page,
+    [
+      { id: 'jupiter', x: point.x, y: point.y, color: BODY_COLORS.jupiter },
+      { id: 'orbit', x: point.x, y: point.y, color: '#5b6b8c' },
+    ],
+    { ...PIXEL, windowRadius: 2 },
+  );
+  expect(pixels.matches.jupiter ?? 0).toBeGreaterThanOrEqual(20);
+  expect(pixels.matches.orbit ?? 0).toBe(0);
+  await testInfo.attach('jupiter-orbit-gap', {
+    body: await page.locator('canvas').screenshot(),
+    contentType: 'image/png',
+  });
+
+  await page.getByTestId('view-reset').click();
+  await waitForFlightEnd(page);
+  expect(
+    (await page.evaluate(() => window.__orbitka?.getOrbitState()))?.gapRadius,
+  ).toBe(0);
+});

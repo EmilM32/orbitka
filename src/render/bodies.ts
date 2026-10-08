@@ -1,4 +1,5 @@
 import {
+  Color,
   Group,
   Mesh,
   MeshBasicMaterial,
@@ -102,9 +103,15 @@ function moonSceneRadii(defs: readonly BodyDef[]): Map<string, number> {
   return radii;
 }
 
+// SPEC §9.3, medium and light levels: the disc is warmer and a little
+// brighter than its catalog color. Applied to the linear color.
+export const SUN_DISC_TINT = [1.15, 1.0, 0.8] as const;
+
 function materialFor(def: BodyDef): Material {
   if (def.type === 'star') {
-    return new MeshBasicMaterial({ color: def.visual.color });
+    const [r, g, b] = SUN_DISC_TINT;
+    const color = new Color(def.visual.color).multiply(new Color(r, g, b));
+    return new MeshBasicMaterial({ color });
   }
 
   return new MeshStandardMaterial({

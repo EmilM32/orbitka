@@ -11,7 +11,7 @@ import {
 
 const CAMERA_FOV = 45;
 const CAMERA_NEAR = 0.1;
-const CAMERA_FAR = 2000;
+export const CAMERA_FAR = 2000;
 
 const pose: CameraPose = {
   azimuth: 0,

@@ -46,8 +46,9 @@ async function expectWithinBudget(
 }
 
 // Measured start view (days=0, 1280×720): 22 draw calls on main before
-// EMI-221, plus 1 for Saturn's ring.
-const START_DRAW_CALLS = 23;
+// EMI-221, plus 1 for Saturn's ring (EMI-221), 1 for the stars and 1 for the
+// Sun's glow (EMI-222).
+const START_DRAW_CALLS = 25;
 
 test('start view within budget', async ({ page }) => {
   await openApp(page);

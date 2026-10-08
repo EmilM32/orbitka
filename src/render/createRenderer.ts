@@ -1,4 +1,5 @@
 import {
+  ACESFilmicToneMapping,
   Scene,
   WebGLRenderer,
   type Material,
@@ -29,6 +30,9 @@ export type SceneView = {
 export function createRenderer(canvas: HTMLCanvasElement): SceneView {
   const renderer = new WebGLRenderer({ canvas, antialias: true });
   renderer.setClearColor(CLEAR_COLOR, 1);
+  // ADR-010 point 5: ACES already in stage 1; bloom comes in stage 2.
+  renderer.toneMapping = ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1;
 
   const scene = new Scene();
   const initialWidth = document.body.clientWidth;

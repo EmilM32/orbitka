@@ -121,3 +121,29 @@ test('createRenderer › resize does not reset camera', async () => {
 
   view.dispose();
 });
+
+test('createRenderer › uses ACES tone mapping', async () => {
+  vi.stubGlobal('ResizeObserver', RecordingResizeObserver);
+  window.matchMedia = ((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener() {},
+    removeEventListener() {},
+    addListener() {},
+    removeListener() {},
+    dispatchEvent() {
+      return false;
+    },
+  })) as typeof window.matchMedia;
+  setBodySize(1280, 720);
+  const { ACESFilmicToneMapping } = await import('three');
+  const { createRenderer } = await import('@render/createRenderer.ts');
+  const canvas = document.createElement('canvas');
+  document.body.append(canvas);
+  const view = createRenderer(canvas);
+
+  expect(view.renderer.toneMapping).toBe(ACESFilmicToneMapping);
+  expect(view.renderer.toneMappingExposure).toBe(1);
+  view.dispose();
+});

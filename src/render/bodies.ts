@@ -15,6 +15,8 @@ import { SPHERE_SEGMENTS, createSphere } from './sphereFactory.ts';
 export type BodyMeshes = {
   group: Group;
   meshes: Map<string, Mesh>;
+  /** Sphere radius in scene units, moons on their own scale. */
+  radii: Map<string, number>;
   dispose: () => void;
 };
 
@@ -145,6 +147,7 @@ function disposeObject(object: Object3D): void {
 export function createBodies(defs: readonly BodyDef[]): BodyMeshes {
   const group = new Group();
   const meshes = new Map<string, Mesh>();
+  const radii = new Map<string, number>();
   let disposed = false;
 
   const dispose = (): void => {
@@ -191,11 +194,12 @@ export function createBodies(defs: readonly BodyDef[]): BodyMeshes {
       mesh.name = def.id;
       group.add(mesh);
       meshes.set(def.id, mesh);
+      radii.set(def.id, radius);
     }
   } catch (error) {
     dispose();
     throw error;
   }
 
-  return { group, meshes, dispose };
+  return { group, meshes, radii, dispose };
 }

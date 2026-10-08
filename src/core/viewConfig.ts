@@ -2,6 +2,9 @@
 export const VIEW_CONFIG = {
   labelFontPx: 13,
   labelHeightPx: 24,
+  moonLabelHeightPx: 26,
+  moonLabelFontPx: 14,
+  labelLeaderOffsetPx: 24,
   labelMinContrast: 4.5,
   labelGapPx: 4,
   labelOffsetPx: 6,

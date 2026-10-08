@@ -190,6 +190,29 @@ function mount(canvas: HTMLCanvasElement): App {
     },
   });
   const projector = createBodyProjector(projectorEntries, view);
+  // Labels also cover the moons, which are not selectable, so they get a
+  // frame of their own: the picker and the ring keep the selectable bodies.
+  const labelBodies = [];
+  const labelEntries = [];
+  for (const body of bodies) {
+    const mesh = bodyView.meshes.get(body.id);
+    const radius = bodyView.radii.get(body.id);
+    if (mesh === undefined || radius === undefined) {
+      continue;
+    }
+    labelEntries.push({
+      id: body.id,
+      position: mesh.position,
+      displayRadius: radius,
+    });
+    labelBodies.push({
+      id: body.id,
+      radiusKm: body.radiusKm,
+      parentId: body.parentId,
+      color: body.visual.color,
+    });
+  }
+  const labelProjector = createBodyProjector(labelEntries, view);
   const picker = createBodyPicker({
     surface: canvas,
     frame: projector.frame,
@@ -375,10 +398,10 @@ function mount(canvas: HTMLCanvasElement): App {
   });
   const announcer = createAnnouncer(document.body, selection, i18n);
   const labels = createBodyLabels(document.body, {
-    bodies: selectable,
+    bodies: labelBodies,
     selection,
     i18n,
-    frame: projector.frame,
+    frame: labelProjector.frame,
   });
   const debugSession = createDebugSession(search, document.body);
   let lastUiMs = Number.NEGATIVE_INFINITY;
@@ -579,6 +602,7 @@ function mount(canvas: HTMLCanvasElement): App {
       }
       if (cssWidth > 0 && cssHeight > 0) {
         projector.update(view.camera, cssWidth, cssHeight);
+        labelProjector.update(view.camera, cssWidth, cssHeight);
         labels.update(cssWidth, cssHeight, simDt);
       }
       ring.update(simDt);
@@ -635,6 +659,7 @@ function mount(canvas: HTMLCanvasElement): App {
       ring.dispose();
       picker.dispose();
       projector.dispose();
+      labelProjector.dispose();
       unsubscribeSelection();
       selection.dispose();
       scaleNotice.dispose();

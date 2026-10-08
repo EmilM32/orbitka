@@ -35,6 +35,8 @@
   --c-surface-active: rgba(255, 255, 255, 0.16); /* pressed, no yellow */
   --c-scrim: rgba(3, 5, 10, 0.62); /* behind the modal dialog */
   --c-line: rgba(176, 196, 255, 0.18); /* decorative borders */
+  --c-leader: rgba(220, 228, 255, 0.55); /* label leader lines in the scene */
+  --c-label: rgba(14, 18, 33, 0.78); /* label pill in the scene */
   --c-control-border: #5d6a8c; /* control boundary, >= 3:1 */
   --c-active-border: rgba(255, 255, 255, 0.7);
 

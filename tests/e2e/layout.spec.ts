@@ -484,6 +484,42 @@ test('open scale explanation lies on top and fits at 1280x800 / 1280x720 / 1024x
   }
 });
 
+test('all planet labels visible at start', async ({ page }) => {
+  await openAt(page, { width: 1280, height: 720 }, '/?debug=1&days=0&paused=1');
+  await page.waitForFunction(() => (window.__orbitka?.frameCount ?? 0) > 5);
+  const ids = [
+    'sun',
+    'mercury',
+    'venus',
+    'earth',
+    'mars',
+    'jupiter',
+    'saturn',
+    'uranus',
+    'neptune',
+  ];
+  for (const id of ids) {
+    await expect(page.getByTestId(`body-label-${id}`)).not.toHaveClass(
+      /is-hidden/u,
+    );
+  }
+});
+
+test('sun and selected keep labels with the drawer open', async ({ page }) => {
+  await openAt(page, TABLET_PORTRAIT, '/?debug=1&days=0&paused=1');
+  await page.getByTestId('bodies-drawer-open').click();
+  await page.getByTestId('body-item-mars').click();
+  await page.waitForFunction(
+    () => window.__orbitka?.getCameraState().flightActive === 0,
+  );
+  await page.getByTestId('bodies-drawer-open').click();
+  await expect(page.getByTestId('bodies-drawer')).toBeVisible();
+  await page.waitForTimeout(300);
+  await expect(page.getByTestId('body-label-mars')).not.toHaveClass(
+    /is-hidden/u,
+  );
+});
+
 test('why dialog traps focus', async ({ page }) => {
   const errors = await openAt(
     page,

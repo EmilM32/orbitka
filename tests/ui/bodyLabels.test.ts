@@ -9,12 +9,14 @@ import {
   createBodyScreenFrame,
   type BodyScreenFrame,
 } from '@core/bodyScreenFrame.ts';
-import { getSelectableBodies } from '@core/selectableBodies.ts';
-import { type SelectableBody } from '@core/selectableBodies.ts';
 import { createSelection, type Selection } from '@core/selection.ts';
 import { VIEW_CONFIG } from '@core/viewConfig.ts';
 import { bodies as catalog } from '@data/bodies.ts';
-import { createBodyLabels, type BodyLabels } from '@ui/bodyLabels.ts';
+import {
+  createBodyLabels,
+  type BodyLabels,
+  type LabelBody,
+} from '@ui/bodyLabels.ts';
 import { createI18n, type Dictionary, type I18n } from '@ui/i18n.ts';
 
 const i18n = createI18n(pl, 'pl-PL');
@@ -25,7 +27,7 @@ const LABEL_HEIGHT = VIEW_CONFIG.labelHeightPx;
 
 test('one label per body', () => {
   reset();
-  const bodies = getSelectableBodies(catalog);
+  const bodies = planets();
   const { labels } = mount(bodies);
   const nodes = labels.element.querySelectorAll('.body-label');
   expect(nodes).toHaveLength(9);
@@ -41,22 +43,15 @@ test('one label per body', () => {
   }
 
   labels.dispose();
-  const few = [
-    { id: 'sun', type: 'star', radiusKm: 100 },
-    { id: 'earth', type: 'planet', radiusKm: 10 },
-    { id: 'mars', type: 'planet', radiusKm: 5 },
-  ] as const satisfies readonly SelectableBody[];
-  const short = mount([...few]);
+  const short = mount([body('sun', 100), body('earth', 10), body('mars', 5)]);
   expect(short.labels.element.querySelectorAll('.body-label')).toHaveLength(3);
   short.labels.dispose();
   short.selection.dispose();
 });
 
 test('css contract', () => {
-  expect(CSS).toContain('font-size: 13px');
   expect(CSS).toContain('color: var(--c-text)');
-  expect(CSS).toContain('rgba(10, 14, 30, 0.85)');
-  expect(CSS).toContain('font-weight: 700');
+  expect(CSS).toContain('background: var(--c-label)');
   expect(CSS).toContain('z-index: var(--z-labels)');
   expect(CSS).not.toMatch(/transition/iu);
   expect(CSS).not.toMatch(/animation/iu);
@@ -64,15 +59,28 @@ test('css contract', () => {
   expect(CSS).toMatch(
     /@media \(pointer: fine\)\s*\{[^}]*pointer-events:\s*auto/u,
   );
-  expect(CSS).toMatch(
-    /@media \(pointer: coarse\)\s*\{[^}]*pointer-events:\s*none/u,
-  );
   expect(CSS).not.toMatch(/::after/u);
+  // Planet pill: 13/600, an 8 px color dot, fully rounded.
+  expect(CSS).toMatch(/\.body-label\s*\{[^}]*13px/u);
+  expect(CSS).toMatch(
+    /\.body-label\s*\{[^}]*border-radius:\s*var\(--radius-pill\)/u,
+  );
+  expect(CSS).toMatch(/\.body-label__dot\s*\{[^}]*width:\s*8px/u);
+  // Moons: 14 px, 26 px tall.
+  expect(CSS).toMatch(/\.body-label\.is-moon\s*\{[^}]*font-size:\s*14px/u);
+  expect(CSS).toMatch(
+    new RegExp(
+      `\\.body-label\\.is-moon\\s*\\{[^}]*height:\\s*${VIEW_CONFIG.moonLabelHeightPx}px`,
+      'u',
+    ),
+  );
+  expect(CSS).toMatch(/#label-leaders\s*\{[^}]*stroke:\s*var\(--c-leader\)/u);
 });
 
 test('contrast at least 4.5', () => {
-  const panelOnWhite = composite([10, 14, 30], 0.85, [255, 255, 255]);
-  const panelOnSun = composite([10, 14, 30], 0.85, [253, 184, 19]);
+  // --c-label: rgba(14, 18, 33, 0.78).
+  const panelOnWhite = composite([14, 18, 33], 0.78, [255, 255, 255]);
+  const panelOnSun = composite([14, 18, 33], 0.78, [253, 184, 19]);
   expect(contrast([255, 255, 255], panelOnWhite)).toBeGreaterThanOrEqual(4.5);
   expect(contrast([255, 255, 255], panelOnSun)).toBeGreaterThanOrEqual(4.5);
   expect(contrast([10, 14, 30], [255, 213, 74])).toBeGreaterThanOrEqual(4.5);
@@ -371,7 +379,7 @@ test('selected bold and hovered class', () => {
 
 test('hidden from assistive tech', () => {
   reset();
-  const { labels, selection } = mount(getSelectableBodies(catalog));
+  const { labels, selection } = mount(planets());
   expect(labels.element.getAttribute('aria-hidden')).toBe('true');
   for (const label of labels.element.querySelectorAll('.body-label')) {
     expect(label.hasAttribute('tabindex')).toBe(false);
@@ -381,21 +389,20 @@ test('hidden from assistive tech', () => {
   selection.dispose();
 });
 
-test('coarse pointer labels ignore pointer events', () => {
-  expect(CSS).toMatch(
-    /@media \(pointer: coarse\)\s*\{[^}]*pointer-events:\s*none/u,
-  );
+test('only planet labels take pointer events', () => {
   expect(CSS).not.toMatch(/::after/u);
   const fine = /@media \(pointer: fine\)\s*\{([\s\S]*?)\n\}/u.exec(CSS);
   expect(fine).not.toBeNull();
-  expect(fine?.[1]).toMatch(/\.body-label\s*\{[^}]*pointer-events:\s*auto/u);
-  // The click target grows past the drawn label with a pseudo-element.
-  const target = /\.body-label::before\s*\{([^}]*)\}/u.exec(fine?.[1] ?? '');
-  expect(target).not.toBeNull();
-  const inset = /inset:\s*-(\d+)px 0/u.exec(target?.[1] ?? '');
-  expect(
-    VIEW_CONFIG.labelHeightPx + 2 * Number(inset?.[1]),
-  ).toBeGreaterThanOrEqual(32);
+  expect(fine?.[1]).toMatch(
+    /\.body-label:not\(\.is-moon\)\s*\{[^}]*pointer-events:\s*auto/u,
+  );
+  // The click target grows past the drawn pill by 4 px on every side.
+  const target = /\.body-label:not\(\.is-moon\)::before\s*\{([^}]*)\}/u.exec(
+    fine?.[1] ?? '',
+  );
+  expect(target?.[1]).toMatch(/inset:\s*-4px;/u);
+  // Base rule: no pointer events (coarse pointers and moons).
+  expect(CSS).toMatch(/\.body-label\s*\{[^}]*pointer-events:\s*none/u);
 });
 
 test('drawn label height is the layout height', () => {
@@ -406,17 +413,8 @@ test('drawn label height is the layout height', () => {
     new RegExp(`\\bheight:\\s*${VIEW_CONFIG.labelHeightPx}px`, 'u'),
   );
   expect(body).toMatch(/box-sizing:\s*border-box/u);
-  expect(body).not.toMatch(/min-height/u);
   expect(CSS).not.toMatch(/min-height/u);
-  // The text box fits inside: line height plus vertical padding.
-  const lineHeight = /line-height:\s*(\d+)px/u.exec(body);
-  const padding = /padding:\s*(\d+)px/u.exec(body);
-  expect(Number(lineHeight?.[1]) + 2 * Number(padding?.[1])).toBe(
-    VIEW_CONFIG.labelHeightPx,
-  );
-  expect(Number(lineHeight?.[1])).toBeGreaterThanOrEqual(
-    VIEW_CONFIG.labelFontPx * 1.2,
-  );
+  expect(CSS).not.toMatch(/min-height:\s*32px/u);
 });
 
 test('missing body id and empty list', () => {
@@ -537,23 +535,40 @@ function reset(): void {
   document.body.replaceChildren();
 }
 
-function body(id: string, radiusKm: number): SelectableBody {
-  return {
-    id,
-    type: id === 'sun' ? 'star' : 'planet',
-    radiusKm,
-  };
+function body(
+  id: string,
+  radiusKm: number,
+  parentId: string | null = id === 'sun' ? null : 'sun',
+): LabelBody {
+  return { id, radiusKm, parentId, color: '#c1440e' };
 }
 
-function one(id: string): SelectableBody[] {
+function one(id: string): LabelBody[] {
   return [body(id, 6371)];
 }
 
+// The Sun and the eight planets from the catalog, as main.ts passes them.
+function planets(): LabelBody[] {
+  return catalog
+    .filter((item) => item.type === 'star' || item.type === 'planet')
+    .map((item) => ({
+      id: item.id,
+      radiusKm: item.radiusKm,
+      parentId: item.parentId,
+      color: item.visual.color,
+    }));
+}
+
 function mount(
-  bodies: readonly SelectableBody[],
+  bodies: readonly LabelBody[],
   options: { measure?: (element: HTMLElement) => number } = {},
 ): { labels: BodyLabels; selection: Selection; frame: BodyScreenFrame } {
-  const selection = createSelection(bodies.map((item) => item.id));
+  // Moons have labels but are not selectable.
+  const selection = createSelection(
+    bodies
+      .filter((item) => item.parentId === null || item.parentId === 'sun')
+      .map((item) => item.id),
+  );
   const frame = createBodyScreenFrame(bodies.map((item) => item.id));
   const labels = createBodyLabels(document.body, {
     bodies,
@@ -668,3 +683,100 @@ function composite(
     color[2] * alpha + background[2] * (1 - alpha),
   ];
 }
+
+test('pills, moon labels and leaders', () => {
+  reset();
+  const bodies = [
+    body('sun', 695700),
+    body('jupiter', 69911),
+    body('saturn', 58232),
+    body('io', 1821.5, 'jupiter'),
+    body('europa', 1560.8, 'jupiter'),
+    body('ganymede', 2631.2, 'jupiter'),
+    body('callisto', 2410.3, 'jupiter'),
+  ];
+  bodies[1] = { ...body('jupiter', 69911), color: '#d2a679' };
+  const { labels, frame, selection } = mount(bodies, { measure: () => 60 });
+  place(frame, 'sun', 100, 360, 30);
+  place(frame, 'jupiter', 640, 360, 40);
+  place(frame, 'saturn', 1100, 200, 20);
+  place(frame, 'io', 560, 250, 5);
+  place(frame, 'europa', 720, 250, 5);
+  place(frame, 'ganymede', 540, 470, 6);
+  place(frame, 'callisto', 760, 470, 6);
+
+  // Planet pills have a color dot, moons none.
+  const dot = labelFor('jupiter').querySelector('.body-label__dot');
+  expect(dot).not.toBeNull();
+  expect((dot as HTMLElement).style.background).toBe('rgb(210, 166, 121)');
+  expect(labelFor('io').querySelector('.body-label__dot')).toBeNull();
+  expect(labelFor('io').classList.contains('is-moon')).toBe(true);
+  expect(labelFor('io').textContent).toBe('Io');
+
+  // One leader line per body, made once.
+  const lines = document.querySelectorAll('#label-leaders line');
+  expect(lines).toHaveLength(bodies.length);
+  expect(
+    document.querySelector('#label-leaders')?.getAttribute('aria-hidden'),
+  ).toBe('true');
+
+  const moons = ['io', 'europa', 'ganymede', 'callisto'];
+  labels.update(1280, 720, 0.2);
+  for (const id of moons) {
+    expect(labelFor(id).classList.contains('is-hidden')).toBe(true);
+  }
+
+  selection.select('jupiter');
+  labels.update(1280, 720, 0);
+  for (const id of moons) {
+    expect(labelFor(id).classList.contains('is-hidden')).toBe(false);
+  }
+
+  // A click on a moon label selects nothing.
+  labelFor('io').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  expect(selection.getSelectedId()).toBe('jupiter');
+
+  selection.select('saturn');
+  labels.update(1280, 720, 0);
+  for (const id of moons) {
+    expect(labelFor(id).classList.contains('is-hidden')).toBe(true);
+  }
+
+  labels.dispose();
+  expect(document.querySelector('#label-leaders')).toBeNull();
+  selection.dispose();
+});
+
+test('leader line follows a label beside its body', () => {
+  reset();
+  // Venus right above and Mercury right below Mars take both places.
+  const bodies = [
+    body('venus', 6051.8),
+    body('mercury', 2439.7),
+    body('mars', 3389.5),
+  ];
+  const { labels, frame } = mount(bodies, { measure: () => 50 });
+  place(frame, 'venus', 300, 168, 4);
+  place(frame, 'mercury', 300, 232, 4);
+  place(frame, 'mars', 300, 200, 4);
+  labels.update(600, 400, 0.2);
+
+  const lines = [...document.querySelectorAll('#label-leaders line')];
+  const marsLine = lines[2];
+  expect(labelFor('mars').classList.contains('is-hidden')).toBe(false);
+  expect(marsLine?.getAttribute('visibility')).toBe('visible');
+  const x1 = Number(marsLine?.getAttribute('x1'));
+  const y1 = Number(marsLine?.getAttribute('y1'));
+  expect(Math.abs(Math.hypot(x1 - 300, y1 - 200) - 4)).toBeLessThanOrEqual(0.5);
+  // Labels above or below have no line.
+  expect(lines[0]?.getAttribute('visibility')).toBe('hidden');
+
+  // Setters only on change.
+  const set = vi.spyOn(marsLine as Element, 'setAttribute');
+  labels.update(600, 400, 0);
+  expect(set).not.toHaveBeenCalled();
+  place(frame, 'mars', 302, 200, 4);
+  labels.update(600, 400, 0);
+  expect(set).toHaveBeenCalled();
+  labels.dispose();
+});

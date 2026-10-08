@@ -3,12 +3,13 @@ import './bodyLabels.css';
 import { type BodyScreenFrame } from '@core/bodyScreenFrame.ts';
 import {
   computeLabelOrder,
+  LABEL_SIDE_RIGHT,
   labelCandidateOrigin,
   layoutLabels,
+  leaderLine,
   rectHitsDisc,
   type LabelLayout,
 } from '@core/labelLayout.ts';
-import { type SelectableBody } from '@core/selectableBodies.ts';
 import { type Selection, type SelectionEvent } from '@core/selection.ts';
 import { VIEW_CONFIG } from '@core/viewConfig.ts';
 
@@ -22,8 +23,18 @@ export type BodyLabels = {
   dispose(): void;
 };
 
+/** A body with a label: the Sun, the planets and their moons. */
+export type LabelBody = {
+  id: string;
+  radiusKm: number;
+  /** null for the Sun; `sun` for a planet; the planet for a moon. */
+  parentId: string | null;
+  /** `visual.color`, the dot in front of a planet name. */
+  color: string;
+};
+
 export type BodyLabelsOptions = {
-  bodies: readonly SelectableBody[];
+  bodies: readonly LabelBody[];
   selection: Selection;
   i18n: AppI18n;
   frame: BodyScreenFrame;
@@ -32,6 +43,13 @@ export type BodyLabelsOptions = {
 };
 
 const LAYOUT_INTERVAL_SECONDS = 1 / VIEW_CONFIG.labelLayoutHz;
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function isMoon(body: LabelBody | undefined): boolean {
+  return (
+    body !== undefined && body.parentId !== null && body.parentId !== 'sun'
+  );
+}
 
 export function createBodyLabels(
   parent: HTMLElement,
@@ -66,18 +84,43 @@ export function createBodyLabels(
   element.id = 'body-labels';
   element.setAttribute('aria-hidden', 'true');
 
+  // Leader lines live in the DOM, not in the scene: no draw calls. One line
+  // per body, made once.
+  const leaders = document.createElementNS(SVG_NS, 'svg');
+  leaders.id = 'label-leaders';
+  leaders.setAttribute('aria-hidden', 'true');
+  element.append(leaders);
+
   const ids: string[] = [];
+  const parentIds: (string | null)[] = [];
+  const moons = new Uint8Array(count);
   const elements: HTMLElement[] = [];
+  const lines: SVGLineElement[] = [];
   for (let index = 0; index < count; index += 1) {
-    const id = bodies[index]?.id ?? '';
+    const body = bodies[index];
+    const id = body?.id ?? '';
     ids.push(id);
+    parentIds.push(body?.parentId ?? null);
+    moons[index] = isMoon(body) ? 1 : 0;
     const label = document.createElement('span');
     label.className = 'body-label is-hidden';
     label.dataset['testid'] = `body-label-${id}`;
     label.dataset['bodyId'] = id;
-    label.textContent = names[index] ?? '';
+    if (moons[index] === 1) {
+      label.classList.add('is-moon');
+    } else {
+      const dot = document.createElement('span');
+      dot.className = 'body-label__dot';
+      dot.style.background = body?.color ?? '#ffffff';
+      label.append(dot);
+    }
+    label.append(names[index] ?? '');
     element.append(label);
     elements.push(label);
+    const line = document.createElementNS(SVG_NS, 'line');
+    line.setAttribute('visibility', 'hidden');
+    leaders.append(line);
+    lines.push(line);
   }
 
   if (options.before === undefined) {
@@ -90,9 +133,14 @@ export function createBodyLabels(
   const labelWidth = new Float64Array(count);
   const labelHeight = new Float64Array(count);
   for (let index = 0; index < count; index += 1) {
-    const label = elements[index];
-    labelWidth[index] = label === undefined ? 0 : measure(label);
-    labelHeight[index] = VIEW_CONFIG.labelHeightPx;
+    labelHeight[index] =
+      moons[index] === 1
+        ? VIEW_CONFIG.moonLabelHeightPx
+        : VIEW_CONFIG.labelHeightPx;
+  }
+  const parentIndex = new Int16Array(count);
+  for (let index = 0; index < count; index += 1) {
+    parentIndex[index] = findBody(ids, parentIds[index] ?? null);
   }
 
   const order = new Uint16Array(count);
@@ -110,6 +158,9 @@ export function createBodyLabels(
   const lastTop = new Float64Array(count);
   const written = new Uint8Array(count);
   const origin = new Float64Array(2);
+  const leader = new Float64Array(4);
+  // x1, y1, x2, y2 per line as last written; NaN = hidden.
+  const lastLeader = new Float64Array(count * 4).fill(Number.NaN);
   for (let index = 0; index < count; index += 1) {
     radiiKm[index] = bodies[index]?.radiusKm ?? 0;
     lastHidden[index] = 1;
@@ -126,6 +177,7 @@ export function createBodyLabels(
     labelHeight,
     selectedIndex: -1,
     sunIndex: findBody(ids, 'sun'),
+    parentIndex,
     shown,
     outX,
     outY,
@@ -145,6 +197,7 @@ export function createBodyLabels(
 
   applySelected(selectedId);
   applyHover(hoveredIndex);
+  measureAll();
 
   const unsubscribe = selection.subscribe(onSelection);
   element.addEventListener('click', onClick);
@@ -203,6 +256,8 @@ export function createBodyLabels(
     }
     selectedIndex = findBody(ids, selectedId);
     applySelected(selectedId);
+    // The selected label is 14 px, so its width changes with the selection.
+    measureAll();
     layoutImmediately();
   }
 
@@ -220,6 +275,10 @@ export function createBodyLabels(
     }
     const id = label.getAttribute('data-body-id');
     if (id === null || id.length === 0) {
+      return;
+    }
+    // Moons are not selectable (outside M4).
+    if (moons[findBody(ids, id)] === 1) {
       return;
     }
     selection.select(id);
@@ -242,10 +301,29 @@ export function createBodyLabels(
       radiusPx[index] = frame.radiusPx[slot] ?? 0;
       visible[index] = frame.visible[slot] ?? 0;
     }
+    // A moon behind its planet's disc is hidden and gets no label.
+    for (let index = 0; index < count; index += 1) {
+      const parent = parentIndex[index] ?? -1;
+      if (moons[index] !== 1 || parent < 0 || visible[index] === 0) {
+        continue;
+      }
+      const slot = frameIndex[index] ?? 0;
+      const parentSlot = frameIndex[parent] ?? 0;
+      const dx = (x[index] ?? 0) - (x[parent] ?? 0);
+      const dy = (y[index] ?? 0) - (y[parent] ?? 0);
+      const radius = radiusPx[parent] ?? 0;
+      if (
+        (visible[parent] ?? 0) === 1 &&
+        dx * dx + dy * dy < radius * radius &&
+        (frame.depth[slot] ?? 0) > (frame.depth[parentSlot] ?? 0)
+      ) {
+        visible[index] = 0;
+      }
+    }
     layout.selectedIndex = selectedIndex;
     layout.width = viewWidth;
     layout.height = viewHeight;
-    computeLabelOrder(order, ids, radiiKm, selectedId);
+    computeLabelOrder(order, ids, radiiKm, selectedId, parentIds);
     layoutLabels(layout);
     for (let index = 0; index < count; index += 1) {
       writeHidden(index, (shown[index] ?? 0) === 0 ? 1 : 0);
@@ -279,9 +357,15 @@ export function createBodyLabels(
     }
     const width = labelWidth[index] ?? 0;
     const height = labelHeight[index] ?? 0;
+    const parent = moons[index] === 1 ? (parentIndex[index] ?? -1) : -1;
     for (let other = 0; other < count; other += 1) {
       const slot = frameIndex[other] ?? 0;
-      if (other === index || (frame.visible[slot] ?? 0) === 0) {
+      // A moon's label may cross its planet's disc (as in the layout).
+      if (
+        other === index ||
+        other === parent ||
+        (frame.visible[slot] ?? 0) === 0
+      ) {
         continue;
       }
       if (
@@ -340,6 +424,71 @@ export function createBodyLabels(
       lastLeft[index] = left;
       lastTop[index] = top;
       written[index] = 1;
+    }
+    writeLeaders();
+  }
+
+  // A line for labels beside their body; it follows the label every frame.
+  function writeLeaders(): void {
+    for (let index = 0; index < count; index += 1) {
+      const line = lines[index];
+      if (line === undefined) {
+        continue;
+      }
+      const slot = frameIndex[index] ?? 0;
+      const base = index * 4;
+      const radius = frame.radiusPx[slot] ?? 0;
+      const drawn =
+        (shown[index] ?? 0) === 1 &&
+        (side[index] ?? 0) >= LABEL_SIDE_RIGHT &&
+        written[index] === 1 &&
+        Number.isFinite(radius) &&
+        radius >= 0;
+      if (!drawn) {
+        if (!Number.isNaN(lastLeader[base] ?? Number.NaN)) {
+          line.setAttribute('visibility', 'hidden');
+          lastLeader[base] = Number.NaN;
+        }
+        continue;
+      }
+      leaderLine(
+        leader,
+        side[index] ?? 0,
+        frame.x[slot] ?? 0,
+        frame.y[slot] ?? 0,
+        radius,
+        lastLeft[index] ?? 0,
+        lastTop[index] ?? 0,
+        labelWidth[index] ?? 0,
+        labelHeight[index] ?? 0,
+      );
+      if (Number.isNaN(lastLeader[base] ?? Number.NaN)) {
+        line.setAttribute('visibility', 'visible');
+      }
+      writeCoordinate(line, 'x1', base, roundTenth(leader[0] ?? 0));
+      writeCoordinate(line, 'y1', base + 1, roundTenth(leader[1] ?? 0));
+      writeCoordinate(line, 'x2', base + 2, roundTenth(leader[2] ?? 0));
+      writeCoordinate(line, 'y2', base + 3, roundTenth(leader[3] ?? 0));
+    }
+  }
+
+  function writeCoordinate(
+    line: SVGLineElement,
+    name: 'x1' | 'y1' | 'x2' | 'y2',
+    slot: number,
+    value: number,
+  ): void {
+    if (lastLeader[slot] === value) {
+      return;
+    }
+    lastLeader[slot] = value;
+    line.setAttribute(name, String(value));
+  }
+
+  function measureAll(): void {
+    for (let index = 0; index < count; index += 1) {
+      const label = elements[index];
+      labelWidth[index] = label === undefined ? 0 : measure(label);
     }
   }
 

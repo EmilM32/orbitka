@@ -51,3 +51,35 @@ test('locales › shape', () => {
     }
   }
 });
+
+test('locales › card texts', () => {
+  const genitives: Record<string, string> = {
+    sun: 'Słońca',
+    mercury: 'Merkurego',
+    venus: 'Wenus',
+    earth: 'Ziemi',
+    moon: 'Księżyca',
+    mars: 'Marsa',
+    jupiter: 'Jowisza',
+    saturn: 'Saturna',
+    uranus: 'Urana',
+    neptune: 'Neptuna',
+  };
+  for (const [id, genitive] of Object.entries(genitives)) {
+    expect(messages[`bodies.${id}.nameGenitive`]).toBe(genitive);
+  }
+  expect(messages['card.close.ariaLabel']).toBe('Zamknij kartę');
+  expect(messages['card.facts.year']).toBe('Rok trwa');
+  expect(messages['card.facts.rotation']).toBe('Obrót wokół osi');
+  expect(messages['card.system']).toBe('Cały układ');
+  expect(messages['card.more']).toBe('Więcej');
+  expect(messages['card.less']).toBe('Mniej');
+  expect(messages['card.sheet.expand']).toBe('Rozwiń kartę');
+  expect(messages['card.sheet.collapse']).toBe('Zwiń kartę');
+  expect(messages['card.facts.days']).toEqual({
+    one: '{count} doba',
+    few: '{count} doby',
+    many: '{count} dób',
+    other: '{count} doby',
+  });
+});

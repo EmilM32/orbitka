@@ -169,7 +169,7 @@ test('css contract', () => {
   expect(CSS).toContain('top: 8px');
   expect(CSS).toContain('right: 8px');
   expect(CSS).toContain('z-index: var(--z-panels)');
-  expect(CSS).toContain('flex-direction: column');
+  expect(CSS).toContain('flex-direction: row');
   expect(CSS).toContain('gap: 8px');
   expect(CSS).toMatch(/min-width:\s*44px/u);
   expect(CSS).toMatch(/min-height:\s*44px/u);

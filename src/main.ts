@@ -10,6 +10,8 @@ import { createLoop } from '@core/loop.ts';
 import { createReducedMotion } from '@core/reducedMotion.ts';
 import { getSelectableBodies } from '@core/selectableBodies.ts';
 import { createSelection } from '@core/selection.ts';
+import { VIEW_CONFIG } from '@core/viewConfig.ts';
+import { createViewInsets } from '@core/viewInsets.ts';
 import { isStartPaused, parseStartDays } from '@core/startParams.ts';
 import { bodies } from '@data/bodies.ts';
 import { radiusToScene } from '@sim/scale.ts';
@@ -39,6 +41,7 @@ import { getBodyScreenPositions } from '@render/screenPositions.ts';
 import { createAnnouncer } from '@ui/announcer.ts';
 import { createBodiesDrawer, type BodiesDrawer } from '@ui/bodiesDrawer.ts';
 import { createBodiesPanel } from '@ui/bodiesPanel.ts';
+import { createBodyCard } from '@ui/bodyCard.ts';
 import { createBodyLabels } from '@ui/bodyLabels.ts';
 import { createDebugSession } from '@ui/debugSession.ts';
 import { createI18n } from '@ui/i18n.ts';
@@ -193,9 +196,8 @@ function mount(canvas: HTMLCanvasElement): App {
   const debugAxes = debug ? addDebugAxes(bodies, bodyView.meshes) : null;
   const debugDraws = debug ? trackDebugDrawCalls(view.scene) : null;
   const i18n = createI18n(pl, 'pl-PL');
-  // Validated at startup so a broken content file fails fast. The body card
-  // (EMI-200) receives this catalog as a parameter.
-  parseBodyContentCatalog(
+  // Validated at startup so a broken content file fails fast.
+  const bodyContent = parseBodyContentCatalog(
     bodyContentRaw,
     bodies
       .filter((body) => !BODIES_WITHOUT_CONTENT.has(body.id))
@@ -237,6 +239,22 @@ function mount(canvas: HTMLCanvasElement): App {
       orbitLines.setOrbitLinesVisible(visible);
     },
     before: canvas.nextSibling ?? undefined,
+  });
+  const viewInsets = createViewInsets();
+  const tabletQuery = window.matchMedia(
+    `(min-width: ${VIEW_CONFIG.tabletMinWidthPx}px) and (max-width: ${VIEW_CONFIG.tabletMaxWidthPx}px)`,
+  );
+  // After the canvas and before the view group in the Tab order (SPEC §8).
+  const bodyCard = createBodyCard(document.body, {
+    bodies,
+    content: bodyContent,
+    selection,
+    insets: viewInsets,
+    i18n,
+    isTablet: () => tabletQuery.matches,
+    before: viewControls.element,
+    reducedMotion,
+    focusOnClose: canvas,
   });
   const timeControls = createTimeControls(
     document.body,
@@ -373,6 +391,10 @@ function mount(canvas: HTMLCanvasElement): App {
       getSelectedId() {
         return selection.getSelectedId();
       },
+      getViewInsets() {
+        const current = viewInsets.get();
+        return { right: current.right, bottom: current.bottom };
+      },
       getOrbitState() {
         const opacities: number[] = [];
         for (const id of planetIds) {
@@ -467,6 +489,7 @@ function mount(canvas: HTMLCanvasElement): App {
       announcer.dispose();
       bodiesPanel.dispose();
       bodiesDrawer?.dispose();
+      bodyCard.dispose();
       labels.dispose();
       pageHeader.remove();
       director.dispose();

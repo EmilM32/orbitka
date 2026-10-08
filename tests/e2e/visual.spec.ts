@@ -32,6 +32,7 @@ const HIDE_SCENE = `
 const DESKTOP = { width: 1280, height: 720 };
 const DESKTOP_FULL_HD = { width: 1920, height: 1080 };
 const TABLET_PORTRAIT = { width: 768, height: 1024 };
+const TABLET_LANDSCAPE = { width: 1024, height: 768 };
 
 async function openStable(
   page: Page,
@@ -54,6 +55,9 @@ async function openStable(
 // frames after any interaction before the snapshot.
 async function settle(page: Page): Promise<void> {
   await waitForFrames(page, 3);
+  // New text (a card, an open sheet) can need a latin-ext face that has not
+  // loaded yet; snapshot after the swap.
+  await page.evaluate(() => document.fonts.ready.then(() => undefined));
 }
 
 test('start 1280×720', async ({ page }) => {
@@ -82,14 +86,48 @@ test('scale explanation dialog 1280×720', async ({ page }) => {
   await expect(page).toHaveScreenshot('why-dialog-1280x720.png');
 });
 
-// The body card lands in EMI-200, which adds this snapshot together with the
-// card: https://linear.app/emilm/issue/EMI-200
-test.fixme('Jupiter selected with the body card 1280×720', async ({ page }) => {
-  await openStable(page, DESKTOP);
-  await page.getByTestId('body-item-jupiter').click();
+async function selectAndSettle(page: Page, id: string): Promise<void> {
+  const item = page.getByTestId(`body-item-${id}`);
+  if (!(await item.isVisible())) {
+    await page.getByTestId('bodies-drawer-open').click();
+  }
+  await item.click();
   await page.waitForFunction(
     () => window.__orbitka?.getCameraState().flightActive === 0,
   );
+  await expect(page.getByTestId('body-card')).toBeVisible();
+  // The click leaves hover and focus on the list; park the pointer.
+  await page.mouse.move(0, 0);
+  await page.locator('#viewport').focus();
+  await page.evaluate(() => {
+    (document.activeElement as HTMLElement | null)?.blur();
+  });
   await settle(page);
+}
+
+test('Jupiter selected with the body card 1280×720', async ({ page }) => {
+  await openStable(page, DESKTOP);
+  await selectAndSettle(page, 'jupiter');
   await expect(page).toHaveScreenshot('jupiter-card-1280x720.png');
+});
+
+test('Saturn selected with the sheet 1024×768', async ({ page }) => {
+  await openStable(page, TABLET_LANDSCAPE);
+  await selectAndSettle(page, 'saturn');
+  await expect(page).toHaveScreenshot('saturn-card-1024x768.png');
+});
+
+test('tablet 768×1024 with the sheet expanded', async ({ page }) => {
+  await openStable(page, TABLET_PORTRAIT);
+  await selectAndSettle(page, 'saturn');
+  await page.getByTestId('body-card-handle').click();
+  await expect(page.getByTestId('body-card-handle')).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  );
+  await page.mouse.move(0, 0);
+  // The sheet grows with a height transition; snapshot its end state.
+  await page.waitForFunction(() => document.getAnimations().length === 0);
+  await settle(page);
+  await expect(page).toHaveScreenshot('tablet-768x1024-sheet.png');
 });

@@ -4,7 +4,8 @@
   right: 8px;
   z-index: var(--z-panels);
   display: flex;
-  flex-direction: column;
+  /* One row in the top bar, so the body card and the sheet stay clear. */
+  flex-direction: row;
   gap: 8px;
   margin: 0;
   padding: 0;

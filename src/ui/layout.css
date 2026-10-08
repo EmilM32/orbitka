@@ -65,12 +65,6 @@
     transform: none;
   }
 
-  #view-controls {
-    top: auto;
-    right: 8px;
-    bottom: calc(var(--time-panel-height, 0px) + 16px + 16px);
-  }
-
   #bodies-drawer:not([hidden]) {
     position: fixed;
     top: 112px;

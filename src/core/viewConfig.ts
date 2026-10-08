@@ -10,6 +10,6 @@ export const VIEW_CONFIG = {
   tabletMaxWidthPx: 1024,
   tabletMinWidthPx: 768,
   drawerWidthPx: 280,
-  selectionRingPaddingPx: 4,
+  selectionRingPaddingPx: 8,
   selectionRingMinRadiusPx: 12,
 } as const;

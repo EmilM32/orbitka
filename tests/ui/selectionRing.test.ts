@@ -67,8 +67,9 @@ test('ring geometry', () => {
   const element = ring.element;
 
   expect(element.id).toBe('selection-ring');
-  expect(element.style.border).toMatch(/2px solid/i);
-  expect(element.style.border).toMatch(/#ffd54a|rgb\(255,\s*213,\s*74\)/i);
+  // SPEC §5.5: a 1.5 px yellow outline at 75 %, no crosshair.
+  expect(element.style.border).toBe('1.5px solid rgba(255, 194, 75, 0.75)');
+  expect(element.children).toHaveLength(0);
   expect(element.style.pointerEvents).toBe('none');
   expect(element.getAttribute('aria-hidden')).toBe('true');
   expect(element.style.position).toBe('fixed');
@@ -78,9 +79,10 @@ test('ring geometry', () => {
   selection.select('earth');
   ring.update(0.1);
   expect(element.hidden).toBe(false);
-  expect(element.style.width).toBe('48px');
-  expect(element.style.height).toBe('48px');
-  expect(element.style.transform).toBe('translate(76px, 26px)');
+  // Disc radius + 8 px (SPEC §5.5).
+  expect(element.style.width).toBe('56px');
+  expect(element.style.height).toBe('56px');
+  expect(element.style.transform).toBe('translate(72px, 22px)');
 
   placeEarth(frame, 40, 40, 1);
   ring.update(0.1);
@@ -117,12 +119,12 @@ test('style written only on change of 0.1 px', () => {
     frame.x[1] = 100.04;
     ring.update(0.1);
     expect(transforms.read()).toBe(0);
-    expect(ring.element.style.transform).toBe('translate(86px, 66px)');
+    expect(ring.element.style.transform).toBe('translate(82px, 62px)');
 
     frame.x[1] = 100.1;
     ring.update(0.1);
     expect(transforms.read()).toBe(1);
-    expect(ring.element.style.transform).toBe('translate(86.1px, 66px)');
+    expect(ring.element.style.transform).toBe('translate(82.1px, 62px)');
   } finally {
     transforms.restore();
   }

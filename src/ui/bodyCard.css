@@ -1,0 +1,330 @@
+/*
+ * Body card (SPEC §5.5): a glass panel on the right, from below the top bar
+ * to 16 px above the time panel. On the tablet the same element is the
+ * bottom sheet (SPEC §5.6, .is-sheet). No focus trap.
+ */
+#body-card {
+  position: fixed;
+  top: calc(var(--topbar-h) + 12px);
+  right: var(--edge);
+  z-index: var(--z-card);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  width: var(--card-w);
+  max-height: calc(
+    100dvh - var(--topbar-h) - 12px - var(--time-panel-height, 0px) - 16px -
+      16px
+  );
+  margin: 0;
+  padding: 1.125rem 1.25rem 1.25rem;
+  color: var(--c-text);
+  font-size: var(--fs-md);
+  line-height: var(--lh);
+  border-radius: var(--radius-panel);
+  animation: body-card-in var(--dur) var(--ease-out);
+}
+
+@keyframes body-card-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+
+@keyframes body-card-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.body-card-handle {
+  display: none;
+}
+
+.body-card-head {
+  display: flex;
+  flex: none;
+  gap: var(--s-2);
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.body-card-heading {
+  min-width: 0;
+}
+
+.body-card-title {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-display);
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+}
+
+.body-card-kind {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+  margin: var(--s-2) 0 0;
+  color: var(--c-text-2);
+  font-size: var(--fs-sm);
+}
+
+.body-card-dot {
+  flex: none;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 50%;
+}
+
+.body-card-close {
+  margin: -0.5rem -0.75rem 0 0;
+  padding: 0;
+}
+
+/* Facts, fun fact and description scroll; the actions stay in view. */
+.body-card-scroll {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--s-3);
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.body-card-facts {
+  margin: 0;
+  border-top: var(--border);
+}
+
+.body-card-fact {
+  display: flex;
+  gap: var(--s-3);
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0.625rem 0;
+  border-bottom: var(--border);
+}
+
+.body-card-fact dt {
+  color: var(--c-text-2);
+  font-size: var(--fs-sm);
+}
+
+.body-card-fact dd {
+  margin: 0;
+  font-weight: var(--fw-strong);
+  text-align: right;
+}
+
+.body-card-fun {
+  padding: 0.625rem 0.875rem 0.75rem;
+  font-size: var(--fs-sm);
+  background: rgba(140, 200, 255, 0.08);
+  border: 1px solid rgba(140, 200, 255, 0.18);
+  border-radius: var(--radius-control);
+}
+
+.body-card-fun-text {
+  margin: 0;
+}
+
+.body-card-source {
+  display: inline-block;
+  margin-top: var(--s-1);
+  color: var(--c-info);
+  font-size: var(--fs-sm);
+}
+
+.body-card-source[hidden] {
+  display: none;
+}
+
+.body-card-description {
+  margin: 0;
+  font-size: var(--fs-sm);
+}
+
+.body-card-description[hidden] {
+  display: none;
+}
+
+.body-card-actions {
+  display: flex;
+  flex: none;
+  gap: var(--s-2);
+}
+
+.body-card-actions .o-btn {
+  flex: 1 1 0;
+}
+
+/* Bottom sheet on the tablet: 112 px collapsed, 12 px above the time panel. */
+#body-card.is-sheet {
+  /* Room between the top bar and the gap above the time panel. */
+  --sheet-room: calc(
+    100dvh - var(--topbar-h) - 12px - var(--time-panel-height, 0px) - 16px -
+      12px
+  );
+
+  top: auto;
+  right: var(--edge);
+  bottom: calc(var(--time-panel-height, 0px) + 16px + 12px);
+  left: var(--edge);
+  display: grid;
+  /* Collapsed (saturn-card-1024x768.png): name | gauge | actions. */
+  grid-template-areas: 'head scroll actions';
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-columns: minmax(7rem, auto) minmax(0, 1fr) auto;
+  gap: 0 var(--s-5);
+  width: auto;
+  height: var(--sheet-collapsed);
+  max-height: none;
+  padding: 1.25rem var(--s-4) var(--s-3);
+  overflow: hidden;
+  transition: height var(--dur-slow) var(--ease-in-out);
+  animation-name: body-card-fade;
+}
+
+/* A 44 px tall target over the top edge; the grabber is drawn 8 px down. */
+#body-card.is-sheet .body-card-handle {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  display: block;
+  width: 4rem;
+  height: var(--hit);
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-pill);
+  cursor: grab;
+  transform: translateX(-50%);
+  touch-action: none;
+}
+
+#body-card.is-sheet .body-card-handle::before {
+  position: absolute;
+  top: 0.5rem;
+  left: 50%;
+  width: 2.5rem;
+  height: 5px;
+  content: '';
+  background: rgba(255, 255, 255, 0.35);
+  border-radius: 3px;
+  transform: translateX(-50%);
+}
+
+#body-card.is-sheet .body-card-head {
+  grid-area: head;
+  align-self: center;
+}
+
+#body-card.is-sheet .body-card-scroll {
+  grid-area: scroll;
+  align-self: center;
+  overflow: hidden;
+}
+
+#body-card.is-sheet .body-card-actions {
+  grid-area: actions;
+  align-self: center;
+}
+
+#body-card.is-sheet .body-card-actions .o-btn {
+  flex: none;
+}
+
+#body-card.is-sheet:not(.is-expanded) .body-card-title {
+  font-size: 1.375rem;
+}
+
+#body-card.is-sheet:not(.is-expanded) .body-card-kind {
+  margin-top: 2px;
+}
+
+#body-card.is-sheet:not(.is-expanded) .body-card-close,
+#body-card.is-sheet:not(.is-expanded) .body-card-facts,
+#body-card.is-sheet:not(.is-expanded) .body-card-fun,
+#body-card.is-sheet:not(.is-expanded) .body-card-description,
+#body-card.is-sheet:not(.is-expanded) .gauge-caption,
+#body-card.is-sheet:not(.is-expanded) .gauge-km {
+  display: none;
+}
+
+#body-card.is-sheet:not(.is-expanded) .gauge {
+  gap: var(--s-1);
+}
+
+#body-card.is-sheet:not(.is-expanded) .gauge-value {
+  font-size: var(--fs-md);
+  text-align: right;
+}
+
+#body-card.is-sheet:not(.is-expanded) .gauge-rows {
+  gap: var(--s-1);
+}
+
+/* Expanded: 60 dvh (50 dvh in landscape), never above the top bar. */
+#body-card.is-sheet.is-expanded {
+  grid-template-areas:
+    'head'
+    'scroll'
+    'actions';
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s-3);
+  /* Whole pixels keep the text of the sheet on the pixel grid. */
+  height: round(down, min(var(--sheet-expanded), var(--sheet-room)), 1px);
+}
+
+#body-card.is-sheet.is-expanded .body-card-head,
+#body-card.is-sheet.is-expanded .body-card-scroll {
+  align-self: stretch;
+}
+
+#body-card.is-sheet.is-expanded .body-card-scroll {
+  display: grid;
+  gap: var(--s-3) var(--s-5);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-content: start;
+  overflow-y: auto;
+}
+
+#body-card.is-sheet.is-expanded .body-card-fun,
+#body-card.is-sheet.is-expanded .body-card-description {
+  grid-column: 1 / -1;
+}
+
+#body-card.is-sheet.is-expanded .body-card-actions {
+  justify-self: end;
+}
+
+@media (orientation: landscape) {
+  #body-card.is-sheet.is-expanded {
+    height: round(down, min(50dvh, var(--sheet-room)), 1px);
+  }
+}
+
+/* Reduced motion: the card and the sheet only fade, the sheet height jumps. */
+@media (prefers-reduced-motion: reduce) {
+  #body-card {
+    animation-name: body-card-fade;
+  }
+
+  #body-card.is-sheet {
+    transition: none;
+  }
+}
+
+/* Last, so it beats the display of the desktop card and of the sheet. */
+#body-card[hidden],
+#body-card.is-sheet[hidden] {
+  display: none;
+}

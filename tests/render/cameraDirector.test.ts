@@ -4,6 +4,7 @@ import { expect, test } from 'vitest';
 import { CAMERA_CONFIG } from '@core/cameraConfig.ts';
 import { startDistance, type CameraPose } from '@core/cameraMath.ts';
 import { createSelection, type Selection } from '@core/selection.ts';
+import { createViewInsets, type ViewInsetsStore } from '@core/viewInsets.ts';
 import {
   createCameraController,
   type CameraController,
@@ -19,6 +20,7 @@ import {
 
 const FRAME_SECONDS = 1 / 60;
 const ASPECT = 16 / 9;
+const VIEWPORT = { width: 1280, height: 720 };
 
 type FakeMotion = ReducedMotionSource & {
   setMatches(matches: boolean): void;
@@ -36,6 +38,7 @@ type Rig = {
   sun: DirectorBody;
   jumps: { count: number };
   aspect: number;
+  insets: ViewInsetsStore;
 };
 
 function fakeMotion(matches = false): FakeMotion {
@@ -94,6 +97,7 @@ function setup(matches = false, aspect = ASPECT): Rig {
   const jupiter = movingBody('jupiter', -40, 6, 18, 2, false);
   const selection = createSelection(['sun', 'mars', 'jupiter']);
   const jumps = { count: 0 };
+  const insets = createViewInsets();
   const director = createCameraDirector({
     controller,
     selection,
@@ -102,6 +106,8 @@ function setup(matches = false, aspect = ASPECT): Rig {
     onJump() {
       jumps.count += 1;
     },
+    insets,
+    viewport: VIEWPORT,
   });
   return {
     camera,
@@ -114,6 +120,7 @@ function setup(matches = false, aspect = ASPECT): Rig {
     sun,
     jumps,
     aspect,
+    insets,
   };
 }
 
@@ -233,6 +240,83 @@ test('tracks moving body', () => {
     expectTarget(rig.controller, rig.mars);
     expect(snapshot(rig.director).active).toBe(0);
   }
+});
+
+test('frames the body for the free-area aspect', () => {
+  const open = setup();
+  open.selection.select('jupiter');
+  finishFlight(open);
+  const full = readPose(open.controller).distance;
+
+  const covered = setup();
+  covered.insets.set({ right: 352, bottom: 0 });
+  covered.selection.select('jupiter');
+  finishFlight(covered);
+  const free = readPose(covered.controller).distance;
+
+  expect(free).toBeGreaterThan(full);
+  expect(free).toBeCloseTo(full * (1280 / (1280 - 352)), 6);
+});
+
+test('insets written during the flight reach the goal', () => {
+  const rig = setup();
+  rig.selection.select('jupiter');
+  updateFrames(rig, 30);
+  rig.insets.set({ right: 0, bottom: 360 });
+  finishFlight(rig);
+  expect(readPose(rig.controller).distance).toBeCloseTo(
+    rig.jupiter.displayRadius * CAMERA_CONFIG.bodyDistanceRadiusFactor * 2,
+    6,
+  );
+});
+
+test('insets during the flight do not make the camera jump', () => {
+  const rig = setup();
+  rig.selection.select('jupiter');
+  const steps: number[] = [];
+  let setAt = -1;
+  for (let frame = 0; frame < 72; frame += 1) {
+    if (setAt < 0 && snapshot(rig.director).progress > 0.6) {
+      rig.insets.set({ right: 352, bottom: 0 });
+      setAt = frame;
+    }
+    const previous = mark(rig.camera);
+    rig.director.update(FRAME_SECONDS);
+    steps.push(span(rig.camera, previous));
+  }
+  expect(setAt).toBeGreaterThan(0);
+  // The frame with the new goal keeps the speed of the frame before it
+  // (without the rebase it drops by about 60 %).
+  const before = steps[setAt - 1] ?? 0;
+  expect(Math.abs((steps[setAt] ?? 0) - before)).toBeLessThanOrEqual(
+    before * 0.25,
+  );
+  expect(readPose(rig.controller).distance).toBeCloseTo(
+    rig.jupiter.displayRadius *
+      CAMERA_CONFIG.bodyDistanceRadiusFactor *
+      (1280 / 928),
+    6,
+  );
+});
+
+test('reduced motion: the card insets after the jump reframe the body', () => {
+  const rig = setup(true);
+  rig.selection.select('jupiter');
+  const jumped = readPose(rig.controller).distance;
+  rig.insets.set({ right: 352, bottom: 0 });
+  expect(readPose(rig.controller).distance).toBeCloseTo(
+    jumped * (1280 / 928),
+    6,
+  );
+  rig.insets.set({ right: 0, bottom: 0 });
+  expect(readPose(rig.controller).distance).toBeCloseTo(jumped, 6);
+
+  // After the user zooms, the frame is theirs.
+  rig.controller.zoomBy(0.9, true);
+  rig.controller.update(1);
+  const zoomed = readPose(rig.controller).distance;
+  rig.insets.set({ right: 352, bottom: 0 });
+  expect(readPose(rig.controller).distance).toBe(zoomed);
 });
 
 test('flight with zero and negative time speed', () => {
@@ -645,6 +729,8 @@ test('missing body', () => {
       onJump() {
         return undefined;
       },
+      insets: createViewInsets(),
+      viewport: VIEWPORT,
     }),
   ).toThrow(RangeError);
   expect(() =>
@@ -656,6 +742,8 @@ test('missing body', () => {
       onJump() {
         return undefined;
       },
+      insets: createViewInsets(),
+      viewport: VIEWPORT,
     }),
   ).toThrow(
     'createCameraDirector: parameter "bodies" must contain every selectable body id, got missing "mars"',

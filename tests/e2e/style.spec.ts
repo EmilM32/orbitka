@@ -101,7 +101,7 @@ test('focus ring is blue on pressed controls', async ({ page }) => {
   const jupiter = page.getByTestId('body-item-jupiter');
   await jupiter.focus();
   await page.keyboard.press('Enter');
-  await expect(jupiter).toHaveAttribute('aria-pressed', 'true');
+  await expect(jupiter).toHaveAttribute('aria-current', 'true');
   await jupiter.focus();
 
   for (const control of [orbits, jupiter]) {

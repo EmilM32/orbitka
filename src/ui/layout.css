@@ -51,7 +51,7 @@
   }
 
   #debug-overlay {
-    left: 236px;
+    left: calc(var(--edge) + var(--list-w) + var(--s-2));
   }
 }
 
@@ -88,6 +88,11 @@
     left: auto;
     width: 100%;
     max-height: none;
+  }
+
+  /* The drawer has no rail mode (SPEC §5.4). */
+  #bodies-collapse {
+    display: none;
   }
 
   #bodies-panel button,

@@ -284,15 +284,9 @@ test('tab order', async ({ page }) => {
   expect(await tabUntil(page, 'time-pause')).toEqual([
     'scale-why',
     'bodies-collapse',
+    'bodies-au-info',
+    // One Tab stop for the list; the arrows move inside it.
     'body-item-sun',
-    'body-item-mercury',
-    'body-item-venus',
-    'body-item-earth',
-    'body-item-mars',
-    'body-item-jupiter',
-    'body-item-saturn',
-    'body-item-uranus',
-    'body-item-neptune',
     'viewport',
     'view-reset',
     'view-orbits',
@@ -461,6 +455,14 @@ test('uses literal breakpoints', () => {
 });
 
 async function assertPanelFits(page: Page): Promise<void> {
+  // After the rail the width runs back to 252 px in 220 ms.
+  const full = await remPx(page, 15.75);
+  await expect
+    .poll(
+      async () =>
+        (await page.locator('#bodies-panel').boundingBox())?.width ?? 0,
+    )
+    .toBeCloseTo(full, 0);
   const metrics = await page.evaluate(() => {
     const panel = document.querySelector('#bodies-panel');
     const title = document.querySelector('#bodies-panel-title');
@@ -505,20 +507,146 @@ test('bodies panel has no horizontal scroll at 1280x720 and 1920x1080', async ({
     const errors = await openAt(page, size);
     await assertPanelFits(page);
 
-    await page.getByTestId('body-item-earth').click();
-    await assertPanelFits(page);
-
+    // The user folds the list into the rail and opens it again.
     await page.getByTestId('bodies-collapse').click();
     await expect(page.getByTestId('bodies-collapse')).toHaveAttribute(
       'aria-expanded',
       'false',
     );
+    await assertRailFits(page);
+    await page.getByTestId('bodies-collapse').click();
+    await expect(page.locator('#bodies-panel')).not.toHaveClass(/is-rail/u);
     await assertPanelFits(page);
 
-    await page.getByTestId('bodies-collapse').click();
-    await assertPanelFits(page);
+    await page.getByTestId('body-item-earth').click();
+    if (size.width <= 1440) {
+      await assertRailFits(page);
+    } else {
+      await assertPanelFits(page);
+    }
     expect(errors).toEqual([]);
   }
+});
+
+// Widths in rem: 252 and 56 px at 16 px, larger on the projector root.
+async function remPx(page: Page, rem: number): Promise<number> {
+  return page.evaluate(
+    (value) =>
+      value * parseFloat(getComputedStyle(document.documentElement).fontSize),
+    rem,
+  );
+}
+
+async function assertRailFits(page: Page): Promise<void> {
+  const panel = page.locator('#bodies-panel');
+  await expect(panel).toHaveClass(/is-rail/u);
+  const rail = await remPx(page, 3.5);
+  await expect
+    .poll(async () => (await panel.boundingBox())?.width ?? 0)
+    .toBeCloseTo(rail, 0);
+  const metrics = await panel.evaluate((element) => ({
+    scrollWidth: element.scrollWidth,
+    clientWidth: element.clientWidth,
+  }));
+  expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth);
+}
+
+async function listWidth(page: Page): Promise<number> {
+  return (await page.locator('#bodies-panel').boundingBox())?.width ?? 0;
+}
+
+test('list collapses to rail with selection at 1280', async ({ page }) => {
+  const errors = await openAt(page, { width: 1280, height: 720 });
+  expect(await listWidth(page)).toBeCloseTo(252, 0);
+
+  await page.getByTestId('body-item-jupiter').click();
+  await expect.poll(() => listWidth(page)).toBeCloseTo(56, 0);
+  const dots = page.locator('#bodies-panel .bodies-item');
+  await expect(dots).toHaveCount(9);
+  await expect(page.getByTestId('body-item-jupiter')).toHaveAttribute(
+    'aria-label',
+    'Jowisz',
+  );
+  await expect(page.getByTestId('body-item-jupiter')).toHaveAttribute(
+    'aria-current',
+    'true',
+  );
+  for (const box of await dots.evaluateAll((elements) =>
+    elements.map((element) => element.getBoundingClientRect().toJSON()),
+  )) {
+    expect(box.width).toBeCloseTo(44, 0);
+    expect(box.height).toBeCloseTo(38, 0);
+  }
+
+  // Hover on a dot shows its name on the right.
+  const mars = page.getByTestId('body-item-mars');
+  await mars.hover();
+  const tip = page.locator('.o-tooltip', { hasText: /^Mars$/u });
+  await expect(tip).toBeVisible();
+  const marsBox = await mars.boundingBox();
+  const tipBox = await tip.boundingBox();
+  expect((tipBox?.x ?? 0) - ((marsBox?.x ?? 0) + (marsBox?.width ?? 0))).toBe(
+    8,
+  );
+
+  // Expand: the full list over the scene; the card does not move.
+  const card = page.getByTestId('body-card');
+  await expect(card).toBeVisible();
+  await card.evaluate((element) =>
+    Promise.all(element.getAnimations().map((animation) => animation.finished)),
+  );
+  const cardBefore = await card.boundingBox();
+  await page.getByTestId('bodies-collapse').click();
+  await expect(page.locator('#bodies-panel')).toHaveClass(/is-overlay/u);
+  await expect.poll(() => listWidth(page)).toBeCloseTo(252, 0);
+  expect(await card.boundingBox()).toEqual(cardBefore);
+  await page.getByTestId('body-item-saturn').click();
+  await expect(page.locator('#bodies-panel')).not.toHaveClass(/is-overlay/u);
+  await expect.poll(() => listWidth(page)).toBeCloseTo(56, 0);
+
+  await page.locator('#viewport').focus();
+  await page.keyboard.press('Escape');
+  await expect.poll(() => listWidth(page)).toBeCloseTo(252, 0);
+
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await page.getByTestId('body-item-saturn').click();
+  await expect(page.getByTestId('body-card')).toBeVisible();
+  expect(await listWidth(page)).toBeCloseTo(await remPx(page, 15.75), 0);
+
+  // 1920 → 1300 with the card open: the list turns into the rail.
+  await page.setViewportSize({ width: 1300, height: 800 });
+  await expect.poll(() => listWidth(page)).toBeCloseTo(56, 0);
+  expect(errors).toEqual([]);
+});
+
+test('au tooltip opens on focus', async ({ page }) => {
+  await openAt(page, { width: 1280, height: 720 });
+  await page.evaluate(() => {
+    document.body.tabIndex = -1;
+    document.body.focus();
+  });
+  for (let step = 0; step < 10; step += 1) {
+    await page.keyboard.press('Tab');
+    const id = await page.evaluate(
+      () => document.activeElement?.getAttribute('data-testid') ?? '',
+    );
+    if (id === 'bodies-au-info') {
+      break;
+    }
+  }
+  const tip = page.locator('#tip-au');
+  await expect(tip).toBeVisible();
+  await expect(tip).toHaveAttribute('role', 'tooltip');
+  await expect(tip.locator('strong')).toHaveText('1 j.a.');
+  await expect(page.getByTestId('bodies-au-info')).toHaveAttribute(
+    'aria-describedby',
+    'tip-au',
+  );
+  const box = await tip.boundingBox();
+  expect(box).not.toBeNull();
+  expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(1280 - 8);
+  await page.keyboard.press('Escape');
+  await expect(tip).toBeHidden();
 });
 
 test('card does not overlap panels', async ({ page }) => {

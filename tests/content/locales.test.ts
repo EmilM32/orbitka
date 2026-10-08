@@ -104,3 +104,19 @@ test('locales › coach texts', () => {
     'Gotowe! Trening ukończony. Miłego lotu.',
   );
 });
+
+test('locales › bodies list texts', () => {
+  expect(messages['bodies.group.star']).toBe('Gwiazda');
+  expect(messages['bodies.group.rocky']).toBe('Planety skaliste');
+  expect(messages['bodies.group.gas']).toBe('Gazowe olbrzymy');
+  expect(messages['bodies.group.ice']).toBe('Lodowe olbrzymy');
+  expect(messages['bodies.column.distance']).toBe('od Słońca');
+  expect(messages['bodies.au.ariaLabel']).toBe('Co to jest j.a.?');
+  expect(messages['bodies.au.tipStrong']).toBe('1 j.a.');
+  expect(messages['bodies.au.tipRest']).toBe(
+    '(jednostka astronomiczna) = odległość Ziemi od Słońca, ok. 150 mln km.',
+  );
+  expect(messages['bodies.au.value']).toBe('{value} j.a.');
+  expect(messages['bodies.panel.collapse']).toBe('Zwiń listę do paska');
+  expect(messages['bodies.drawer.open']).toBe('Planety');
+});

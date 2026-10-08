@@ -7,7 +7,7 @@ import { createIcon, ICON_PATHS, type IconName } from '@ui/icons.ts';
 const NAMES = Object.keys(ICON_PATHS) as IconName[];
 
 test('every IconName renders an aria-hidden svg', () => {
-  expect(NAMES).toHaveLength(14);
+  expect(NAMES).toHaveLength(15);
   for (const name of NAMES) {
     const svg = createIcon(name);
     expect(svg.tagName, name).toBe('svg');

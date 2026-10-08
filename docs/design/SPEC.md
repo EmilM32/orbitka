@@ -38,30 +38,30 @@ Generatory i skrypty (poza FINAL, bo używają ścieżek bezwzględnych z boxa) 
 | ------------ | ---------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------- |
 | ≥ 1441 px    | desktop szeroki        | zostaje otwarta (252 px) także przy karcie               | panel 320 px po prawej, `top: 72`, do panelu czasu minus 16 px                 | jeden rząd. Oś miesięcy opcjonalnie (etap 2) |
 | 1025–1440 px | desktop                | przy otwartej karcie zwija się do **paska 56 px** (§5.4) | jak wyżej                                                                      | jeden rząd, wyśrodkowany                     |
-| 768–1024 px  | tablet (pion i poziom) | przycisk „Ciała” otwiera szufladę 300 px                 | **dolny arkusz**: zwinięty 112 px, rozwinięty 60 dvh (w poziomie maks. 50 dvh) | 1024 px: jeden rząd. 768 px: dwa rzędy       |
+| 768–1024 px  | tablet (pion i poziom) | przycisk „Planety” otwiera szufladę 300 px               | **dolny arkusz**: zwinięty 112 px, rozwinięty 60 dvh (w poziomie maks. 50 dvh) | 1024 px: jeden rząd. 768 px: dwa rzędy       |
 | < 768 px     | poza zakresem M4       | –                                                        | –                                                                              | –                                            |
 
 - **Skala UI:** przy oknie ≥ 1800 × 1000 px `--ui-zoom: 1.2` (CSS `zoom` na kontenerze UI; wspierany w Chromium, Safari i Firefox ≥ 126). Makieta 1920×1080 ma układ logiczny 1600×900 × 1,2.
 - **Niska wysokość:** przy ≤ 720 px karta przewija treść (fakty, ciekawostka), a akcje są przypięte na dole. Okno „Dlaczego?” ma `max-height: calc(100dvh − 32px)` i przewija treść.
-- **Marginesy:** krawędź 16 px. Pasek górny ma 60 px. Na tablecie pod paskiem jest drugi rząd („Ciała” i chip skali).
+- **Marginesy:** krawędź 16 px. Pasek górny ma 60 px. Na tablecie pod paskiem jest drugi rząd („Planety” i chip skali).
 
 ## 4. Warstwy (z-index, tokeny `--z-*`)
 
 Kolejność od dołu:
 
-| Warstwa                                                | z-index |
-| ------------------------------------------------------ | ------- |
-| scena                                                  | 0       |
-| podpisy                                                | 10      |
-| panele (marka, chip, Widok, lista, pasek)              | 20      |
-| karta i arkusz                                         | 30      |
-| panel czasu                                            | 40      |
-| szuflada „Ciała” (nad arkuszem, zamyka się po wyborze) | 50      |
-| trening pilota                                         | 60      |
-| dymki                                                  | 70      |
-| przyciemnienie                                         | 90      |
-| okno modalne                                           | 100     |
-| toast „Gotowe!”                                        | 110     |
+| Warstwa                                                  | z-index |
+| -------------------------------------------------------- | ------- |
+| scena                                                    | 0       |
+| podpisy                                                  | 10      |
+| panele (marka, chip, Widok, lista, pasek)                | 20      |
+| karta i arkusz                                           | 30      |
+| panel czasu                                              | 40      |
+| szuflada „Planety” (nad arkuszem, zamyka się po wyborze) | 50      |
+| trening pilota                                           | 60      |
+| dymki                                                    | 70      |
+| przyciemnienie                                           | 90      |
+| okno modalne                                             | 100     |
+| toast „Gotowe!”                                          | 110     |
 
 Panel czasu leży nad kartą, bo karta kończy się 16 px nad nim. Na tablecie arkusz jest nad sceną, ale pod szufladą.
 
@@ -119,7 +119,7 @@ Każdy komponent interaktywny ma stany: domyślny, hover, fokus, aktywny (wciśn
 - **Rozwinięty (60 dvh, w poziomie maks. 50 dvh):**
   - układ: nazwa, miernik i fakty w dwóch kolumnach, ciekawostka, akcje;
   - zmiana stanu: przeciągnięcie uchwytu (próg 40 px lub prędkość > 0,5 px/ms) albo dotknięcie uchwytu.
-- Szuflada „Ciała” otwiera się nad arkuszem i zamyka po wyborze.
+- Szuflada „Planety” otwiera się nad arkuszem i zamyka po wyborze.
 - **Kadr:** `setViewOffset` z pionowym przesunięciem (§9.1), animowanym razem z arkuszem.
 
 ### 5.7 Miernik średnicy (zastępuje miniaturę; z kierunku B)
@@ -210,7 +210,7 @@ Każdy komponent interaktywny ma stany: domyślny, hover, fokus, aktywny (wciśn
 | lista ↔ pasek                                 | 220 ms                                         | `--ease-out`         | razem z `setViewOffset` (interpolacja dx) |
 | karta: wejście z prawej (24 px + przenikanie) | 220 ms                                         | `--ease-out`         | zaczyna się po 60% lotu kamery            |
 | arkusz: zwinięty ↔ rozwinięty                 | 420 ms                                         | `--ease-in-out`      | dy kamery interpolowane razem z arkuszem  |
-| szuflada „Ciała”                              | 220 ms                                         | `--ease-out`         | przesunięcie z lewej 16 px + przenikanie  |
+| szuflada „Planety”                            | 220 ms                                         | `--ease-out`         | przesunięcie z lewej 16 px + przenikanie  |
 | lot kamery do ciała                           | 1200 ms                                        | istniejąca krzywa M3 |                                           |
 | trening: krok zaliczony                       | 220 ms                                         | `--ease-out`         | ✓ skaluje się 0,6 → 1                     |
 | „Gotowe!”                                     | wejście 220 ms, 3000 ms stania, wyjście 420 ms |                      | `--dur-fade-chip`                         |

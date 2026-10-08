@@ -5,6 +5,7 @@ import { parseBodyContentCatalog } from '@content/bodyContent.ts';
 import pl from '@content/locales/pl.json' with { type: 'json' };
 import bodyContentRaw from '@content/pl/bodies.json' with { type: 'json' };
 import { createClock, daysFromDate } from '@core/clock.ts';
+import { shouldShowRail } from '@core/bodiesRail.ts';
 import { createCoachTracker } from '@core/coach.ts';
 import { isDebugEnabled } from '@core/debugFlag.ts';
 import { createLoop } from '@core/loop.ts';
@@ -39,6 +40,7 @@ import { createRotationAnimator } from '@render/rotateBodies.ts';
 import { getRenderStats, trackDebugDrawCalls } from '@render/renderStats.ts';
 import { getBodyScenePosition as readBodyScenePosition } from '@render/scenePosition.ts';
 import { getBodyScreenPositions } from '@render/screenPositions.ts';
+import { createViewOffsetRig } from '@render/viewOffset.ts';
 import { createAnnouncer } from '@ui/announcer.ts';
 import { createBodiesDrawer, type BodiesDrawer } from '@ui/bodiesDrawer.ts';
 import { createBodiesPanel } from '@ui/bodiesPanel.ts';
@@ -152,6 +154,17 @@ function mount(canvas: HTMLCanvasElement): App {
     });
   }
   const viewportFade = createViewportFade(canvas);
+  const viewInsets = createViewInsets();
+  const viewOffset = createViewOffsetRig({
+    camera: view.camera,
+    insets: viewInsets,
+    reducedMotion,
+    widthCss: cssWidth,
+    heightCss: cssHeight,
+  });
+  const unsubscribeOffsetResize = view.onResize((width, height) => {
+    viewOffset.resize(width, height);
+  });
   const director = createCameraDirector({
     controller: cameraController,
     selection,
@@ -159,6 +172,15 @@ function mount(canvas: HTMLCanvasElement): App {
     reducedMotion,
     onJump() {
       viewportFade.play();
+    },
+    insets: viewInsets,
+    viewport: {
+      get width() {
+        return cssWidth;
+      },
+      get height() {
+        return cssHeight;
+      },
     },
   });
   const projector = createBodyProjector(projectorEntries, view);
@@ -217,12 +239,24 @@ function mount(canvas: HTMLCanvasElement): App {
   const pageHeader = createPageHeader(document.body, i18n, canvas);
   const scaleNotice = createScaleNotice(pageHeader, i18n);
   let bodiesDrawer: BodiesDrawer | null = null;
+  const bodyById = new Map(bodies.map((body) => [body.id, body]));
   const bodiesPanel = createBodiesPanel(document.body, {
-    bodies: selectable,
+    bodies: selectable.map((body) => {
+      const def = bodyById.get(body.id);
+      return {
+        id: body.id,
+        color: def?.visual.color ?? '#ffffff',
+        axisAu:
+          def?.type === 'planet' ? (def.orbit?.semiMajorAxisAu ?? null) : null,
+      };
+    }),
     selection,
     i18n,
     before: canvas,
     getFocusFallback: () => bodiesDrawer?.getFocusFallback() ?? null,
+    onUserCollapsedChange: () => {
+      updateListMode();
+    },
   });
   bodiesDrawer = createBodiesDrawer(document.body, {
     panel: bodiesPanel,
@@ -231,6 +265,31 @@ function mount(canvas: HTMLCanvasElement): App {
     matchMedia: window.matchMedia.bind(window),
     before: canvas,
   });
+  // The list folds into the rail beside an open card up to 1440 px; the
+  // tablet drawer has no rail (SPEC §5.4).
+  const tabletListQuery = window.matchMedia(
+    `(max-width: ${VIEW_CONFIG.tabletMaxWidthPx}px)`,
+  );
+  const railWidthQuery = window.matchMedia(
+    `(max-width: ${VIEW_CONFIG.railMaxWidthPx}px)`,
+  );
+  const updateListMode = (): void => {
+    const rail =
+      !tabletListQuery.matches &&
+      shouldShowRail({
+        viewportWidthPx: window.innerWidth,
+        hasSelection: selection.getSelectedId() !== null,
+        userCollapsed: bodiesPanel.isUserCollapsed(),
+      });
+    bodiesPanel.setMode(rail ? 'rail' : 'list');
+  };
+  const unsubscribeListMode = selection.subscribe((event) => {
+    if (event.kind !== 'hover') {
+      updateListMode();
+    }
+  });
+  tabletListQuery.addEventListener('change', updateListMode);
+  railWidthQuery.addEventListener('change', updateListMode);
   const viewControls = createViewControls(document.body, {
     i18n,
     selection,
@@ -243,7 +302,6 @@ function mount(canvas: HTMLCanvasElement): App {
     },
     before: canvas.nextSibling ?? undefined,
   });
-  const viewInsets = createViewInsets();
   const tabletQuery = window.matchMedia(
     `(min-width: ${VIEW_CONFIG.tabletMinWidthPx}px) and (max-width: ${VIEW_CONFIG.tabletMaxWidthPx}px)`,
   );
@@ -463,6 +521,7 @@ function mount(canvas: HTMLCanvasElement): App {
       rotationAnimator.update(clock.days, clock.daysPerSecond);
       director.update(dtSeconds);
       cameraController.update(dtSeconds);
+      viewOffset.update(dtSeconds);
       announcer.update(dtSeconds);
       if (!debug) {
         return;
@@ -520,6 +579,9 @@ function mount(canvas: HTMLCanvasElement): App {
       loop.stop();
       document.removeEventListener('visibilitychange', onVisibilityChange);
       announcer.dispose();
+      unsubscribeListMode();
+      tabletListQuery.removeEventListener('change', updateListMode);
+      railWidthQuery.removeEventListener('change', updateListMode);
       bodiesPanel.dispose();
       bodiesDrawer?.dispose();
       bodyCard.dispose();
@@ -529,6 +591,8 @@ function mount(canvas: HTMLCanvasElement): App {
       labels.dispose();
       pageHeader.remove();
       director.dispose();
+      unsubscribeOffsetResize();
+      viewOffset.dispose();
       viewportFade.dispose();
       ring.dispose();
       picker.dispose();

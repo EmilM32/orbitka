@@ -123,18 +123,36 @@ test('jupiter card at 1280', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-// Needs the frame shift in render (EMI-219): until then the body stays in the
-// middle of the window, not of the free area.
-test.fixme('jupiter stands in the middle of the free area', async ({
-  page,
-}) => {
-  await open(page, { width: 1280, height: 720 });
-  await select(page, 'jupiter');
-  const center = await freeAreaCenter(page);
-  const jupiter = await bodyPoint(page, 'jupiter');
-  expect(Math.abs(jupiter.x - center.x)).toBeLessThanOrEqual(CENTER_PX);
-  expect(Math.abs(jupiter.y - center.y)).toBeLessThanOrEqual(CENTER_PX);
-});
+// The frame shift (EMI-219) puts the body in the middle of the free area.
+for (const size of [
+  { width: 1280, height: 720 },
+  { width: 768, height: 1024 },
+]) {
+  test(`jupiter stands in the middle of the free area at ${size.width}×${size.height}`, async ({
+    page,
+  }) => {
+    await open(page, size);
+    await select(page, 'jupiter');
+    await expect
+      .poll(async () => {
+        const center = await freeAreaCenter(page);
+        const jupiter = await bodyPoint(page, 'jupiter');
+        return Math.max(
+          Math.abs(jupiter.x - center.x),
+          Math.abs(jupiter.y - center.y),
+        );
+      })
+      .toBeLessThanOrEqual(CENTER_PX);
+    const insets = await viewInsets(page);
+    if (size.width === 1280) {
+      expect(insets).toEqual({ right: 352, bottom: 0 });
+      expect((await freeAreaCenter(page)).x).toBe(464);
+    } else {
+      expect(insets.right).toBe(0);
+      expect(insets.bottom).toBeGreaterThan(0);
+    }
+  });
+}
 
 test('mercury and the sun', async ({ page }) => {
   await open(page, { width: 1280, height: 720 });
@@ -197,7 +215,8 @@ test('tab order', async ({ page }) => {
       break;
     }
   }
-  expect(order[0]).toBe('body-item-saturn');
+  // The list is one Tab stop (roving tabindex).
+  expect(order[0]).toBe('viewport');
   const fromCanvas = order.slice(order.indexOf('viewport'));
   expect(fromCanvas[0]).toBe('viewport');
   expect(fromCanvas[1]).toBe('body-card-close');

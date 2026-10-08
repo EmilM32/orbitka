@@ -12,9 +12,11 @@ import {
   blendPose,
   easeInOutCubic,
   flightProgress,
+  freeAreaDistanceFactor,
   type CameraPose,
 } from '@core/cameraMath.ts';
 import type { Selection, SelectionEvent } from '@core/selection.ts';
+import type { ViewInsetsStore } from '@core/viewInsets.ts';
 import type {
   CameraController,
   CameraControllerState,
@@ -51,6 +53,10 @@ export type CameraDirectorOptions = {
     subscribe(listener: () => void): () => void;
   };
   onJump: () => void;
+  /** The card and the sheet cover part of the window (ADR-009 annex). */
+  insets: ViewInsetsStore;
+  /** Canvas size in CSS px, read live. */
+  viewport: { readonly width: number; readonly height: number };
 };
 
 const KIND_NONE = 0;
@@ -103,6 +109,8 @@ export function createCameraDirector(
   const bodies = options.bodies;
   const reducedMotion = options.reducedMotion;
   const onJump = options.onJump;
+  const insets = options.insets;
+  const viewport = options.viewport;
 
   for (let index = 0; index < selection.ids.length; index += 1) {
     const id = selection.ids[index];
@@ -134,6 +142,8 @@ export function createCameraDirector(
   let offsetY = 0;
   let offsetZ = 0;
   let lastWrittenDistance = 0;
+  // Free-area factor the current goal was written with.
+  let goalFactor = 1;
   let reportedActive = 0;
   let reportedKind = KIND_NONE;
   let reportedProgress = 0;
@@ -142,6 +152,7 @@ export function createCameraDirector(
   const unsubscribeSelection = selection.subscribe(onSelection);
   const unsubscribeMotion = reducedMotion.subscribe(onReducedMotionChange);
   const unsubscribeInput = controller.onUserInput(onUserInput);
+  const unsubscribeInsets = insets.subscribe(onInsetsChange);
 
   return {
     update(dtSeconds: number): void {
@@ -190,6 +201,7 @@ export function createCameraDirector(
       unsubscribeSelection();
       unsubscribeMotion();
       unsubscribeInput();
+      unsubscribeInsets();
       cancelFlight(flight);
       flightBody = null;
       followBody = null;
@@ -250,6 +262,8 @@ export function createCameraDirector(
   function jumpToGoal(kind: 'body' | 'system'): void {
     writeGoal(goalPose, kind, livePose, goalBody(kind));
     controller.setPose(goalPose);
+    controller.getPose(livePose);
+    lastWrittenDistance = livePose.distance;
     if (kind === 'body' && flightBody !== null) {
       followBody = flightBody;
       offsetX = 0;
@@ -280,6 +294,32 @@ export function createCameraDirector(
     }
 
     holdPosition();
+  }
+
+  // Under reduced motion the card enters in the same event as the jump, after
+  // it. While the user has not zoomed, the body frame follows the new area.
+  function onInsetsChange(): void {
+    if (
+      disposed ||
+      !reducedMotion.matches ||
+      followBody === null ||
+      isFlightActive(flight)
+    ) {
+      return;
+    }
+    controller.getPose(livePose);
+    if (livePose.distance !== lastWrittenDistance) {
+      return;
+    }
+    const factor = freeAreaFactor();
+    if (factor === goalFactor) {
+      return;
+    }
+    livePose.distance = (livePose.distance / goalFactor) * factor;
+    goalFactor = factor;
+    controller.setPose(livePose);
+    controller.getPose(livePose);
+    lastWrittenDistance = livePose.distance;
   }
 
   function onUserInput(): void {
@@ -337,9 +377,12 @@ export function createCameraDirector(
     offsetZ = livePose.targetZ - position.z;
   }
 
+  // Zoom during the flight, or a panel that changes the free area, moves the
+  // goal; the start is rebased so the camera continues from where it is.
   function rebaseDistance(kind: 'body' | 'system'): void {
     controller.getPose(livePose);
-    if (livePose.distance === lastWrittenDistance) {
+    const factorChanged = kind === 'body' && freeAreaFactor() !== goalFactor;
+    if (livePose.distance === lastWrittenDistance && !factorChanged) {
       return;
     }
 
@@ -370,12 +413,27 @@ export function createCameraDirector(
     const radius = body === null ? 1 : body.displayRadius;
     const isSun = body !== null && body.isSun;
     computeGoalPose(out, kind, x, y, z, radius, isSun, azimuthSource, 1);
+    if (kind === 'body') {
+      goalFactor = freeAreaFactor();
+      out.distance *= goalFactor;
+    }
     if (kind === 'system') {
       // `setAspect` recomputes limits. Max is 1.5× the live start distance.
       controller.getState(controllerState);
       out.distance =
         controllerState.distanceMax / CAMERA_CONFIG.systemZoomMaxFactor;
     }
+  }
+
+  // Read every flight frame: the card writes its insets after it enters.
+  function freeAreaFactor(): number {
+    const width = viewport.width;
+    const height = viewport.height;
+    if (!(width > 0) || !(height > 0)) {
+      return 1;
+    }
+    const covered = insets.get();
+    return freeAreaDistanceFactor(width, height, covered.right, covered.bottom);
   }
 
   function publishActive(kind: number, progress: number): void {

@@ -12,6 +12,7 @@ import {
 } from './fixtures.ts';
 import {
   assertWebGl,
+  freeAreaCenter,
   readCanvasPixels,
   skipCoach,
   waitForFrames,
@@ -177,10 +178,34 @@ function expectFinite(state: CameraState): void {
   }
 }
 
-function expectBodyDistance(state: CameraState, factor: number): void {
+// The body frame moves back when the card or the sheet covers part of the
+// window (ADR-009 annex): max(W / (W - right), H / (H - bottom)).
+async function freeAreaFactor(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const hook = window.__orbitka;
+    if (!hook) {
+      throw new Error('missing debug hook');
+    }
+    const insets = hook.getViewInsets();
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    return Math.max(
+      1,
+      width / Math.max(1, width - insets.right),
+      height / Math.max(1, height - insets.bottom),
+    );
+  });
+}
+
+async function expectBodyDistance(
+  page: Page,
+  state: CameraState,
+  factor: number,
+): Promise<void> {
   expect(state.selectedRadius).toBeGreaterThan(0);
+  const area = await freeAreaFactor(page);
   expect(
-    Math.abs(state.distance / (factor * state.selectedRadius) - 1),
+    Math.abs(state.distance / (factor * area * state.selectedRadius) - 1),
   ).toBeLessThanOrEqual(0.01);
 }
 
@@ -220,16 +245,27 @@ async function expectStatus(page: Page, text: string): Promise<void> {
     .toBe(text);
 }
 
-async function expectCentered(
-  page: Page,
-  id: string,
-  width: number,
-  height: number,
-): Promise<ScreenPoint> {
-  const point = await screenPoint(page, id);
+// Middle of the free area, not of the window: the card enters after 60 % of
+// the flight and the frame follows it in 220 ms, so this polls.
+async function expectCentered(page: Page, id: string): Promise<ScreenPoint> {
+  let point: ScreenPoint = { x: Number.NaN, y: Number.NaN, visible: false };
+  await expect
+    .poll(
+      async () => {
+        point = await screenPoint(page, id);
+        if (!point.visible) {
+          return Number.POSITIVE_INFINITY;
+        }
+        const center = await freeAreaCenter(page);
+        return Math.max(
+          Math.abs(point.x - center.x),
+          Math.abs(point.y - center.y),
+        );
+      },
+      { timeout: POLL_MS },
+    )
+    .toBeLessThanOrEqual(CENTER_PX);
   requireVisible(point, id);
-  expect(Math.abs(point.x - width / 2)).toBeLessThanOrEqual(CENTER_PX);
-  expect(Math.abs(point.y - height / 2)).toBeLessThanOrEqual(CENTER_PX);
   return point;
 }
 
@@ -301,6 +337,7 @@ test('camera hook reports the start view', async ({ page }) => {
       'getCameraState',
       'getSelectedId',
       'getOrbitState',
+      'getViewInsets',
     ]),
   );
   expect(keys).not.toContain('select');
@@ -315,20 +352,28 @@ test('camera hook reports the start view', async ({ page }) => {
   expect(await selectedId(page)).toBeNull();
 });
 
+test('debug hook exposes view insets', async ({ page }) => {
+  await openApp(page);
+  await waitReady(page);
+  expect(
+    await page.evaluate(() => window.__orbitka?.getViewInsets() ?? null),
+  ).toEqual({ right: 0, bottom: 0 });
+});
+
 test('select Mars from the list flies to it', async ({ page }) => {
   await openApp(page);
   await waitReady(page);
 
   await page.getByTestId('body-item-mars').click();
   await expect(page.getByTestId('body-item-mars')).toHaveAttribute(
-    'aria-pressed',
+    'aria-current',
     'true',
   );
   expect(await selectedId(page)).toBe('mars');
 
   const state = await waitForFlightEnd(page);
-  expectBodyDistance(state, 6);
-  await expectCentered(page, 'mars', VIEWPORT.width, VIEWPORT.height);
+  await expectBodyDistance(page, state, 6);
+  await expectCentered(page, 'mars');
   expect(await focusedName(page)).toBe('body-item-mars');
   await expectStatus(page, 'Wybrano: Mars. Kamera przybliżona.');
 });
@@ -353,6 +398,7 @@ async function expectCenteredSamples(page: Page): Promise<void> {
     .poll(
       async () => {
         let worst = 0;
+        const center = await freeAreaCenter(page);
         for (let sample = 0; sample < 5; sample += 1) {
           const point = await screenPoint(page, 'mars');
           if (!point.visible) {
@@ -360,10 +406,7 @@ async function expectCenteredSamples(page: Page): Promise<void> {
           }
           worst = Math.max(
             worst,
-            Math.hypot(
-              point.x - VIEWPORT.width / 2,
-              point.y - VIEWPORT.height / 2,
-            ),
+            Math.hypot(point.x - center.x, point.y - center.y),
           );
           await waitForFrames(page, 1);
         }
@@ -436,7 +479,7 @@ test('label click selects the body', async ({ page }) => {
   await label.click();
   expect(await selectedId(page)).toBe('saturn');
   await expect(page.getByTestId('body-item-saturn')).toHaveAttribute(
-    'aria-pressed',
+    'aria-current',
     'true',
   );
   await waitForFlightEnd(page);
@@ -454,7 +497,7 @@ test('two quick selects end on the last', async ({ page }) => {
     .toBe('jupiter');
   const state = await waitForFlightEnd(page);
   expect(await selectedId(page)).toBe('jupiter');
-  expectBodyDistance(state, 6);
+  await expectBodyDistance(page, state, 6);
   expectFinite(state);
   await expectStatus(page, 'Wybrano: Jowisz. Kamera przybliżona.');
 });
@@ -621,7 +664,12 @@ test('keyboard only path on desktop', async ({ page }) => {
   await openApp(page);
   await waitReady(page);
 
-  await tabUntil(page, 'body-item-mars');
+  // One Tab stop for the list (roving tabindex), then the arrows.
+  await tabUntil(page, 'body-item-sun');
+  for (let step = 0; step < 4; step += 1) {
+    await page.keyboard.press('ArrowDown');
+  }
+  expect(await focusedName(page)).toBe('body-item-mars');
   await page.keyboard.press('Enter');
   await waitForFlightEnd(page);
   expect(await selectedId(page)).toBe('mars');
@@ -651,6 +699,30 @@ test('keyboard only path on desktop', async ({ page }) => {
   await expectSystemView(page, 'body-item-mars');
 });
 
+test('Escape on list returns to system view', async ({ page }) => {
+  await openApp(page);
+  await waitReady(page);
+
+  await flyTo(page, 'mars');
+  await page.getByTestId('body-item-mars').focus();
+  await page.keyboard.press('ArrowDown');
+  expect(await focusedName(page)).toBe('body-item-jupiter');
+  // In the rail the focused dot shows its name; the first Esc closes it.
+  await expect(
+    page.locator('.o-tooltip', { hasText: /^Jowisz$/u }),
+  ).toBeVisible();
+  await page.keyboard.press('Escape');
+  expect(await selectedId(page)).toBe('mars');
+  await page.keyboard.press('Escape');
+  await expectSystemView(page, 'body-item-jupiter');
+  await expect(page.locator('#bodies-panel')).not.toHaveClass(/is-rail/u);
+
+  await flyTo(page, 'saturn');
+  await page.getByTestId('body-item-saturn').focus();
+  await page.keyboard.press('Home');
+  await expectSystemView(page, 'body-item-saturn');
+});
+
 test('keyboard only path on tablet', async ({ page }) => {
   await page.setViewportSize({ width: 1024, height: 768 });
   await openApp(page);
@@ -660,7 +732,10 @@ test('keyboard only path on tablet', async ({ page }) => {
   await page.keyboard.press('Enter');
   expect(await focusedName(page)).toBe('body-item-sun');
 
-  await tabTo(page, 'body-item-mars');
+  for (let step = 0; step < 4; step += 1) {
+    await page.keyboard.press('ArrowDown');
+  }
+  expect(await focusedName(page)).toBe('body-item-mars');
   await page.keyboard.press('Enter');
   expect(await selectedId(page)).toBe('mars');
   expect(await focusedName(page)).toBe('bodies-drawer-open');
@@ -674,17 +749,16 @@ test('keyboard only path on tablet', async ({ page }) => {
   expect(await focusedName(page)).toBe('bodies-drawer-open');
 });
 
-test('Esc on tablet with a collapsed list focuses Ciała', async ({ page }) => {
+test('Esc on tablet after a pick on the canvas focuses Planety', async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1024, height: 768 });
   await openApp(page);
   await waitReady(page);
 
+  // The drawer has no rail: no fold button there (SPEC §5.4).
   await page.getByTestId('bodies-drawer-open').click();
-  await page.getByTestId('bodies-collapse').click();
-  await expect(page.getByTestId('bodies-collapse')).toHaveAttribute(
-    'aria-expanded',
-    'false',
-  );
+  await expect(page.getByTestId('bodies-collapse')).toBeHidden();
   await page.keyboard.press('Escape');
   await expect(page.locator('[data-testid="bodies-drawer"]')).toBeHidden();
 
@@ -775,12 +849,7 @@ test('every body can be selected and is drawn', async ({ page }) => {
 
   for (const id of SELECTABLE) {
     await flyTo(page, id);
-    const point = await expectCentered(
-      page,
-      id,
-      VIEWPORT.width,
-      VIEWPORT.height,
-    );
+    const point = await expectCentered(page, id);
     const pixels = await readCanvasPixels(
       page,
       [{ id, x: point.x, y: point.y, color: BODY_COLORS[id] }],
@@ -810,7 +879,7 @@ test('reduced motion jumps without a flight', async ({ page }) => {
   const state = await cameraState(page);
   expect(state.flightActive).toBe(0);
   expect(await selectedId(page)).toBe('mars');
-  expectBodyDistance(state, 6);
+  await expectBodyDistance(page, state, 6);
   await waitForFrames(page, 8);
   expect(
     await page.evaluate(() => document.documentElement.dataset['sawFlight']),
@@ -828,8 +897,8 @@ test('resize during a flight', async ({ page }) => {
   const state = await waitForFlightEnd(page);
   expectFinite(state);
   expect(await selectedId(page)).toBe('mars');
-  expectBodyDistance(state, 6);
-  await expectCentered(page, 'mars', 1100, 700);
+  await expectBodyDistance(page, state, 6);
+  await expectCentered(page, 'mars');
 });
 
 test('selection does not add draw calls', async ({ page }) => {

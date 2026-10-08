@@ -24,3 +24,13 @@ test('no job installs browsers or system packages', () => {
     expect(command).not.toMatch(/playwright install|apt-get/u);
   }
 });
+
+test('e2e job runs the visual snapshots and never updates them', () => {
+  expect(WORKFLOW).toMatch(/ORBITKA_VISUAL:\s*'1'/u);
+  const commands = WORKFLOW.split('\n').filter((line) =>
+    /^\s*-?\s*run:/u.test(line),
+  );
+  for (const command of commands) {
+    expect(command).not.toMatch(/--update-snapshots|\s-u(\s|$)/u);
+  }
+});

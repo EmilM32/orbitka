@@ -1,6 +1,8 @@
 import './style.css';
 
+import { parseBodyContentCatalog } from '@content/bodyContent.ts';
 import pl from '@content/locales/pl.json' with { type: 'json' };
+import bodyContentRaw from '@content/pl/bodies.json' with { type: 'json' };
 import { createClock, daysFromDate } from '@core/clock.ts';
 import { isDebugEnabled } from '@core/debugFlag.ts';
 import { createLoop } from '@core/loop.ts';
@@ -51,6 +53,14 @@ import '@ui/layout.ts';
 type App = {
   dispose: () => void;
 };
+
+// The Galilean moons get card content in a later task (EMI-218 scope).
+const BODIES_WITHOUT_CONTENT = new Set([
+  'io',
+  'europa',
+  'ganymede',
+  'callisto',
+]);
 
 function orbitStorage(): Pick<Storage, 'getItem' | 'setItem'> | null {
   try {
@@ -182,6 +192,14 @@ function mount(canvas: HTMLCanvasElement): App {
   const debugAxes = debug ? addDebugAxes(bodies, bodyView.meshes) : null;
   const debugDraws = debug ? trackDebugDrawCalls(view.scene) : null;
   const i18n = createI18n(pl, 'pl-PL');
+  // Validated at startup so a broken content file fails fast. The body card
+  // (EMI-200) receives this catalog as a parameter.
+  parseBodyContentCatalog(
+    bodyContentRaw,
+    bodies
+      .filter((body) => !BODIES_WITHOUT_CONTENT.has(body.id))
+      .map((body) => body.contentKey),
+  );
   const canvasKeyboard = createCanvasKeyboard({
     surface: canvas,
     controller: cameraController,

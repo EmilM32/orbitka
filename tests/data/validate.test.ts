@@ -330,3 +330,98 @@ test('rejects input that is not a list of objects', () => {
   expect(errorsOf({ bodies: [] })).toEqual(['Body data must be an array']);
   expect(errorsOf([null])).toEqual(['Body #1: entry must be an object']);
 });
+
+test.each<[string, (ring: Entry) => void, string]>([
+  [
+    'inner radius inside the planet',
+    (ring) => {
+      ring.innerRadiusKm = 58_232;
+    },
+    'saturn: field visual.ring.innerRadiusKm must be > radiusKm (58232), got 58232',
+  ],
+  [
+    'outer radius below the inner radius',
+    (ring) => {
+      ring.outerRadiusKm = 70_000;
+    },
+    'saturn: field visual.ring.outerRadiusKm must be > visual.ring.innerRadiusKm (74500), got 70000',
+  ],
+  [
+    'outer radius equal to the inner radius',
+    (ring) => {
+      ring.outerRadiusKm = 74_500;
+    },
+    'saturn: field visual.ring.outerRadiusKm must be > visual.ring.innerRadiusKm (74500), got 74500',
+  ],
+  [
+    'NaN inner radius',
+    (ring) => {
+      ring.innerRadiusKm = Number.NaN;
+    },
+    'saturn: field visual.ring.innerRadiusKm must be a number',
+  ],
+  [
+    'infinite outer radius',
+    (ring) => {
+      ring.outerRadiusKm = Number.POSITIVE_INFINITY;
+    },
+    'saturn: field visual.ring.outerRadiusKm must be a number',
+  ],
+  [
+    'negative outer radius',
+    (ring) => {
+      ring.outerRadiusKm = -1;
+    },
+    'saturn: field visual.ring.outerRadiusKm must be greater than 0',
+  ],
+  [
+    'zero inner radius',
+    (ring) => {
+      ring.innerRadiusKm = 0;
+    },
+    'saturn: field visual.ring.innerRadiusKm must be greater than 0',
+  ],
+  [
+    'missing outer radius',
+    (ring) => {
+      delete ring.outerRadiusKm;
+    },
+    'saturn: missing field visual.ring.outerRadiusKm',
+  ],
+  [
+    'texture of the wrong type',
+    (ring) => {
+      ring.texture = 42;
+    },
+    'saturn: field visual.ring.texture must be a non-empty string or null',
+  ],
+  [
+    'missing texture',
+    (ring) => {
+      delete ring.texture;
+    },
+    'saturn: missing field visual.ring.texture',
+  ],
+])('validate › rejects invalid ring: %s', (_name, breakRing, message) => {
+  const list = entries();
+  breakRing(group(group(find(list, 'saturn'), 'visual'), 'ring'));
+
+  expect(errorsOf(list)).toEqual([message]);
+});
+
+test('validate › ring must be an object', () => {
+  const list = entries();
+  group(find(list, 'saturn'), 'visual').ring = 'rings';
+
+  expect(errorsOf(list)).toEqual([
+    'saturn: field visual.ring must be an object',
+  ]);
+});
+
+test('validate › ring texture may be a file name', () => {
+  const list = entries();
+  group(group(find(list, 'saturn'), 'visual'), 'ring').texture =
+    '2k_saturn_ring_alpha.png';
+
+  expect(validateBodies(list).ok).toBe(true);
+});

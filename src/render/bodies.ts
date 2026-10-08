@@ -10,13 +10,17 @@ import {
 import type { BodyDef, MoonDef } from '@data/types.ts';
 import { moonRadiiToScene, radiusToScene } from '@sim/scale.ts';
 
+import { createRing, type Ring } from './saturnRing.ts';
 import { SPHERE_SEGMENTS, createSphere } from './sphereFactory.ts';
+import { createTextureMemory, type TextureMemory } from './textureMemory.ts';
 
 export type BodyMeshes = {
   group: Group;
   meshes: Map<string, Mesh>;
   /** Sphere radius in scene units, moons on their own scale. */
   radii: Map<string, number>;
+  /** Ring meshes by body id, children of the body meshes. */
+  rings: Map<string, Ring>;
   dispose: () => void;
 };
 
@@ -144,10 +148,14 @@ function disposeObject(object: Object3D): void {
   }
 }
 
-export function createBodies(defs: readonly BodyDef[]): BodyMeshes {
+export function createBodies(
+  defs: readonly BodyDef[],
+  textures: TextureMemory = createTextureMemory(),
+): BodyMeshes {
   const group = new Group();
   const meshes = new Map<string, Mesh>();
   const radii = new Map<string, number>();
+  const rings = new Map<string, Ring>();
   let disposed = false;
 
   const dispose = (): void => {
@@ -156,6 +164,11 @@ export function createBodies(defs: readonly BodyDef[]): BodyMeshes {
     }
 
     disposed = true;
+    // Before the meshes: the ring also frees its texture.
+    for (const ring of rings.values()) {
+      ring.dispose();
+    }
+    rings.clear();
     for (const mesh of meshes.values()) {
       disposeObject(mesh);
       group.remove(mesh);
@@ -195,11 +208,24 @@ export function createBodies(defs: readonly BodyDef[]): BodyMeshes {
       group.add(mesh);
       meshes.set(def.id, mesh);
       radii.set(def.id, radius);
+
+      const ringDef = def.visual.ring;
+      if (ringDef !== undefined) {
+        const ring = createRing(
+          ringDef,
+          def.radiusKm,
+          radius,
+          def.visual.color,
+          textures,
+        );
+        mesh.add(ring.mesh);
+        rings.set(def.id, ring);
+      }
     }
   } catch (error) {
     dispose();
     throw error;
   }
 
-  return { group, meshes, radii, dispose };
+  return { group, meshes, radii, rings, dispose };
 }

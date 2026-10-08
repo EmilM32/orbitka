@@ -35,6 +35,14 @@ g. The only bound for the Table 1 years 1800–2050 is `ELEMENT_VALID_FROM_DAYS`
 - The convention in (e) and the use of EM Bary for Earth (b) are design decisions.
 - `visual.texture` is `null` until textures are added.
 
+## Saturn's rings
+
+`visual.ring` of Saturn was added from a source retrieved on 2026-10-08.
+
+1. NASA NSSDCA Saturnian Rings Fact Sheet: <https://nssdc.gsfc.nasa.gov/planetary/factsheet/satringfact.html>. It supplies `innerRadiusKm` (inner edge of the C ring, 74,500 km) and `outerRadiusKm` (outer edge of the A ring, 136,780 km), both measured from Saturn's center.
+2. The band profile (C ring, B ring, Cassini Division, A ring) is in `src/core/ringBands.ts`. Its edges come from the same fact sheet: C ring to 92,000 km, B ring to 117,580 km, Cassini Division to 122,170 km. The opacity and brightness of each band are chosen for appearance, not measured.
+3. The faint D, F, G, and E rings are omitted. `visual.ring.texture` is `null`: the texture is generated in code.
+
 ## Moons
 
 The Moon and the four Galilean moons of Jupiter were added from sources retrieved on 2026-09-30. For a moon, the semi-major axis is `orbit.semiMajorAxisKm`, in kilometers; planets use `orbit.semiMajorAxisAu`. `rotation.periodHours` is the orbital period in days times 24 (synchronous rotation, always positive).

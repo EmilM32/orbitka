@@ -129,6 +129,8 @@ const VALUES: Record<string, object> = {
       periodDays: 10755.88,
     },
     rotation: { periodHours: 10.656, axialTiltDeg: 26.73 },
+    // NSSDCA Saturnian Rings Fact Sheet (EMI-221).
+    visual: { ring: { innerRadiusKm: 74500, outerRadiusKm: 136780 } },
   },
   uranus: {
     radiusKm: 25362,
@@ -248,8 +250,8 @@ const VALUE_CASES = Object.entries(VALUES).flatMap(([id, values]) =>
   ),
 );
 
-test('bodies › values › the table holds 147 numbers', () => {
-  expect(VALUE_CASES).toHaveLength(147);
+test('bodies › values › the table holds 149 numbers', () => {
+  expect(VALUE_CASES).toHaveLength(149);
 });
 
 test.each(
@@ -336,4 +338,17 @@ test('lengthens orbital periods from Mercury to Neptune', () => {
 
 test('throws for an unknown id', () => {
   expect(() => getBody('pluto')).toThrow('Unknown celestial body: pluto');
+});
+
+test('saturn ring golden values', () => {
+  expect(getBody('saturn').visual.ring).toEqual({
+    texture: null,
+    innerRadiusKm: 74500,
+    outerRadiusKm: 136780,
+  });
+  for (const body of bodies) {
+    if (body.id !== 'saturn') {
+      expect(body.visual.ring).toBeUndefined();
+    }
+  }
 });

@@ -134,7 +134,7 @@ function mount(canvas: HTMLCanvasElement): App {
     surface: canvas,
     controller: cameraController,
   });
-  const bodyView = createBodies(bodies);
+  const bodyView = createBodies(bodies, textureMemory);
   view.scene.add(bodyView.group);
   const orbitLines = addOrbitLines(view.scene, bodies);
   const selectable = getSelectableBodies(bodies);
@@ -156,6 +156,7 @@ function mount(canvas: HTMLCanvasElement): App {
       id: body.id,
       object: mesh,
       displayRadius,
+      framingRadius: bodyView.rings.get(body.id)?.framingRadius,
       isSun: body.type === 'star',
     });
   }

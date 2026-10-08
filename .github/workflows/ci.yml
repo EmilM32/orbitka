@@ -27,7 +27,7 @@ jobs:
 
   e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     # Chromium and its system libraries ship in the image, so the job never
     # runs apt-get (the Ubuntu mirror hung `playwright install --with-deps`).
     # The tag must match @playwright/test in package.json (tests/repo/ci.test.ts).
@@ -46,8 +46,9 @@ jobs:
           cache: npm
       - run: npm ci
         timeout-minutes: 5
+      # 7.5 min before the textures (EMI-225), which slow SwiftShader frames.
       - run: npm run test:e2e
-        timeout-minutes: 8
+        timeout-minutes: 12
       # On failure the HTML report holds expected, actual and diff images of
       # every failed visual snapshot. CI never refreshes the baselines.
       - if: failure()

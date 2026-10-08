@@ -416,6 +416,8 @@ async function tabUntil(page: Page, stopId: string): Promise<string[]> {
 test('open scale explanation lies on top and fits at 1280x800 / 1280x720 / 1024x768 / 768x1024', async ({
   page,
 }) => {
+  // Four app starts, each loading the textures: 26 s on CI before them.
+  test.setTimeout(60_000);
   for (const size of [
     DESKTOP_WIDE,
     { width: 1280, height: 720 },

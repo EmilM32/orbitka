@@ -311,6 +311,13 @@ test('speed change', async ({ page }) => {
 
 test('reverse', async ({ page }) => {
   await openApp(page, DEBUG_START);
+  // The 512 textures upload in the first seconds and stretch those frames to
+  // whole days at this speed; the pairs below need the steady frame rate.
+  await page.waitForFunction(() =>
+    Object.values(
+      window.__orbitka?.getTextureState().bodies ?? { none: null },
+    ).every((value) => value !== null),
+  );
   await page.getByTestId('time-preset-ten-days').click();
   await page.waitForFunction(
     () => (window.__orbitka?.getClock().days ?? 0) > 2,

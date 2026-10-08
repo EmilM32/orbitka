@@ -75,7 +75,9 @@ test.beforeEach(async ({ page }) => {
   await skipCoach(page);
 });
 
-test.describe.configure({ timeout: 120_000 });
+// SwiftShader draws the textured spheres (EMI-225) more slowly, and the
+// wheel test costs a frame per notch: 1.4 min on CI before the textures.
+test.describe.configure({ timeout: 180_000 });
 
 async function openApp(page: Page, path = DEBUG_PATH): Promise<void> {
   await page.goto('about:blank');

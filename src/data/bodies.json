@@ -238,7 +238,15 @@
       "periodDays": 10755.88
     },
     "rotation": { "periodHours": 10.656, "axialTiltDeg": 26.73 },
-    "visual": { "texture": null, "color": "#E3CC8F" },
+    "visual": {
+      "texture": null,
+      "ring": {
+        "texture": null,
+        "innerRadiusKm": 74500,
+        "outerRadiusKm": 136780
+      },
+      "color": "#E3CC8F"
+    },
     "contentKey": "saturn"
   },
   {

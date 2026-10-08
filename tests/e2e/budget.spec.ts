@@ -24,7 +24,9 @@ async function openApp(page: Page): Promise<void> {
   await waitForFrames(page, 3);
 }
 
-async function expectWithinBudget(page: Page): Promise<void> {
+async function expectWithinBudget(
+  page: Page,
+): Promise<{ drawCalls: number; triangles: number; textureMiB: number }> {
   const stats = await page.evaluate(() => {
     const hook = window.__orbitka;
     if (!hook) {
@@ -40,11 +42,18 @@ async function expectWithinBudget(page: Page): Promise<void> {
   expect(stats.textureMiB).toBeLessThanOrEqual(TEXTURE_MEMORY_BUDGET_MIB);
   // Debug axes are reported apart and have no limit.
   expect(stats.debugDrawCalls).toBeGreaterThan(0);
+  return stats;
 }
+
+// Measured start view (days=0, 1280×720): 22 draw calls on main before
+// EMI-221, plus 1 for Saturn's ring (EMI-221), 1 for the stars and 1 for the
+// Sun's glow (EMI-222).
+const START_DRAW_CALLS = 25;
 
 test('start view within budget', async ({ page }) => {
   await openApp(page);
-  await expectWithinBudget(page);
+  const stats = await expectWithinBudget(page);
+  expect(stats.drawCalls).toBe(START_DRAW_CALLS);
 });
 
 test('saturn view within budget', async ({ page }) => {

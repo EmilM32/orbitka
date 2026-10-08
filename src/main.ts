@@ -15,6 +15,7 @@ import { createSelection } from '@core/selection.ts';
 import { VIEW_CONFIG } from '@core/viewConfig.ts';
 import { createViewInsets } from '@core/viewInsets.ts';
 import { zoomLimitState } from '@core/zoomLimits.ts';
+import { STAR_COUNTS } from '@core/starfield.ts';
 import { isStartPaused, parseStartDays } from '@core/startParams.ts';
 import { bodies } from '@data/bodies.ts';
 import { radiusToScene } from '@sim/scale.ts';
@@ -25,7 +26,7 @@ import { createBodyPicker } from '@render/bodyPicker.ts';
 import { createBodyProjector } from '@render/bodyProjector.ts';
 import { addDebugAxes } from '@render/debugAxes.ts';
 import { createLights } from '@render/lights.ts';
-import { addOrbitLines } from '@render/orbitLines.ts';
+import { ORBIT_GAP_RADIUS_FACTOR, addOrbitLines } from '@render/orbitLines.ts';
 import {
   createCameraController,
   type CameraControllerState,
@@ -39,6 +40,8 @@ import { createCanvasKeyboard } from '@render/canvasKeyboard.ts';
 import { createFrameRenderer } from '@render/frameRenderer.ts';
 import { createRenderer } from '@render/createRenderer.ts';
 import { createRotationAnimator } from '@render/rotateBodies.ts';
+import { createStarfield } from '@render/starfield.ts';
+import { createSunGlow } from '@render/sunGlow.ts';
 import { getRenderStats, trackDebugDrawCalls } from '@render/renderStats.ts';
 import { createTextureMemory } from '@render/textureMemory.ts';
 import { getBodyScenePosition as readBodyScenePosition } from '@render/scenePosition.ts';
@@ -134,9 +137,23 @@ function mount(canvas: HTMLCanvasElement): App {
     surface: canvas,
     controller: cameraController,
   });
-  const bodyView = createBodies(bodies);
+  // The quality levels pick the star count later (light mode task).
+  const starfield = createStarfield(STAR_COUNTS.high);
+  view.scene.add(starfield.points);
+  const bodyView = createBodies(bodies, textureMemory);
   view.scene.add(bodyView.group);
+  const sunMesh = bodyView.meshes.get('sun');
+  const sunRadius = bodyView.radii.get('sun');
+  const sunDef = bodies.find((body) => body.type === 'star');
+  if (sunMesh === undefined || sunRadius === undefined || !sunDef) {
+    throw new Error('Missing the Sun mesh');
+  }
+  const sunGlow = createSunGlow(sunRadius, sunDef.visual.color, textureMemory);
+  sunMesh.add(sunGlow.sprite);
   const orbitLines = addOrbitLines(view.scene, bodies);
+  // The selected body the orbit lines leave a gap around (null = none).
+  let gapMesh: ReturnType<typeof bodyView.meshes.get> | null = null;
+  let gapRadius = 0;
   const selectable = getSelectableBodies(bodies);
   const selection = createSelection(selectable.map((body) => body.id));
   const projectorEntries = [];
@@ -156,6 +173,7 @@ function mount(canvas: HTMLCanvasElement): App {
       id: body.id,
       object: mesh,
       displayRadius,
+      framingRadius: bodyView.rings.get(body.id)?.framingRadius,
       isSun: body.type === 'star',
     });
   }
@@ -226,10 +244,14 @@ function mount(canvas: HTMLCanvasElement): App {
   const unsubscribeSelection = selection.subscribe((event) => {
     if (event.kind === 'selected') {
       orbitLines.setSelectedBody(event.id);
+      gapMesh = bodyView.meshes.get(event.id) ?? null;
+      gapRadius = gapMesh === null ? 0 : (bodyView.radii.get(event.id) ?? 0);
       return;
     }
     if (event.kind === 'system') {
       orbitLines.setSelectedBody(null);
+      gapMesh = null;
+      gapRadius = 0;
     }
   });
   view.scene.add(createLights());
@@ -532,6 +554,7 @@ function mount(canvas: HTMLCanvasElement): App {
         return {
           visible: orbitLines.group.visible ? 1 : 0,
           opacities,
+          gapRadius: gapMesh === null ? 0 : gapRadius * ORBIT_GAP_RADIUS_FACTOR,
         };
       },
     };
@@ -572,6 +595,8 @@ function mount(canvas: HTMLCanvasElement): App {
       director.update(dtSeconds);
       cameraController.update(dtSeconds);
       viewOffset.update(dtSeconds);
+      starfield.update(view.camera);
+      orbitLines.setGap(gapMesh?.position ?? null, gapRadius, view.camera);
       cameraController.getState(zoomCamera);
       zoomLimitState(
         zoomCamera.distance,
@@ -673,7 +698,9 @@ function mount(canvas: HTMLCanvasElement): App {
       debugDraws?.dispose();
       debugAxes?.dispose();
       orbitLines.dispose();
+      sunGlow.dispose();
       bodyView.dispose();
+      starfield.dispose();
       textureMemory.dispose();
       frameRenderer.dispose();
       unsubscribeResize();

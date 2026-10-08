@@ -1,6 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 
-import { PIXEL } from './fixtures.ts';
+import { PIXEL, SUN_DISC_TINT } from './fixtures.ts';
 
 // A body to look for in the frame: its center on screen and its catalog color.
 export type BodyProbe = {
@@ -107,7 +107,7 @@ export async function readCanvasPixels(
   const png = await canvas.screenshot({ style: HIDE_OVERLAYS });
 
   return page.evaluate(
-    async ({ encoded, bodies, cssWidth, cssHeight, pixel }) => {
+    async ({ encoded, bodies, cssWidth, cssHeight, pixel, sunTint }) => {
       const binary = atob(encoded);
       const bytes = new Uint8Array(binary.length);
       for (let index = 0; index < binary.length; index += 1) {
@@ -137,8 +137,8 @@ export async function readCanvasPixels(
         }
       }
 
-      // Lighting scales a color in linear light, so the channel ratios of a
-      // lit or shaded body match its catalog color there, not in sRGB.
+      // Lighting scales a color in linear light, so the channel ratios are
+      // compared there, not in sRGB.
       const toLinear = (value: number): number => {
         const unit = value / 255;
         return unit <= 0.04045 ? unit / 12.92 : ((unit + 0.055) / 1.055) ** 2.4;
@@ -153,12 +153,59 @@ export async function readCanvasPixels(
           Number.parseInt(hex.slice(start, start + 2), 16),
         );
 
+      // The renderer uses three's ACESFilmicToneMapping (exposure 1), which
+      // is not linear: a lit and a shaded part of one body come out with
+      // different chromaticities. So a pixel is compared with the tone-mapped
+      // body color at every lighting level and the closest one counts.
+      const fit = (v: number): number =>
+        (v * (v + 0.0245786) - 0.000090537) /
+        (v * (0.983729 * v + 0.432951) + 0.238081);
+      const saturate = (v: number): number => Math.min(1, Math.max(0, v));
+      const aces = (r: number, g: number, b: number): number[] => {
+        const scale = 1 / 0.6;
+        const ir = (0.59719 * r + 0.35458 * g + 0.04823 * b) * scale;
+        const ig = (0.076 * r + 0.90834 * g + 0.01566 * b) * scale;
+        const ib = (0.0284 * r + 0.13383 * g + 0.83777 * b) * scale;
+        const fr = fit(ir);
+        const fg = fit(ig);
+        const fb = fit(ib);
+        return [
+          saturate(1.60475 * fr - 0.53108 * fg - 0.07367 * fb),
+          saturate(-0.10208 * fr + 1.10813 * fg - 0.00605 * fb),
+          saturate(-0.00327 * fr - 0.07276 * fg + 1.07602 * fb),
+        ];
+      };
+      const toneMappedChromaticities = (
+        hex: string,
+        tint: readonly number[],
+      ): number[][] => {
+        const linear = fromHex(hex).map(
+          (value, index) => toLinear(value) * (tint[index] ?? 1),
+        );
+        const result: number[][] = [];
+        for (let step = 0; step <= 96; step += 1) {
+          const level = 0.02 * 400 ** (step / 96);
+          const mapped = aces(
+            (linear[0] ?? 0) * level,
+            (linear[1] ?? 0) * level,
+            (linear[2] ?? 0) * level,
+          );
+          const sum = mapped.reduce((total, value) => total + value, 0);
+          if (sum > 0) {
+            result.push(mapped.map((value) => value / sum));
+          }
+        }
+        return result;
+      };
+
       const scaleX = bitmap.width / cssWidth;
       const scaleY = bitmap.height / cssHeight;
       const matches: Record<string, number> = {};
       for (const body of bodies) {
-        const [r = 0, g = 0, b = 0] = fromHex(body.color);
-        const expected = chromaticity(r, g, b);
+        const candidates = toneMappedChromaticities(
+          body.color,
+          body.id === 'sun' ? sunTint : [1, 1, 1],
+        );
         const centerX = Math.round(body.x * scaleX);
         const centerY = Math.round(body.y * scaleY);
         let count = 0;
@@ -184,11 +231,17 @@ export async function readCanvasPixels(
               channel(offset + 1),
               channel(offset + 2),
             );
-            const distance = Math.hypot(
-              (actual[0] ?? 0) - (expected[0] ?? 0),
-              (actual[1] ?? 0) - (expected[1] ?? 0),
-              (actual[2] ?? 0) - (expected[2] ?? 0),
-            );
+            let distance = Number.POSITIVE_INFINITY;
+            for (const expected of candidates) {
+              distance = Math.min(
+                distance,
+                Math.hypot(
+                  (actual[0] ?? 0) - (expected[0] ?? 0),
+                  (actual[1] ?? 0) - (expected[1] ?? 0),
+                  (actual[2] ?? 0) - (expected[2] ?? 0),
+                ),
+              );
+            }
             if (distance <= pixel.chromaTolerance) {
               count += 1;
             }
@@ -210,6 +263,7 @@ export async function readCanvasPixels(
       cssWidth: box.width,
       cssHeight: box.height,
       pixel,
+      sunTint: SUN_DISC_TINT,
     },
   );
 }

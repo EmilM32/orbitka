@@ -4,7 +4,9 @@ import {
   Group,
   LineBasicMaterial,
   LineLoop,
+  type Camera,
   type Scene,
+  type WebGLProgramParametersWithUniforms,
   Vector3,
 } from 'three';
 
@@ -19,13 +21,68 @@ import { eclipticToScene } from './coords.ts';
 export const ORBIT_SEGMENTS = 256;
 export const ORBIT_COLOR = 0x5b6b8c;
 export const ORBIT_OPACITY = 0.55;
+// ADR-010 point 10: no orbit line is drawn closer than 1.25 R to the line of
+// sight through the selected body's center.
+export const ORBIT_GAP_RADIUS_FACTOR = 1.25;
 
 export type OrbitLines = {
   group: Group;
   setOrbitLinesVisible: (visible: boolean) => void;
   setSelectedBody: (id: string | null) => void;
+  /**
+   * Cuts every orbit line where it passes in front of or behind the disc
+   * centered at `center` (world space) with scene radius `radius`. `null`
+   * removes the gap. Called every frame; it does not allocate.
+   */
+  setGap: (center: Vector3 | null, radius: number, camera: Camera) => void;
   dispose: () => void;
 };
+
+export type OrbitGapUniforms = {
+  uGapC: { value: Vector3 };
+  uGapR: { value: number };
+};
+
+const GAP_VERTEX_HEAD = 'varying vec3 vGapViewPosition;\nvoid main() {';
+const GAP_VERTEX_BODY =
+  '#include <project_vertex>\n\tvGapViewPosition = mvPosition.xyz;';
+// The camera sits at the view-space origin. A fragment is dropped when the ray
+// from the camera through it passes within uGapR of the body center, so the
+// line is cut both in front of and behind the disc.
+const GAP_FRAGMENT_HEAD = `uniform vec3 uGapC;
+uniform float uGapR;
+varying vec3 vGapViewPosition;
+void main() {
+\tif ( uGapR > 0.0 ) {
+\t\tvec3 gapRay = normalize( vGapViewPosition );
+\t\tfloat gapAlong = dot( uGapC, gapRay );
+\t\tif ( gapAlong > 0.0 && length( uGapC - gapRay * gapAlong ) < uGapR ) discard;
+\t}`;
+
+function replaceOnce(source: string, anchor: string, next: string): string {
+  if (!source.includes(anchor)) {
+    throw new Error(`orbit gap patch: shader has no "${anchor}"`);
+  }
+  return source.replace(anchor, next);
+}
+
+export function patchOrbitGap(
+  shader: WebGLProgramParametersWithUniforms,
+  uniforms: OrbitGapUniforms,
+): void {
+  shader.uniforms.uGapC = uniforms.uGapC;
+  shader.uniforms.uGapR = uniforms.uGapR;
+  shader.vertexShader = replaceOnce(
+    replaceOnce(shader.vertexShader, 'void main() {', GAP_VERTEX_HEAD),
+    '#include <project_vertex>',
+    GAP_VERTEX_BODY,
+  );
+  shader.fragmentShader = replaceOnce(
+    shader.fragmentShader,
+    'void main() {',
+    GAP_FRAGMENT_HEAD,
+  );
+}
 
 function requireSegments(segments: number): void {
   if (!Number.isInteger(segments) || segments < 3) {
@@ -72,20 +129,34 @@ export function computeOrbitPoints(
   return points;
 }
 
-function createOrbitMaterial(opacity: number): LineBasicMaterial {
-  return new LineBasicMaterial({
+function createOrbitMaterial(
+  opacity: number,
+  uniforms: OrbitGapUniforms,
+): LineBasicMaterial {
+  const material = new LineBasicMaterial({
     color: ORBIT_COLOR,
     transparent: true,
     opacity,
     depthWrite: false,
   });
+  // On each material, not through scene.traverse: dimmed and selected are
+  // attached to the lines only after a selection (SPEC §9.2).
+  material.onBeforeCompile = (shader) => {
+    patchOrbitGap(shader, uniforms);
+  };
+  return material;
 }
 
 export function createOrbitLines(defs: readonly BodyDef[]): OrbitLines {
   const group = new Group();
-  const normal = createOrbitMaterial(ORBIT_OPACITY);
-  const dimmed = createOrbitMaterial(CAMERA_CONFIG.orbitOpacityDimmed);
-  const selected = createOrbitMaterial(CAMERA_CONFIG.orbitOpacitySelected);
+  // One set of uniforms, shared by the three materials.
+  const gap: OrbitGapUniforms = {
+    uGapC: { value: new Vector3() },
+    uGapR: { value: 0 },
+  };
+  const normal = createOrbitMaterial(ORBIT_OPACITY, gap);
+  const dimmed = createOrbitMaterial(CAMERA_CONFIG.orbitOpacityDimmed, gap);
+  const selected = createOrbitMaterial(CAMERA_CONFIG.orbitOpacitySelected, gap);
   const materials = [normal, dimmed, selected];
   const lines: LineLoop[] = [];
   let disposed = false;
@@ -167,6 +238,21 @@ export function createOrbitLines(defs: readonly BodyDef[]): OrbitLines {
       }
       selectedId = id;
       applyMaterials();
+    },
+    setGap(center: Vector3 | null, radius: number, camera: Camera): void {
+      if (!Number.isFinite(radius) || radius < 0) {
+        throw new RangeError(
+          `setGap: parameter "radius" must be finite and >= 0, got ${radius}`,
+        );
+      }
+      if (center === null) {
+        gap.uGapR.value = 0;
+        return;
+      }
+      // The renderer refreshes this only in render(), after the loop update.
+      camera.updateMatrixWorld();
+      gap.uGapC.value.copy(center).applyMatrix4(camera.matrixWorldInverse);
+      gap.uGapR.value = radius * ORBIT_GAP_RADIUS_FACTOR;
     },
     dispose,
   };

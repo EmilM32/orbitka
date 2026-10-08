@@ -786,3 +786,47 @@ test('update does not allocate', () => {
   expect(sets).toBe(0);
   expect(snapshot(rig.director).active).toBe(1);
 });
+
+test('uses framingRadius', () => {
+  const camera = new PerspectiveCamera(45, ASPECT, 0.1, 2000);
+  const motion = fakeMotion(false);
+  const controller = createCameraController({ camera, reducedMotion: motion });
+  const saturn: DirectorBody = {
+    ...movingBody('saturn', 50, 0, -20, 1.2, false),
+    framingRadius: 2.8,
+  };
+  const mars = movingBody('mars', 30, 0, 12, 1.2, false);
+  const selection = createSelection(['saturn', 'mars']);
+  const director = createCameraDirector({
+    controller,
+    selection,
+    bodies: [saturn, mars],
+    reducedMotion: motion,
+    onJump() {},
+    insets: createViewInsets(),
+    viewport: VIEWPORT,
+  });
+  const rig = { director, camera, controller } as unknown as Rig;
+
+  selection.select('saturn');
+  finishFlight(rig);
+  expect(readPose(controller).distance).toBeCloseTo(
+    2.8 * CAMERA_CONFIG.bodyDistanceRadiusFactor,
+    8,
+  );
+  // The zoom limits still follow the disc, not the ring.
+  expect(readState(controller).distanceMin).toBeCloseTo(
+    1.2 * CAMERA_CONFIG.bodyZoomMinRadiusFactor,
+    8,
+  );
+
+  // Without framingRadius the frame falls back to displayRadius.
+  selection.select('mars');
+  finishFlight(rig);
+  expect(readPose(controller).distance).toBeCloseTo(
+    1.2 * CAMERA_CONFIG.bodyDistanceRadiusFactor,
+    8,
+  );
+  director.dispose();
+  controller.dispose();
+});

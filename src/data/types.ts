@@ -27,9 +27,17 @@ export interface RotationDef {
   axialTiltDeg: number;
 }
 
+// Ring radii are measured from the body's center (NASA Saturnian Rings Fact
+// Sheet). `texture: null` means the band profile is generated in code.
+export interface RingDef {
+  texture: string | null;
+  innerRadiusKm: number;
+  outerRadiusKm: number;
+}
+
 export interface VisualDef {
   texture: string | null;
-  ringTexture?: string;
+  ring?: RingDef;
   color: string;
 }
 

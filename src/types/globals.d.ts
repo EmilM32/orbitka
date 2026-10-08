@@ -53,6 +53,8 @@ export type OrbitkaCameraState = {
 export type OrbitkaOrbitState = {
   visible: number;
   opacities: number[];
+  /** Scene radius of the orbit gap around the selected body; 0 = none. */
+  gapRadius: number;
 };
 
 declare global {

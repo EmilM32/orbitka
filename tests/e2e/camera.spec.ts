@@ -567,26 +567,30 @@ test('wheel zoom steps and limits', async ({ page }) => {
     Math.abs(stepped.distance / (start.distance * 0.9) - 1),
   ).toBeLessThanOrEqual(0.01);
 
-  await wheelTimes(page, -100, 60);
+  // One notch is one 0.9× or 1.1× step. Each count below reaches its limit
+  // with at least 1.2× margin (start → min 16 notches, min → max 22, Mars
+  // frame → max 42, max → Mars min 46). Every notch costs a frame in
+  // SwiftShader, so the counts stay near what is needed.
+  await wheelTimes(page, -100, 25);
   const zoomedIn = await waitForStableDistance(page);
   expect(Math.abs(zoomedIn.distance - ZOOM_MIN)).toBeLessThanOrEqual(0.01);
   expect(Math.abs(zoomedIn.distanceMin - ZOOM_MIN)).toBeLessThanOrEqual(0.01);
 
-  await wheelTimes(page, 100, 60);
+  await wheelTimes(page, 100, 30);
   const zoomedOut = await waitForStableDistance(page);
   expect(Math.abs(zoomedOut.distance - ZOOM_MAX)).toBeLessThanOrEqual(0.01);
   expect(Math.abs(zoomedOut.distanceMax - ZOOM_MAX)).toBeLessThanOrEqual(0.01);
 
   await flyTo(page, 'mars');
   await page.mouse.move(VIEWPORT.width / 2, VIEWPORT.height / 2);
-  await wheelTimes(page, 100, 60);
+  await wheelTimes(page, 100, 50);
   const bodyFar = await waitForStableDistance(page);
   expect(Math.abs(bodyFar.distance - START_DISTANCE)).toBeLessThanOrEqual(0.01);
   expect(Math.abs(bodyFar.distanceMax - START_DISTANCE)).toBeLessThanOrEqual(
     0.01,
   );
 
-  await wheelTimes(page, -100, 60);
+  await wheelTimes(page, -100, 55);
   const bodyNear = await waitForStableDistance(page);
   expect(bodyNear.selectedRadius).toBeGreaterThan(0);
   expect(
@@ -855,7 +859,7 @@ test('every body can be selected and is drawn', async ({ page }) => {
       [{ id, x: point.x, y: point.y, color: BODY_COLORS[id] }],
       { ...PIXEL, windowRadius: 16 },
     );
-    expect(pixels.matches[id] ?? 0).toBeGreaterThanOrEqual(1);
+    expect(pixels.matches[id] ?? 0, `${id} pixels`).toBeGreaterThanOrEqual(1);
   }
 });
 
@@ -968,4 +972,97 @@ test('zoom in disables at the limit', async ({ page }) => {
   await expect(zoomOut).not.toHaveAttribute('aria-disabled', 'true');
   await zoomOut.click();
   await expect(zoomIn).not.toHaveAttribute('aria-disabled', 'true');
+});
+
+// Saturn's outer ring radius over its body radius (NSSDCA: 136 780 km and
+// 58 232 km), copied: e2e imports nothing from src.
+const SATURN_RING_OUTER_FACTOR = 136_780 / 58_232;
+const CAMERA_FOV_DEG = 45;
+
+for (const viewport of [
+  { width: 1280, height: 720 },
+  { width: 1024, height: 768 },
+]) {
+  test(`saturn ring fits the frame at ${viewport.width}×${viewport.height}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await openApp(page);
+    await waitReady(page);
+    // At 1024 px the list sits in the tablet drawer.
+    const item = page.getByTestId('body-item-saturn');
+    if (!(await item.isVisible())) {
+      await page.getByTestId('bodies-drawer-open').click();
+    }
+    await flyTo(page, 'saturn');
+    const state = await waitForStableDistance(page);
+    await expectCentered(page, 'saturn');
+    const center = await screenPoint(page, 'saturn');
+    const insets = await page.evaluate(() => {
+      const hook = window.__orbitka;
+      if (!hook) {
+        throw new Error('missing debug hook');
+      }
+      return hook.getViewInsets();
+    });
+
+    // The camera looks at Saturn's center, so the sphere around the outer
+    // ring edge is a circle on screen; any tilt of the ring stays inside it.
+    const ringRadius = state.selectedRadius * SATURN_RING_OUTER_FACTOR;
+    const angle = Math.asin(ringRadius / state.distance);
+    const focal =
+      viewport.height / 2 / Math.tan(((CAMERA_FOV_DEG / 2) * Math.PI) / 180);
+    const radiusPx = focal * Math.tan(angle);
+    expect(radiusPx).toBeGreaterThan(40);
+    expect(center.x - radiusPx).toBeGreaterThanOrEqual(0);
+    expect(center.y - radiusPx).toBeGreaterThanOrEqual(0);
+    expect(center.x + radiusPx).toBeLessThanOrEqual(
+      viewport.width - insets.right,
+    );
+    expect(center.y + radiusPx).toBeLessThanOrEqual(
+      viewport.height - insets.bottom,
+    );
+  });
+}
+
+// ADR-010 point 10, copied: e2e imports nothing from src.
+const ORBIT_GAP_RADIUS_FACTOR = 1.25;
+
+test('orbit does not cross the selected disc', async ({ page }, testInfo) => {
+  await openApp(page);
+  await waitReady(page);
+  expect(
+    (await page.evaluate(() => window.__orbitka?.getOrbitState()))?.gapRadius,
+  ).toBe(0);
+
+  const state = await flyTo(page, 'jupiter');
+  const point = await expectCentered(page, 'jupiter');
+  const orbit = await page.evaluate(() => window.__orbitka?.getOrbitState());
+  expect(orbit?.gapRadius).toBeCloseTo(
+    state.selectedRadius * ORBIT_GAP_RADIUS_FACTOR,
+    6,
+  );
+
+  // Jupiter's own orbit runs through its center. The pixels there are the
+  // disc's color, not the orbit line's (ORBIT_COLOR).
+  const pixels = await readCanvasPixels(
+    page,
+    [
+      { id: 'jupiter', x: point.x, y: point.y, color: BODY_COLORS.jupiter },
+      { id: 'orbit', x: point.x, y: point.y, color: '#5b6b8c' },
+    ],
+    { ...PIXEL, windowRadius: 2 },
+  );
+  expect(pixels.matches.jupiter ?? 0).toBeGreaterThanOrEqual(20);
+  expect(pixels.matches.orbit ?? 0).toBe(0);
+  await testInfo.attach('jupiter-orbit-gap', {
+    body: await page.locator('canvas').screenshot(),
+    contentType: 'image/png',
+  });
+
+  await page.getByTestId('view-reset').click();
+  await waitForFlightEnd(page);
+  expect(
+    (await page.evaluate(() => window.__orbitka?.getOrbitState()))?.gapRadius,
+  ).toBe(0);
 });

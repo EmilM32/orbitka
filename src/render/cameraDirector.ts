@@ -28,6 +28,11 @@ export type DirectorBody = {
     position: { x: number; y: number; z: number };
   };
   displayRadius: number;
+  /**
+   * Radius the flight frames, in scene units. Defaults to displayRadius;
+   * Saturn uses its outer ring radius so the whole ring fits the frame.
+   */
+  framingRadius?: number;
   isSun: boolean;
 };
 
@@ -410,7 +415,8 @@ export function createCameraDirector(
     const x = body === null ? 0 : body.object.position.x;
     const y = body === null ? 0 : body.object.position.y;
     const z = body === null ? 0 : body.object.position.z;
-    const radius = body === null ? 1 : body.displayRadius;
+    const radius =
+      body === null ? 1 : (body.framingRadius ?? body.displayRadius);
     const isSun = body !== null && body.isSun;
     computeGoalPose(out, kind, x, y, z, radius, isSun, azimuthSource, 1);
     if (kind === 'body') {

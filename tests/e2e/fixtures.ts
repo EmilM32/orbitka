@@ -67,6 +67,10 @@ export const BODY_COLORS = {
 // sit on Jupiter's disc and its debug axes and are close to Jupiter in color,
 // and the Moon covers about 3 pixels next to Earth. Their positions are
 // covered by tests/render/animateMoons.test.ts and moons.spec.ts.
+// SUN_DISC_TINT from src/render/bodies.ts (SPEC §9.3), copied: the Sun's disc
+// is its catalog color times this, in linear light.
+export const SUN_DISC_TINT = [1.15, 1.0, 0.8] as const;
+
 export const UNPROBED_BODY_IDS: readonly string[] = MOON_IDS;
 
 // Pixel thresholds for the body check, measured in SwiftShader at days=0.
@@ -75,8 +79,10 @@ export const PIXEL = {
   // channel. A pixel at or above this value is a body or a debug axis.
   brightMin: 96,
   // A body pixel must be at least this bright in its strongest channel.
-  // Black background and unlit bodies stay below it.
-  litMin: 30,
+  // The black background stays below it. ACES tone mapping (EMI-222) darkens
+  // the side lit only by the ambient light: Mercury's night side at days=0
+  // is 15, it was about 60 before.
+  litMin: 12,
   // Largest distance between linear-light chromaticities of a pixel and the
   // body color. Orbit lines are at least 0.15 away from every body.
   chromaTolerance: 0.06,

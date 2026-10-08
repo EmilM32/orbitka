@@ -101,17 +101,22 @@ function createChecker(label: string, errors: string[]) {
         errors.push(`${label}: field ${path}${key} ${problem}`);
       }
     },
-    group(source: Fields, key: string, optional = false): Fields | null {
+    group(
+      source: Fields,
+      key: string,
+      optional = false,
+      path = '',
+    ): Fields | null {
       if (!has(source, key)) {
         if (!optional) {
-          errors.push(`${label}: missing field ${key}`);
+          errors.push(`${label}: missing field ${path}${key}`);
         }
         return null;
       }
 
       const value = source[key];
       if (!isFields(value)) {
-        errors.push(`${label}: field ${key} must be an object`);
+        errors.push(`${label}: field ${path}${key} must be an object`);
         return null;
       }
 
@@ -176,8 +181,14 @@ function isValidBody(
   const visual = check.group(raw, 'visual');
   if (visual) {
     check.field(visual, 'visual.', 'texture', textOrNull);
-    check.field(visual, 'visual.', 'ringTexture', text, true);
     check.field(visual, 'visual.', 'color', color);
+    const ring = check.group(visual, 'ring', true, 'visual.');
+    if (ring) {
+      check.field(ring, 'visual.ring.', 'texture', textOrNull);
+      check.field(ring, 'visual.ring.', 'innerRadiusKm', positive);
+      check.field(ring, 'visual.ring.', 'outerRadiusKm', positive);
+      checkRingRadii(raw, label, ring, errors);
+    }
   }
 
   return errors.length === errorsBefore;
@@ -269,6 +280,38 @@ function checkAxisUnit(
     errors.push(
       `${label}: field orbit.semiMajorAxisAu must be < ${MOON_AXIS_MIN_KM} (AU), got ${axis}`,
     );
+  }
+}
+
+// The ring starts outside the body and ends after it starts. Each check runs
+// only when both of its numbers are valid, so a broken number is reported once.
+function checkRingRadii(
+  raw: Fields,
+  label: string,
+  ring: Fields,
+  errors: string[],
+): void {
+  const inner = ring.innerRadiusKm;
+  const outer = ring.outerRadiusKm;
+  const bodyRadius = raw.radiusKm;
+  if (isFiniteNumber(inner) && inner > 0 && isFiniteNumber(bodyRadius)) {
+    if (inner <= bodyRadius) {
+      errors.push(
+        `${label}: field visual.ring.innerRadiusKm must be > radiusKm (${bodyRadius}), got ${inner}`,
+      );
+    }
+  }
+  if (
+    isFiniteNumber(inner) &&
+    inner > 0 &&
+    isFiniteNumber(outer) &&
+    outer > 0
+  ) {
+    if (outer <= inner) {
+      errors.push(
+        `${label}: field visual.ring.outerRadiusKm must be > visual.ring.innerRadiusKm (${inner}), got ${outer}`,
+      );
+    }
   }
 }
 

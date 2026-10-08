@@ -42,7 +42,9 @@ test('renderStats › counts', () => {
   expect(stats).toEqual({
     drawCalls: 12,
     debugDrawCalls: 0,
+    postFxDrawCalls: 0,
     triangles: 34_560,
+    textureMiB: 0,
   });
   stats.drawCalls = 0;
   stats.triangles = 1;
@@ -67,26 +69,67 @@ test('renderStats › counts', () => {
 test('renderStats › debug draw calls are kept apart', () => {
   const source = { info: { render: { calls: 31, triangles: 30_000 } } };
 
-  expect(getRenderStats(source, 9)).toEqual({
+  expect(getRenderStats(source, { debugDrawCalls: 9 })).toEqual({
     drawCalls: 22,
     debugDrawCalls: 9,
+    postFxDrawCalls: 0,
     triangles: 30_000,
+    textureMiB: 0,
   });
-  expect(getRenderStats(source, 31).drawCalls).toBe(0);
+  expect(getRenderStats(source, { debugDrawCalls: 31 }).drawCalls).toBe(0);
 
   for (const debugDrawCalls of [Number.NaN, -1, Number.POSITIVE_INFINITY]) {
-    const call = () => getRenderStats(source, debugDrawCalls);
+    const call = () => getRenderStats(source, { debugDrawCalls });
     expect(call).toThrow(RangeError);
     expect(call).toThrow(
       `getRenderStats: parameter "debugDrawCalls" must be finite and >= 0, got ${debugDrawCalls}`,
     );
   }
 
-  const tooMany = () => getRenderStats(source, 32);
+  const tooMany = () => getRenderStats(source, { debugDrawCalls: 32 });
   expect(tooMany).toThrow(RangeError);
   expect(tooMany).toThrow(
-    'getRenderStats: parameter "debugDrawCalls" must be <= calls (31), got 32',
+    'getRenderStats: parameters "debugDrawCalls" + "postFxDrawCalls" must be <= calls (31), got 32',
   );
+});
+
+test('renderStats › subtracts debug and postFx', () => {
+  const source = { info: { render: { calls: 30, triangles: 26_432 } } };
+
+  expect(
+    getRenderStats(source, {
+      debugDrawCalls: 3,
+      postFxDrawCalls: 0,
+      textureMiB: 2.5,
+    }),
+  ).toEqual({
+    drawCalls: 27,
+    debugDrawCalls: 3,
+    postFxDrawCalls: 0,
+    triangles: 26_432,
+    textureMiB: 2.5,
+  });
+  expect(
+    getRenderStats(source, { debugDrawCalls: 3, postFxDrawCalls: 4 }).drawCalls,
+  ).toBe(23);
+
+  // The first frame: fewer calls than the debug and post-processing parts.
+  const negative = () =>
+    getRenderStats(
+      { info: { render: { calls: 2, triangles: 0 } } },
+      { debugDrawCalls: 2, postFxDrawCalls: 1 },
+    );
+  expect(negative).toThrow(RangeError);
+  expect(negative).toThrow('must be <= calls (2), got 3');
+
+  for (const value of [Number.NaN, -1]) {
+    expect(() => getRenderStats(source, { postFxDrawCalls: value })).toThrow(
+      `getRenderStats: parameter "postFxDrawCalls" must be finite and >= 0, got ${value}`,
+    );
+    expect(() => getRenderStats(source, { textureMiB: value })).toThrow(
+      `getRenderStats: parameter "textureMiB" must be finite and >= 0, got ${value}`,
+    );
+  }
 });
 
 test('renderStats › isDebugObject', () => {

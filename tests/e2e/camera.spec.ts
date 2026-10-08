@@ -902,8 +902,8 @@ test('resize during a flight', async ({ page }) => {
 });
 
 test('selection does not add draw calls', async ({ page }) => {
-  // DRAW_CALL_BUDGET from ADR-006 and ADR-009: scene without debug objects.
-  const DRAW_CALL_BUDGET = 25;
+  // DRAW_CALL_BUDGET from ADR-010 point 8: scene without debug objects.
+  const DRAW_CALL_BUDGET = 28;
 
   await openApp(page);
   await waitReady(page);

@@ -9,12 +9,21 @@ export type RenderStatsSource = {
   };
 };
 
-// drawCalls leaves out debug objects (userData.debug), so it is the number
-// DRAW_CALL_BUDGET applies to (ADR-006, ADR-009). debugDrawCalls has no limit.
+// drawCalls leaves out debug objects (userData.debug) and post-processing
+// passes, so it is the number DRAW_CALL_BUDGET applies to (ADR-010 point 8).
+// debugDrawCalls has no limit; postFxDrawCalls has POSTFX_DRAW_CALL_BUDGET.
 export type RenderStats = {
   drawCalls: number;
   debugDrawCalls: number;
+  postFxDrawCalls: number;
   triangles: number;
+  textureMiB: number;
+};
+
+export type RenderStatsExtras = {
+  debugDrawCalls?: number;
+  postFxDrawCalls?: number;
+  textureMiB?: number;
 };
 
 export type DebugDrawCounter = {
@@ -23,7 +32,8 @@ export type DebugDrawCounter = {
   dispose(): void;
 };
 
-type Count = 'calls' | 'triangles' | 'debugDrawCalls';
+type Count =
+  'calls' | 'triangles' | 'debugDrawCalls' | 'postFxDrawCalls' | 'textureMiB';
 
 function requireCount(parameter: Count, value: number): void {
   if (!Number.isFinite(value) || value < 0) {
@@ -35,20 +45,32 @@ function requireCount(parameter: Count, value: number): void {
 
 export function getRenderStats(
   source: RenderStatsSource,
-  debugDrawCalls = 0,
+  extras: RenderStatsExtras = {},
 ): RenderStats {
   const calls = source.info.render.calls;
   const triangles = source.info.render.triangles;
+  const debugDrawCalls = extras.debugDrawCalls ?? 0;
+  const postFxDrawCalls = extras.postFxDrawCalls ?? 0;
+  const textureMiB = extras.textureMiB ?? 0;
   requireCount('calls', calls);
   requireCount('triangles', triangles);
   requireCount('debugDrawCalls', debugDrawCalls);
-  if (debugDrawCalls > calls) {
+  requireCount('postFxDrawCalls', postFxDrawCalls);
+  requireCount('textureMiB', textureMiB);
+  // Before the first frame calls can be smaller than the parts it contains.
+  if (debugDrawCalls + postFxDrawCalls > calls) {
     throw new RangeError(
-      `getRenderStats: parameter "debugDrawCalls" must be <= calls (${calls}), got ${debugDrawCalls}`,
+      `getRenderStats: parameters "debugDrawCalls" + "postFxDrawCalls" must be <= calls (${calls}), got ${debugDrawCalls + postFxDrawCalls}`,
     );
   }
 
-  return { drawCalls: calls - debugDrawCalls, debugDrawCalls, triangles };
+  return {
+    drawCalls: calls - debugDrawCalls - postFxDrawCalls,
+    debugDrawCalls,
+    postFxDrawCalls,
+    triangles,
+    textureMiB,
+  };
 }
 
 export function isDebugObject(object: Object3D): boolean {

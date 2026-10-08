@@ -9,7 +9,9 @@ export type OrbitkaBodyScreenPosition = {
 export type OrbitkaRenderStats = {
   drawCalls: number;
   debugDrawCalls: number;
+  postFxDrawCalls: number;
   triangles: number;
+  textureMiB: number;
 };
 
 export type OrbitkaClockState = {

@@ -35,9 +35,11 @@ import {
 } from '@render/cameraDirector.ts';
 import { createCameraPointerInput } from '@render/cameraPointerInput.ts';
 import { createCanvasKeyboard } from '@render/canvasKeyboard.ts';
+import { createFrameRenderer } from '@render/frameRenderer.ts';
 import { createRenderer } from '@render/createRenderer.ts';
 import { createRotationAnimator } from '@render/rotateBodies.ts';
 import { getRenderStats, trackDebugDrawCalls } from '@render/renderStats.ts';
+import { createTextureMemory } from '@render/textureMemory.ts';
 import { getBodyScenePosition as readBodyScenePosition } from '@render/scenePosition.ts';
 import { getBodyScreenPositions } from '@render/screenPositions.ts';
 import { createViewOffsetRig } from '@render/viewOffset.ts';
@@ -111,6 +113,9 @@ function findCanvas(): HTMLCanvasElement {
 
 function mount(canvas: HTMLCanvasElement): App {
   const view = createRenderer(canvas);
+  const frameRenderer = createFrameRenderer(view);
+  // Every texture made in render is tracked here (ADR-010 point 8).
+  const textureMemory = createTextureMemory();
   const reducedMotion = createReducedMotion(window.matchMedia.bind(window));
   const cameraController = createCameraController({
     camera: view.camera,
@@ -220,6 +225,12 @@ function mount(canvas: HTMLCanvasElement): App {
   const debug = isDebugEnabled(search);
   const debugAxes = debug ? addDebugAxes(bodies, bodyView.meshes) : null;
   const debugDraws = debug ? trackDebugDrawCalls(view.scene) : null;
+  const readRenderStats = () =>
+    getRenderStats(view.renderer, {
+      debugDrawCalls: debugDraws?.count ?? 0,
+      postFxDrawCalls: frameRenderer.getPostFxDrawCalls(),
+      textureMiB: textureMemory.getMiB(),
+    });
   const i18n = createI18n(pl, 'pl-PL');
   // Validated at startup so a broken content file fails fast.
   const bodyContent = parseBodyContentCatalog(
@@ -417,7 +428,7 @@ function mount(canvas: HTMLCanvasElement): App {
         return frameCount;
       },
       getRenderStats() {
-        return getRenderStats(view.renderer, debugDraws?.count ?? 0);
+        return readRenderStats();
       },
       getBodyScreenPositions() {
         const width = canvas.clientWidth;
@@ -536,7 +547,7 @@ function mount(canvas: HTMLCanvasElement): App {
     render() {
       view.syncPixelRatio();
       debugDraws?.reset();
-      view.renderer.render(view.scene, view.camera);
+      frameRenderer.render();
       if (cssWidth > 0 && cssHeight > 0) {
         projector.update(view.camera, cssWidth, cssHeight);
         labels.update(cssWidth, cssHeight, simDt);
@@ -550,9 +561,7 @@ function mount(canvas: HTMLCanvasElement): App {
       const nowMs = performance.now();
       debugSession.tick(nowMs);
       if (nowMs - lastUiMs >= 100) {
-        debugSession.update(
-          getRenderStats(view.renderer, debugDraws?.count ?? 0),
-        );
+        debugSession.update(readRenderStats());
         lastUiMs = nowMs;
       }
     },
@@ -611,6 +620,8 @@ function mount(canvas: HTMLCanvasElement): App {
       debugAxes?.dispose();
       orbitLines.dispose();
       bodyView.dispose();
+      textureMemory.dispose();
+      frameRenderer.dispose();
       unsubscribeResize();
       canvasKeyboard.dispose();
       pointerInput.dispose();

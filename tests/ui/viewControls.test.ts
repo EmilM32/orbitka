@@ -79,19 +79,96 @@ test('group structure', () => {
 
   const buttons = [...element.querySelectorAll('button')];
   expect(buttons.map((control) => control.getAttribute('data-testid'))).toEqual(
-    ['view-reset', 'view-orbits', 'view-zoom-in', 'view-zoom-out'],
+    ['view-reset', 'view-orbits', 'view-zoom-out', 'view-zoom-in'],
   );
+  expect(element.classList.contains('o-glass')).toBe(true);
   for (const control of buttons) {
     expect(control.getAttribute('type')).toBe('button');
     expect(control.disabled).toBe(false);
   }
 
   expect(button('view-reset').textContent).toBe('Cały układ');
+  expect(button('view-reset').classList.contains('o-btn')).toBe(true);
   expect(button('view-orbits').textContent).toBe('Orbity');
-  expect(button('view-zoom-in').textContent).toBe('+');
+  expect(button('view-zoom-in').textContent).toBe('');
   expect(button('view-zoom-in').getAttribute('aria-label')).toBe('Przybliż');
-  expect(button('view-zoom-out').textContent).toBe('\u2212');
+  expect(button('view-zoom-out').textContent).toBe('');
   expect(button('view-zoom-out').getAttribute('aria-label')).toBe('Oddal');
+  for (const control of buttons) {
+    expect(control.querySelector('svg.icon')?.getAttribute('aria-hidden')).toBe(
+      'true',
+    );
+  }
+});
+
+test('orbits toggle has text and switch', () => {
+  resetDocument();
+  const storage = memoryStorage();
+  mount({ storage });
+  const orbits = button('view-orbits');
+  const toggleSwitch = orbits.querySelector('span.o-toggle__switch');
+
+  expect(orbits.classList.contains('o-toggle')).toBe(true);
+  expect(orbits.textContent).toBe('Orbity');
+  expect(toggleSwitch).not.toBeNull();
+  expect(toggleSwitch?.getAttribute('aria-hidden')).toBe('true');
+  expect(orbits.getAttribute('aria-pressed')).toBe('true');
+
+  orbits.click();
+  expect(orbits.getAttribute('aria-pressed')).toBe('false');
+  expect(storage.getItem('orbitka.orbits')).toBe('false');
+  orbits.click();
+  expect(orbits.getAttribute('aria-pressed')).toBe('true');
+  expect(storage.getItem('orbitka.orbits')).toBe('true');
+});
+
+test('zoom buttons reflect limits', () => {
+  resetDocument();
+  const onZoom = vi.fn<(factor: number) => void>();
+  const { controls } = mount({ onZoom });
+  const zoomIn = button('view-zoom-in');
+  const zoomOut = button('view-zoom-out');
+
+  controls.setZoomLimits(true, false);
+  expect(zoomIn.getAttribute('aria-disabled')).toBe('true');
+  expect(zoomOut.hasAttribute('aria-disabled')).toBe(false);
+  // Still in the Tab order, but a click does nothing.
+  expect(zoomIn.disabled).toBe(false);
+  expect(zoomIn.tabIndex).toBe(0);
+  zoomIn.click();
+  expect(onZoom).not.toHaveBeenCalled();
+  zoomOut.click();
+  expect(onZoom).toHaveBeenCalledWith(CAMERA_CONFIG.zoomStepOut);
+
+  controls.setZoomLimits(false, true);
+  expect(zoomIn.hasAttribute('aria-disabled')).toBe(false);
+  expect(zoomOut.getAttribute('aria-disabled')).toBe('true');
+  zoomOut.click();
+  expect(onZoom).toHaveBeenCalledTimes(1);
+
+  controls.setZoomLimits(false, false);
+  expect(zoomIn.hasAttribute('aria-disabled')).toBe(false);
+  expect(zoomOut.hasAttribute('aria-disabled')).toBe(false);
+  zoomIn.click();
+  expect(onZoom).toHaveBeenLastCalledWith(CAMERA_CONFIG.zoomStepIn);
+});
+
+test('zoom limits touch the DOM only on change', () => {
+  resetDocument();
+  const { controls } = mount();
+  const zoomIn = button('view-zoom-in');
+  const setAttribute = vi.spyOn(zoomIn, 'setAttribute');
+  const removeAttribute = vi.spyOn(zoomIn, 'removeAttribute');
+
+  controls.setZoomLimits(false, false);
+  controls.setZoomLimits(true, false);
+  controls.setZoomLimits(true, false);
+  controls.setZoomLimits(true, false);
+  expect(setAttribute).toHaveBeenCalledTimes(1);
+  expect(removeAttribute).not.toHaveBeenCalled();
+
+  controls.dispose();
+  expect(() => controls.setZoomLimits(false, false)).not.toThrow();
 });
 
 test('reset calls showSystem', () => {

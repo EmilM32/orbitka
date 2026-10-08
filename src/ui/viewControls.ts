@@ -4,6 +4,7 @@ import { CAMERA_CONFIG } from '@core/cameraConfig.ts';
 import { type Selection } from '@core/selection.ts';
 
 import { type Dictionary, type I18n } from './i18n.ts';
+import { createIcon } from './icons.ts';
 import {
   loadOrbitsVisible,
   saveOrbitsVisible,
@@ -15,6 +16,12 @@ type AppI18n = I18n<Dictionary>;
 export type ViewControls = {
   element: HTMLElement;
   isOrbitsVisible(): boolean;
+  /**
+   * `atMin`: the camera is closest, so zoom in is disabled. `atMax`: the
+   * camera is farthest, so zoom out is disabled. The DOM changes only when a
+   * value changes, so calling it every frame is cheap.
+   */
+  setZoomLimits(atMin: boolean, atMax: boolean): void;
   dispose(): void;
 };
 
@@ -27,8 +34,6 @@ export type ViewControlsOptions = {
   before?: Node;
 };
 
-const SVG_NS = 'http://www.w3.org/2000/svg';
-
 export function createViewControls(
   parent: HTMLElement,
   options: ViewControlsOptions,
@@ -36,24 +41,40 @@ export function createViewControls(
   const { i18n, selection, storage, onZoom, onOrbitsChange } = options;
   let visible = loadOrbitsVisible(storage);
   let disposed = false;
+  let atMin = false;
+  let atMax = false;
 
   const element = document.createElement('div');
   element.setAttribute('id', 'view-controls');
+  element.className = 'o-glass';
   element.setAttribute('role', 'group');
   element.setAttribute('aria-label', i18n.t('view.group.label'));
   element.setAttribute('data-testid', 'view-controls');
 
-  const reset = button('view-reset', i18n.t('view.reset.text'));
-  const orbits = button('view-orbits', '');
-  orbits.classList.add('view-orbits');
+  const reset = button('view-reset');
+  reset.append(createIcon('system'), label(i18n.t('view.reset.text')));
+  // Text on every breakpoint and a switch that shows the state (SPEC §5.2).
+  const orbits = button('view-orbits');
+  orbits.classList.add('o-toggle', 'view-orbits');
   orbits.setAttribute('title', i18n.t('view.orbits.title'));
   orbits.setAttribute('aria-pressed', visible ? 'true' : 'false');
-  orbits.append(orbitIcon(), label(i18n.t('view.orbits.text')));
-  const zoomIn = button('view-zoom-in', i18n.t('view.zoomIn.text'));
-  zoomIn.setAttribute('aria-label', i18n.t('view.zoomIn.ariaLabel'));
-  const zoomOut = button('view-zoom-out', i18n.t('view.zoomOut.text'));
+  const orbitsSwitch = document.createElement('span');
+  orbitsSwitch.className = 'o-toggle__switch';
+  orbitsSwitch.setAttribute('aria-hidden', 'true');
+  orbits.append(
+    createIcon('orbits'),
+    label(i18n.t('view.orbits.text')),
+    orbitsSwitch,
+  );
+  const zoomOut = button('view-zoom-out');
+  zoomOut.classList.add('view-zoom');
   zoomOut.setAttribute('aria-label', i18n.t('view.zoomOut.ariaLabel'));
-  element.append(reset, orbits, zoomIn, zoomOut);
+  zoomOut.append(createIcon('minus'));
+  const zoomIn = button('view-zoom-in');
+  zoomIn.classList.add('view-zoom');
+  zoomIn.setAttribute('aria-label', i18n.t('view.zoomIn.ariaLabel'));
+  zoomIn.append(createIcon('plus'));
+  element.append(reset, orbits, zoomOut, zoomIn);
 
   element.addEventListener('click', onClick);
   if (options.before === undefined) {
@@ -73,6 +94,10 @@ export function createViewControls(
     }
     const control = target.closest('button');
     if (control === null || !element.contains(control)) {
+      return;
+    }
+    // A zoom button at its limit stays in the Tab order and does nothing.
+    if (control.getAttribute('aria-disabled') === 'true') {
       return;
     }
     const testId = control.getAttribute('data-testid');
@@ -102,6 +127,19 @@ export function createViewControls(
     isOrbitsVisible(): boolean {
       return visible;
     },
+    setZoomLimits(nextAtMin: boolean, nextAtMax: boolean): void {
+      if (disposed) {
+        return;
+      }
+      if (nextAtMin !== atMin) {
+        atMin = nextAtMin;
+        setDisabled(zoomIn, atMin);
+      }
+      if (nextAtMax !== atMax) {
+        atMax = nextAtMax;
+        setDisabled(zoomOut, atMax);
+      }
+    },
     dispose(): void {
       if (disposed) {
         return;
@@ -113,11 +151,19 @@ export function createViewControls(
   };
 }
 
-function button(testId: string, text: string): HTMLButtonElement {
+function setDisabled(control: HTMLButtonElement, disabled: boolean): void {
+  if (disabled) {
+    control.setAttribute('aria-disabled', 'true');
+  } else {
+    control.removeAttribute('aria-disabled');
+  }
+}
+
+function button(testId: string): HTMLButtonElement {
   const control = document.createElement('button');
   control.setAttribute('type', 'button');
+  control.className = 'o-btn';
   control.setAttribute('data-testid', testId);
-  control.textContent = text;
   return control;
 }
 
@@ -125,35 +171,4 @@ function label(text: string): HTMLSpanElement {
   const span = document.createElement('span');
   span.textContent = text;
   return span;
-}
-
-function orbitIcon(): SVGSVGElement {
-  const svg = document.createElementNS(SVG_NS, 'svg');
-  svg.setAttribute('aria-hidden', 'true');
-  svg.setAttribute('viewBox', '0 0 24 24');
-  svg.setAttribute('width', '20');
-  svg.setAttribute('height', '20');
-  const ellipse = document.createElementNS(SVG_NS, 'ellipse');
-  ellipse.setAttribute('cx', '12');
-  ellipse.setAttribute('cy', '12');
-  ellipse.setAttribute('rx', '8');
-  ellipse.setAttribute('ry', '4');
-  ellipse.setAttribute('fill', 'none');
-  ellipse.setAttribute('stroke', 'currentColor');
-  ellipse.setAttribute('stroke-width', '1.5');
-  const dot = document.createElementNS(SVG_NS, 'circle');
-  dot.setAttribute('cx', '18');
-  dot.setAttribute('cy', '10');
-  dot.setAttribute('r', '2');
-  dot.setAttribute('fill', 'currentColor');
-  const slash = document.createElementNS(SVG_NS, 'line');
-  slash.setAttribute('class', 'view-orbits-off');
-  slash.setAttribute('x1', '5');
-  slash.setAttribute('y1', '19');
-  slash.setAttribute('x2', '19');
-  slash.setAttribute('y2', '5');
-  slash.setAttribute('stroke', 'currentColor');
-  slash.setAttribute('stroke-width', '1.5');
-  svg.append(ellipse, dot, slash);
-  return svg;
 }

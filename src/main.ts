@@ -14,6 +14,7 @@ import { getSelectableBodies } from '@core/selectableBodies.ts';
 import { createSelection } from '@core/selection.ts';
 import { VIEW_CONFIG } from '@core/viewConfig.ts';
 import { createViewInsets } from '@core/viewInsets.ts';
+import { zoomLimitState } from '@core/zoomLimits.ts';
 import { isStartPaused, parseStartDays } from '@core/startParams.ts';
 import { bodies } from '@data/bodies.ts';
 import { radiusToScene } from '@sim/scale.ts';
@@ -35,9 +36,11 @@ import {
 } from '@render/cameraDirector.ts';
 import { createCameraPointerInput } from '@render/cameraPointerInput.ts';
 import { createCanvasKeyboard } from '@render/canvasKeyboard.ts';
+import { createFrameRenderer } from '@render/frameRenderer.ts';
 import { createRenderer } from '@render/createRenderer.ts';
 import { createRotationAnimator } from '@render/rotateBodies.ts';
 import { getRenderStats, trackDebugDrawCalls } from '@render/renderStats.ts';
+import { createTextureMemory } from '@render/textureMemory.ts';
 import { getBodyScenePosition as readBodyScenePosition } from '@render/scenePosition.ts';
 import { getBodyScreenPositions } from '@render/screenPositions.ts';
 import { createViewOffsetRig } from '@render/viewOffset.ts';
@@ -111,6 +114,9 @@ function findCanvas(): HTMLCanvasElement {
 
 function mount(canvas: HTMLCanvasElement): App {
   const view = createRenderer(canvas);
+  const frameRenderer = createFrameRenderer(view);
+  // Every texture made in render is tracked here (ADR-010 point 8).
+  const textureMemory = createTextureMemory();
   const reducedMotion = createReducedMotion(window.matchMedia.bind(window));
   const cameraController = createCameraController({
     camera: view.camera,
@@ -184,6 +190,29 @@ function mount(canvas: HTMLCanvasElement): App {
     },
   });
   const projector = createBodyProjector(projectorEntries, view);
+  // Labels also cover the moons, which are not selectable, so they get a
+  // frame of their own: the picker and the ring keep the selectable bodies.
+  const labelBodies = [];
+  const labelEntries = [];
+  for (const body of bodies) {
+    const mesh = bodyView.meshes.get(body.id);
+    const radius = bodyView.radii.get(body.id);
+    if (mesh === undefined || radius === undefined) {
+      continue;
+    }
+    labelEntries.push({
+      id: body.id,
+      position: mesh.position,
+      displayRadius: radius,
+    });
+    labelBodies.push({
+      id: body.id,
+      radiusKm: body.radiusKm,
+      parentId: body.parentId,
+      color: body.visual.color,
+    });
+  }
+  const labelProjector = createBodyProjector(labelEntries, view);
   const picker = createBodyPicker({
     surface: canvas,
     frame: projector.frame,
@@ -220,6 +249,12 @@ function mount(canvas: HTMLCanvasElement): App {
   const debug = isDebugEnabled(search);
   const debugAxes = debug ? addDebugAxes(bodies, bodyView.meshes) : null;
   const debugDraws = debug ? trackDebugDrawCalls(view.scene) : null;
+  const readRenderStats = () =>
+    getRenderStats(view.renderer, {
+      debugDrawCalls: debugDraws?.count ?? 0,
+      postFxDrawCalls: frameRenderer.getPostFxDrawCalls(),
+      textureMiB: textureMemory.getMiB(),
+    });
   const i18n = createI18n(pl, 'pl-PL');
   // Validated at startup so a broken content file fails fast.
   const bodyContent = parseBodyContentCatalog(
@@ -363,13 +398,14 @@ function mount(canvas: HTMLCanvasElement): App {
   });
   const announcer = createAnnouncer(document.body, selection, i18n);
   const labels = createBodyLabels(document.body, {
-    bodies: selectable,
+    bodies: labelBodies,
     selection,
     i18n,
-    frame: projector.frame,
+    frame: labelProjector.frame,
   });
   const debugSession = createDebugSession(search, document.body);
   let lastUiMs = Number.NEGATIVE_INFINITY;
+  let timeReady = false;
   let frameCount = 0;
   let presetId: string | null = null;
   let frameSnapshot: {
@@ -417,7 +453,7 @@ function mount(canvas: HTMLCanvasElement): App {
         return frameCount;
       },
       getRenderStats() {
-        return getRenderStats(view.renderer, debugDraws?.count ?? 0);
+        return readRenderStats();
       },
       getBodyScreenPositions() {
         const width = canvas.clientWidth;
@@ -512,6 +548,20 @@ function mount(canvas: HTMLCanvasElement): App {
     }
   }
 
+  // Shared per-frame objects: the loop reads the zoom limits without
+  // allocating.
+  const zoomCamera: CameraControllerState = {
+    azimuthDeg: 0,
+    polarDeg: 0,
+    distance: 1,
+    distanceMin: 1,
+    distanceMax: 1,
+    targetX: 0,
+    targetY: 0,
+    targetZ: 0,
+  };
+  const zoomLimits = { atMin: false, atMax: false };
+
   const loop = createLoop({
     update(dtSeconds) {
       simDt = dtSeconds;
@@ -522,6 +572,14 @@ function mount(canvas: HTMLCanvasElement): App {
       director.update(dtSeconds);
       cameraController.update(dtSeconds);
       viewOffset.update(dtSeconds);
+      cameraController.getState(zoomCamera);
+      zoomLimitState(
+        zoomCamera.distance,
+        zoomCamera.distanceMin,
+        zoomCamera.distanceMax,
+        zoomLimits,
+      );
+      viewControls.setZoomLimits(zoomLimits.atMin, zoomLimits.atMax);
       announcer.update(dtSeconds);
       if (!debug) {
         return;
@@ -536,9 +594,15 @@ function mount(canvas: HTMLCanvasElement): App {
     render() {
       view.syncPixelRatio();
       debugDraws?.reset();
-      view.renderer.render(view.scene, view.camera);
+      frameRenderer.render();
+      if (!timeReady) {
+        // The first frame is on screen: the time controls take input.
+        timeReady = true;
+        timeControls.setReady(true);
+      }
       if (cssWidth > 0 && cssHeight > 0) {
         projector.update(view.camera, cssWidth, cssHeight);
+        labelProjector.update(view.camera, cssWidth, cssHeight);
         labels.update(cssWidth, cssHeight, simDt);
       }
       ring.update(simDt);
@@ -550,9 +614,7 @@ function mount(canvas: HTMLCanvasElement): App {
       const nowMs = performance.now();
       debugSession.tick(nowMs);
       if (nowMs - lastUiMs >= 100) {
-        debugSession.update(
-          getRenderStats(view.renderer, debugDraws?.count ?? 0),
-        );
+        debugSession.update(readRenderStats());
         lastUiMs = nowMs;
       }
     },
@@ -597,6 +659,7 @@ function mount(canvas: HTMLCanvasElement): App {
       ring.dispose();
       picker.dispose();
       projector.dispose();
+      labelProjector.dispose();
       unsubscribeSelection();
       selection.dispose();
       scaleNotice.dispose();
@@ -611,6 +674,8 @@ function mount(canvas: HTMLCanvasElement): App {
       debugAxes?.dispose();
       orbitLines.dispose();
       bodyView.dispose();
+      textureMemory.dispose();
+      frameRenderer.dispose();
       unsubscribeResize();
       canvasKeyboard.dispose();
       pointerInput.dispose();

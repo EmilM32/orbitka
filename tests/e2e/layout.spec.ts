@@ -221,6 +221,89 @@ test('drawer open does not overlap at tablet sizes', async ({ page }) => {
   }
 });
 
+test('drawer at tablet sizes', async ({ page }) => {
+  for (const size of TABLET_SIZES) {
+    await page.setViewportSize(size);
+    await page.goto('/');
+    await settle(page);
+    const openButton = page.getByTestId('bodies-drawer-open');
+    await expect(openButton).toHaveAttribute('aria-expanded', 'false');
+    await openButton.click();
+    const drawer = page.getByTestId('bodies-drawer');
+    await expect(drawer).toBeVisible();
+    await expect(openButton).toHaveAttribute('aria-expanded', 'true');
+    // Pressed look: white 16 % (SPEC §5.2).
+    await expect
+      .poll(() =>
+        openButton.evaluate((el) => getComputedStyle(el).backgroundColor),
+      )
+      .toBe('rgba(255, 255, 255, 0.16)');
+
+    const box = await drawer.boundingBox();
+    if (box === null) {
+      throw new Error('drawer has no box');
+    }
+    expect(Math.abs(box.width - 300)).toBeLessThanOrEqual(1);
+    await expect(
+      drawer.getByRole('button', { name: 'Zamknij listę ciał' }),
+    ).toHaveCount(1);
+    await expect(drawer.getByTestId('bodies-collapse')).toHaveCount(0);
+
+    // A tap on the scene, away from the drawer, closes it.
+    await page.mouse.click(size.width - 40, size.height / 2);
+    await expect(drawer).toBeHidden();
+    await expect(openButton).toHaveAttribute('aria-expanded', 'false');
+
+    await openButton.click();
+    await expect(drawer).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(drawer).toBeHidden();
+    await expect(openButton).toBeFocused();
+  }
+});
+
+test('drawer stays open when the tablet turns', async ({ page }) => {
+  await page.setViewportSize(TABLET_PORTRAIT);
+  await page.goto('/');
+  await settle(page);
+  await page.getByTestId('bodies-drawer-open').click();
+  const drawer = page.getByTestId('bodies-drawer');
+  await expect(drawer).toBeVisible();
+
+  await page.setViewportSize(TABLET_LANDSCAPE);
+  await settle(page);
+  await expect(drawer).toBeVisible();
+  const box = await drawer.boundingBox();
+  if (box === null) {
+    throw new Error('drawer has no box');
+  }
+  expect(box.y + box.height).toBeLessThanOrEqual(TABLET_LANDSCAPE.height);
+});
+
+test('orbits label is visible on every breakpoint', async ({ page }) => {
+  for (const size of [
+    TABLET_PORTRAIT,
+    TABLET_LANDSCAPE,
+    DESKTOP_WIDE,
+    { width: 1920, height: 1080 },
+  ]) {
+    await page.setViewportSize(size);
+    await page.goto('/');
+    await settle(page);
+    const orbits = page.getByTestId('view-orbits');
+    await expect(orbits.getByText('Orbity')).toBeVisible();
+    await expect(orbits).toHaveAttribute('aria-pressed', 'true');
+    // The switch is mint when on.
+    await expect
+      .poll(() =>
+        orbits
+          .locator('.o-toggle__switch')
+          .evaluate((el) => getComputedStyle(el).backgroundColor),
+      )
+      .toBe('rgb(116, 227, 181)');
+  }
+});
+
 // The view group is one row in the top bar on every layout, so the body card
 // and the bottom sheet never cover it (EMI-200).
 test('view group sits in the top bar', async ({ page }) => {
@@ -238,7 +321,7 @@ test('view group sits in the top bar', async ({ page }) => {
     expect(view.y).toBeGreaterThanOrEqual(0);
     expect(view.y + view.height).toBeLessThanOrEqual(60);
     expect(
-      Math.abs(size.width - (view.x + view.width) - 8),
+      Math.abs(size.width - (view.x + view.width) - 16),
     ).toBeLessThanOrEqual(1);
     expect(intersects(view, scale)).toBe(false);
   }
@@ -290,8 +373,8 @@ test('tab order', async ({ page }) => {
     'viewport',
     'view-reset',
     'view-orbits',
-    'view-zoom-in',
     'view-zoom-out',
+    'view-zoom-in',
     'time-pause',
   ]);
 
@@ -304,8 +387,8 @@ test('tab order', async ({ page }) => {
     'viewport',
     'view-reset',
     'view-orbits',
-    'view-zoom-in',
     'view-zoom-out',
+    'view-zoom-in',
     'time-pause',
   ]);
 });
@@ -344,12 +427,15 @@ test('open scale explanation lies on top and fits at 1280x800 / 1280x720 / 1024x
     const dialog = page.locator('#scale-explanation');
     await expect(dialog).toBeVisible();
 
+    // Wait for the 220 ms entry (fade and scale .98 → 1) to end.
+    await expect
+      .poll(() => dialog.evaluate((el) => getComputedStyle(el).opacity))
+      .toBe('1');
+    await page.waitForTimeout(250);
     const box = await boxOf(dialog);
     const close = await boxOf(page.locator('#scale-close'));
-    const view = await boxOf(page.locator('[data-testid="view-controls"]'));
-    const time = await boxOf(page.locator('#time-controls'));
-    if (box === null || close === null || view === null || time === null) {
-      throw new Error('explanation, close, view, or time has no box');
+    if (box === null || close === null) {
+      throw new Error('explanation or close has no box');
     }
     expect(
       fits(box, size),
@@ -359,10 +445,16 @@ test('open scale explanation lies on top and fits at 1280x800 / 1280x720 / 1024x
     expect(close.y + close.height).toBeLessThanOrEqual(
       box.y + box.height + 0.5,
     );
-    expect(intersects(box, view), 'explanation overlaps view').toBe(false);
-    expect(intersects(box, time), 'explanation overlaps time').toBe(false);
+    // Centered (SPEC §5.11).
+    expect(
+      Math.abs(box.x + box.width / 2 - size.width / 2),
+    ).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(box.y + box.height / 2 - size.height / 2),
+    ).toBeLessThanOrEqual(1);
+    expect(box.width).toBeLessThanOrEqual(Math.min(580, size.width - 32) + 0.5);
 
-    // Nothing (bodies list, Ciała button, labels) is drawn over it.
+    // Nothing (bodies list, Planety button, labels, time) is drawn over it.
     const covered = await page.evaluate(({ x, y, width, height }) => {
       const misses: string[] = [];
       for (let row = 0; row <= 4; row += 1) {
@@ -389,6 +481,103 @@ test('open scale explanation lies on top and fits at 1280x800 / 1280x720 / 1024x
     await page.locator('#scale-close').click();
     await expect(dialog).toBeHidden();
     expect(errors).toEqual([]);
+  }
+});
+
+test('all planet labels visible at start', async ({ page }) => {
+  await openAt(page, { width: 1280, height: 720 }, '/?debug=1&days=0&paused=1');
+  await page.waitForFunction(() => (window.__orbitka?.frameCount ?? 0) > 5);
+  const ids = [
+    'sun',
+    'mercury',
+    'venus',
+    'earth',
+    'mars',
+    'jupiter',
+    'saturn',
+    'uranus',
+    'neptune',
+  ];
+  for (const id of ids) {
+    await expect(page.getByTestId(`body-label-${id}`)).not.toHaveClass(
+      /is-hidden/u,
+    );
+  }
+});
+
+test('sun and selected keep labels with the drawer open', async ({ page }) => {
+  await openAt(page, TABLET_PORTRAIT, '/?debug=1&days=0&paused=1');
+  await page.getByTestId('bodies-drawer-open').click();
+  await page.getByTestId('body-item-mars').click();
+  await page.waitForFunction(
+    () => window.__orbitka?.getCameraState().flightActive === 0,
+  );
+  await page.getByTestId('bodies-drawer-open').click();
+  await expect(page.getByTestId('bodies-drawer')).toBeVisible();
+  await page.waitForTimeout(300);
+  await expect(page.getByTestId('body-label-mars')).not.toHaveClass(
+    /is-hidden/u,
+  );
+});
+
+test('why dialog traps focus', async ({ page }) => {
+  const errors = await openAt(
+    page,
+    { width: 1280, height: 720 },
+    '/?debug=1&days=0&paused=1',
+  );
+  const before = await page.evaluate(() => window.__orbitka?.getCameraState());
+  const why = page.locator('#scale-why');
+  await why.click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expect(page.locator('#scale-close')).toBeFocused();
+
+  for (let step = 0; step < 5; step += 1) {
+    await page.keyboard.press('Tab');
+    expect(
+      await page.evaluate(
+        () => document.activeElement?.closest('[role="dialog"]') != null,
+      ),
+    ).toBe(true);
+  }
+  // The rest of the page is inert while the dialog is open.
+  await expect(page.locator('#viewport')).toHaveAttribute('inert', '');
+
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(why).toBeFocused();
+  await expect(page.locator('#viewport')).not.toHaveAttribute('inert', '');
+  // Esc closed the dialog only: the camera did not fly to the whole system.
+  const after = await page.evaluate(() => window.__orbitka?.getCameraState());
+  expect(after?.flightActive).toBe(0);
+  expect(after?.distance).toBeCloseTo(before?.distance ?? 0, 6);
+  expect(after?.azimuthDeg).toBeCloseTo(before?.azimuthDeg ?? 0, 6);
+  expect(errors).toEqual([]);
+});
+
+test('why dialog fits at 1280x600', async ({ page }) => {
+  const size = { width: 1280, height: 600 };
+  await openAt(page, size);
+  await page.locator('#scale-why').click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await page.waitForTimeout(300);
+  const box = await boxOf(dialog);
+  if (box === null) {
+    throw new Error('dialog has no box');
+  }
+  expect(fits(box, size)).toBe(true);
+  await expect(page.locator('#scale-close')).toBeInViewport({ ratio: 1 });
+  // The points scroll and get a Tab stop for the keyboard.
+  const scrolls = await page
+    .locator('.scale-explanation-body')
+    .evaluate((el) => el.scrollHeight > el.clientHeight);
+  if (scrolls) {
+    await expect(page.locator('.scale-explanation-body')).toHaveAttribute(
+      'tabindex',
+      '0',
+    );
   }
 });
 

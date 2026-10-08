@@ -3,7 +3,9 @@ import './debugOverlay.css';
 export type DebugStats = {
   fps: number;
   drawCalls: number;
+  postFxDrawCalls: number;
   triangles: number;
+  textureMiB: number;
 };
 
 export type DebugOverlay = {
@@ -60,17 +62,27 @@ function writeLine(
   line.className = shown >= 45 ? FPS_MID : FPS_LOW;
 }
 
+function writeMiB(line: HTMLElement, label: string, value: number): void {
+  line.textContent = isReportable(value)
+    ? `${label}: ${value.toFixed(1)} MiB`
+    : `${label}: —`;
+}
+
 export function createDebugOverlay(parent: HTMLElement): DebugOverlay {
   const root = document.createElement('div');
   root.id = 'debug-overlay';
 
   const fpsLine = document.createElement('div');
   const callsLine = document.createElement('div');
+  const postFxLine = document.createElement('div');
   const trianglesLine = document.createElement('div');
+  const texturesLine = document.createElement('div');
   fpsLine.dataset.debugLine = 'fps';
   callsLine.dataset.debugLine = 'calls';
+  postFxLine.dataset.debugLine = 'postfx';
   trianglesLine.dataset.debugLine = 'triangles';
-  root.append(fpsLine, callsLine, trianglesLine);
+  texturesLine.dataset.debugLine = 'textures';
+  root.append(fpsLine, callsLine, postFxLine, trianglesLine, texturesLine);
   parent.append(root);
 
   let disposed = false;
@@ -83,7 +95,9 @@ export function createDebugOverlay(parent: HTMLElement): DebugOverlay {
 
       writeLine(fpsLine, 'FPS', stats.fps, true);
       writeLine(callsLine, 'Draw calls', stats.drawCalls, false);
+      writeLine(postFxLine, 'Post-FX calls', stats.postFxDrawCalls, false);
       writeLine(trianglesLine, 'Triangles', stats.triangles, false);
+      writeMiB(texturesLine, 'Textures', stats.textureMiB);
     },
     dispose() {
       if (disposed) {

@@ -617,3 +617,27 @@ test('setMode same value is a no-op', () => {
   expect(toggle().getAttribute('aria-label')).toBe(label);
   expect(toggle().getAttribute('aria-expanded')).toBe('true');
 });
+
+test('collapsible option renders the fold button', () => {
+  document.body.replaceChildren();
+  const selection = createSelection(['sun', 'mars']);
+  const panel = createBodiesPanel(document.body, {
+    bodies: [
+      { id: 'sun', color: '#fdb813', axisAu: null },
+      { id: 'mars', color: '#c1440e', axisAu: 1.52 },
+    ],
+    selection,
+    i18n,
+    collapsible: false,
+  });
+
+  expect(panel.element.querySelector('#bodies-collapse')).toBeNull();
+  panel.setCollapsible(true);
+  expect(panel.head.querySelector('#bodies-collapse')).not.toBeNull();
+  expect(panel.head.firstElementChild?.id).toBe('bodies-panel-title');
+  panel.setCollapsible(true);
+  expect(panel.head.querySelectorAll('#bodies-collapse')).toHaveLength(1);
+  panel.setCollapsible(false);
+  expect(panel.element.querySelector('#bodies-collapse')).toBeNull();
+  panel.dispose();
+});

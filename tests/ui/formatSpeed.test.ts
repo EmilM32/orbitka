@@ -82,13 +82,13 @@ test('formatSpeed › RangeError', () => {
 
 test('formatSpeedSpoken › texts', () => {
   expect(formatSpeedSpoken(365.25, false, false, i18n)).toBe(
-    'Prędkość: 1 rok na sekundę',
+    '1 rok na sekundę',
   );
   expect(formatSpeedSpoken(1826.25, true, false, i18n)).toBe(
-    'Prędkość: cofanie 5 lat na sekundę',
+    'Wstecz · 5 lat na sekundę',
   );
   expect(formatSpeedSpoken(1.5, false, false, i18n)).toBe(
-    'Prędkość: 1,5 dnia na sekundę',
+    '1,5 dnia na sekundę',
   );
   expect(formatSpeedSpoken(10, true, true, i18n)).toBe('Pauza');
 });

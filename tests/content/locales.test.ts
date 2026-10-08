@@ -34,6 +34,20 @@ test('locales › body names', () => {
 
 test('locales › shape', () => {
   expect(messages['time.accuracy.approximate']).toBe('Pozycje przybliżone');
+  expect(messages['time.reverse.text']).toBe('Wstecz');
+  expect(messages['time.reverse.ariaLabel']).toBe(
+    'Wstecz: przełącz kierunek czasu',
+  );
+  expect(messages['time.status.speed']).toBe('{speed}');
+  expect(messages['time.status.speedReversed']).toBe('Wstecz · {speed}');
+  expect(messages['time.status.loading']).toBe('Ładowanie sceny…');
+  expect(messages['time.presets.groupLabel']).toBe('Prędkość czasu');
+  expect(messages['time.accuracy.tooltip']).toBe(
+    'Dane orbit, z których liczymy ruch planet, są dokładne dla lat 1800–2050. Poza tym zakresem pozycje są szacunkowe.',
+  );
+  expect(messages['time.accuracy.announce']).toBe(
+    'Pozycje przybliżone. Dane orbit są dokładne dla lat 1800–2050.',
+  );
   expect(messages['app.brand']).toBe('Orbitka');
 
   for (const value of Object.values(messages)) {

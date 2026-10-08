@@ -38,6 +38,9 @@ const UI_KEYS = [
 test('holds the brief values', () => {
   expect(VIEW_CONFIG.labelFontPx).toBe(13);
   expect(VIEW_CONFIG.labelHeightPx).toBe(24);
+  expect(VIEW_CONFIG.moonLabelHeightPx).toBe(26);
+  expect(VIEW_CONFIG.moonLabelFontPx).toBe(14);
+  expect(VIEW_CONFIG.labelLeaderOffsetPx).toBe(24);
   expect(VIEW_CONFIG.labelMinContrast).toBe(4.5);
   expect(VIEW_CONFIG.labelGapPx).toBe(4);
   expect(VIEW_CONFIG.labelOffsetPx).toBe(6);
@@ -45,7 +48,7 @@ test('holds the brief values', () => {
   expect(VIEW_CONFIG.orbitsStorageKey).toBe('orbitka.orbits');
   expect(VIEW_CONFIG.tabletMaxWidthPx).toBe(1024);
   expect(VIEW_CONFIG.tabletMinWidthPx).toBe(768);
-  expect(VIEW_CONFIG.drawerWidthPx).toBe(280);
+  expect(VIEW_CONFIG.drawerWidthPx).toBe(300);
   expect(VIEW_CONFIG.selectionRingPaddingPx).toBe(8);
   expect(VIEW_CONFIG.selectionRingMinRadiusPx).toBe(12);
   expect(VIEW_CONFIG.railMaxWidthPx).toBe(1440);
@@ -53,6 +56,9 @@ test('holds the brief values', () => {
   expect(Object.keys(VIEW_CONFIG)).toEqual([
     'labelFontPx',
     'labelHeightPx',
+    'moonLabelHeightPx',
+    'moonLabelFontPx',
+    'labelLeaderOffsetPx',
     'labelMinContrast',
     'labelGapPx',
     'labelOffsetPx',

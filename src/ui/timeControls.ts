@@ -17,8 +17,23 @@ import { orbitalElementsAreApproximate } from '@data/elementValidity.ts';
 import { formatDate, formatDateTimeAttr } from './formatDate.ts';
 import { formatSpeed, formatSpeedSpoken } from './formatSpeed.ts';
 import { type Dictionary, type I18n } from './i18n.ts';
+import { createIcon } from './icons.ts';
+import { createTooltip } from './tooltip.ts';
 
 type AppI18n = I18n<Dictionary>;
+
+export type TimeControls = {
+  /**
+   * Until `setReady(true)` every control is aria-disabled (it stays in the
+   * Tab order, a click does nothing) and the status says the scene is loading.
+   */
+  setReady(ready: boolean): void;
+  dispose(): void;
+};
+
+// The first move outside 1800–2050 is announced once per session (module
+// memory, not localStorage), however many panels come and go.
+let approximateAnnounced = false;
 
 const SPEED_PRESET_IDS = ['day', 'ten-days', 'month', 'year'] as const;
 
@@ -68,7 +83,7 @@ export function createTimeControls(
   clock: Clock,
   i18n: AppI18n,
   before?: Node | null,
-): { dispose(): void } {
+): TimeControls {
   function copyFor(
     visibleKey:
       | 'time.presets.day'
@@ -99,42 +114,85 @@ export function createTimeControls(
 
   const section = document.createElement('section');
   section.setAttribute('id', 'time-controls');
+  section.className = 'o-glass';
   section.setAttribute('role', 'group');
   section.setAttribute('aria-label', i18n.t('time.controls.label'));
 
+  // The one yellow control of the panel (SPEC §5.8). The label is for screen
+  // readers; the round button shows the icon only, as in the FINAL mockups.
   const pauseButton = document.createElement('button');
   pauseButton.setAttribute('type', 'button');
   pauseButton.setAttribute('data-testid', 'time-pause');
+  pauseButton.className = 'o-btn o-btn--primary time-play';
+  const pauseLabel = document.createElement('span');
+  pauseLabel.className = 'visually-hidden';
+  let pauseIcon: SVGSVGElement | null = null;
 
+  // Date block: the "approximate" chip above the date, the status under it.
+  const readout = document.createElement('div');
+  readout.className = 'time-readout';
+
+  const accuracy = document.createElement('button');
+  accuracy.setAttribute('type', 'button');
+  accuracy.setAttribute('id', 'time-accuracy');
+  accuracy.setAttribute('data-testid', 'time-accuracy');
+  accuracy.className = 'time-accuracy';
+  const accuracyIcon = document.createElement('span');
+  accuracyIcon.setAttribute('aria-hidden', 'true');
+  accuracyIcon.textContent = '\u2248';
+  const accuracyText = document.createElement('span');
+  accuracyText.textContent = i18n.t('time.accuracy.approximate');
+  accuracy.append(accuracyIcon, accuracyText);
+  accuracy.hidden = true;
+  const accuracyTip = createTooltip(
+    accuracy,
+    i18n.t('time.accuracy.tooltip'),
+    'top',
+  );
+
+  const simDate = document.createElement('time');
+  simDate.setAttribute('id', 'sim-date');
+  simDate.setAttribute('data-testid', 'sim-date');
+  simDate.setAttribute('aria-live', 'off');
+
+  const simSpeed = document.createElement('p');
+  simSpeed.setAttribute('id', 'sim-speed');
+  readout.append(accuracy, simDate, simSpeed);
+
+  // 768–1023 px: the rest of the panel goes to a second row.
+  const rowBreak = document.createElement('div');
+  rowBreak.className = 'time-break';
+  rowBreak.setAttribute('aria-hidden', 'true');
+
+  const presetGroup = document.createElement('div');
+  presetGroup.className = 'time-presets';
+  presetGroup.setAttribute('role', 'radiogroup');
+  presetGroup.setAttribute('aria-label', i18n.t('time.presets.groupLabel'));
   const presetButtons = new Map<SpeedPresetId, HTMLButtonElement>();
   const presetButtonList: HTMLButtonElement[] = [];
   for (const preset of PRESET_BUTTONS) {
     const button = document.createElement('button');
     button.setAttribute('type', 'button');
+    button.setAttribute('role', 'radio');
+    button.setAttribute('aria-checked', 'false');
+    button.className = 'o-btn time-preset';
     button.setAttribute('data-testid', preset.testId);
+    button.setAttribute('data-preset', preset.id);
     button.textContent = presetCopy[preset.id].visible;
     button.setAttribute('aria-label', presetCopy[preset.id].aria);
     presetButtons.set(preset.id, button);
     presetButtonList.push(button);
   }
+  presetGroup.append(...presetButtonList);
 
   const reverseButton = document.createElement('button');
   reverseButton.setAttribute('type', 'button');
   reverseButton.setAttribute('data-testid', 'time-reverse');
-  reverseButton.textContent = i18n.t('time.reverse.text');
+  reverseButton.className = 'o-btn o-btn--outline o-toggle time-reverse';
+  const reverseText = document.createElement('span');
+  reverseText.textContent = i18n.t('time.reverse.text');
+  reverseButton.append(createIcon('reverse'), reverseText);
   reverseButton.setAttribute('aria-label', i18n.t('time.reverse.ariaLabel'));
-
-  const simDate = document.createElement('time');
-  simDate.setAttribute('id', 'sim-date');
-  simDate.setAttribute('data-testid', 'sim-date');
-
-  const accuracy = document.createElement('p');
-  accuracy.setAttribute('id', 'time-accuracy');
-  accuracy.setAttribute('data-testid', 'time-accuracy');
-  accuracy.hidden = true;
-
-  const simSpeed = document.createElement('p');
-  simSpeed.setAttribute('id', 'sim-speed');
 
   const sliderLabel = document.createElement('label');
   sliderLabel.setAttribute('for', 'speed-slider');
@@ -155,38 +213,91 @@ export function createTimeControls(
 
   section.append(
     pauseButton,
-    ...presetButtonList,
+    readout,
+    rowBreak,
+    presetGroup,
     reverseButton,
-    simDate,
-    accuracy,
     sliderLabel,
     slider,
-    simSpeed,
     live,
   );
   parent.insertBefore(section, before ?? null);
 
+  const controls: readonly HTMLElement[] = [
+    pauseButton,
+    ...presetButtonList,
+    reverseButton,
+    slider,
+  ];
+  let ready = false;
+  let disposed = false;
+
   const abort = new AbortController();
-  pauseButton.addEventListener('click', () => clock.togglePause(), {
-    signal: abort.signal,
-  });
+  pauseButton.addEventListener(
+    'click',
+    () => {
+      if (ready) {
+        clock.togglePause();
+      }
+    },
+    { signal: abort.signal },
+  );
   for (const preset of PRESET_BUTTONS) {
-    presetButtons
-      .get(preset.id)
-      ?.addEventListener('click', () => clock.applyPreset(preset.id), {
-        signal: abort.signal,
-      });
+    presetButtons.get(preset.id)?.addEventListener(
+      'click',
+      () => {
+        if (ready) {
+          clock.applyPreset(preset.id);
+        }
+      },
+      { signal: abort.signal },
+    );
   }
+  // Radiogroup pattern: the arrows move between the presets and apply them.
+  presetGroup.addEventListener(
+    'keydown',
+    (event) => {
+      const step =
+        event.key === 'ArrowRight' || event.key === 'ArrowDown'
+          ? 1
+          : event.key === 'ArrowLeft' || event.key === 'ArrowUp'
+            ? -1
+            : 0;
+      if (step === 0) {
+        return;
+      }
+      event.preventDefault();
+      if (!ready) {
+        return;
+      }
+      const current = presetButtonList.indexOf(
+        document.activeElement as HTMLButtonElement,
+      );
+      const count = presetButtonList.length;
+      const nextIndex = (Math.max(0, current) + step + count) % count;
+      const next = PRESET_BUTTONS[nextIndex];
+      if (next === undefined) {
+        return;
+      }
+      clock.applyPreset(next.id);
+      presetButtons.get(next.id)?.focus();
+    },
+    { signal: abort.signal },
+  );
   reverseButton.addEventListener(
     'click',
-    () => clock.setReversed(!clock.reversed),
+    () => {
+      if (ready) {
+        clock.setReversed(!clock.reversed);
+      }
+    },
     { signal: abort.signal },
   );
 
   let lastDateText = '';
   let lastDateTime: string | null = null;
   let lastApproximate: boolean | null = null;
-  const approximateText = i18n.t('time.accuracy.approximate');
+  let lastState: ClockState | null = null;
   let lastSpeedText = '';
   let lastPresetId: string | null | undefined;
   let lastAnnouncement = '';
@@ -245,6 +356,11 @@ export function createTimeControls(
   }
 
   function onInput(): void {
+    if (!ready) {
+      // Not loaded yet: the thumb goes back to the clock speed.
+      slider.value = String(speedToSlider(clock.speed));
+      return;
+    }
     applySlider(Number(slider.value));
   }
 
@@ -272,6 +388,9 @@ export function createTimeControls(
     }
 
     event.preventDefault();
+    if (!ready) {
+      return;
+    }
     slider.value = String(next);
     applySlider(next);
   }
@@ -305,6 +424,10 @@ export function createTimeControls(
   }
 
   function speedText(state: ClockState): string {
+    if (!ready) {
+      return i18n.t('time.status.loading');
+    }
+
     if (state.paused) {
       return i18n.t('time.status.paused');
     }
@@ -343,8 +466,11 @@ export function createTimeControls(
     const pausedAria = state.paused
       ? i18n.t('time.resume.ariaLabel')
       : i18n.t('time.pause.ariaLabel');
-    if (pauseButton.textContent !== pausedLabel) {
-      pauseButton.textContent = pausedLabel;
+    if (pauseLabel.textContent !== pausedLabel || pauseIcon === null) {
+      pauseLabel.textContent = pausedLabel;
+      const icon = createIcon(state.paused ? 'play' : 'pause');
+      pauseButton.replaceChildren(icon, pauseLabel);
+      pauseIcon = icon;
     }
     if (pauseButton.getAttribute('aria-label') !== pausedAria) {
       pauseButton.setAttribute('aria-label', pausedAria);
@@ -356,10 +482,17 @@ export function createTimeControls(
         const button = presetButtons.get(id);
         if (button !== undefined) {
           button.setAttribute(
-            'aria-pressed',
+            'aria-checked',
             presetId === id ? 'true' : 'false',
           );
         }
+      }
+      // Roving tabindex: the checked preset, else the first one.
+      const tabStop = presetId ?? 'day';
+      for (const id of SPEED_PRESET_IDS) {
+        presetButtons
+          .get(id)
+          ?.setAttribute('tabindex', id === tabStop ? '0' : '-1');
       }
       lastPresetId = presetId;
     }
@@ -386,11 +519,14 @@ export function createTimeControls(
       lastDateTime = dateTime;
     }
 
+    // Changes only when the logical value does, so the chip does not blink.
     const approximate =
-      Number.isFinite(state.days) && orbitalElementsAreApproximate(state.days);
+      inRange(state.days) && orbitalElementsAreApproximate(state.days);
     if (approximate !== lastApproximate) {
       accuracy.hidden = !approximate;
-      accuracy.textContent = approximate ? approximateText : '';
+      if (!approximate) {
+        accuracyTip.element.hidden = true;
+      }
       lastApproximate = approximate;
     }
 
@@ -413,19 +549,48 @@ export function createTimeControls(
         slider.value = nextValue;
       }
     }
+    slider.style.setProperty(
+      '--fill',
+      `${(Number(slider.value) / SLIDER_STEPS) * 100}%`,
+    );
 
     const nextAnnouncement = announcement(state);
     if (announce && nextAnnouncement !== lastAnnouncement) {
       live.textContent = nextAnnouncement;
     }
     lastAnnouncement = nextAnnouncement;
+    if (approximate && !approximateAnnounced && announce) {
+      approximateAnnounced = true;
+      live.textContent = i18n.t('time.accuracy.announce');
+    }
     announce = true;
+    lastState = state;
   }
 
+  function applyReady(): void {
+    for (const control of controls) {
+      if (ready) {
+        control.removeAttribute('aria-disabled');
+      } else {
+        control.setAttribute('aria-disabled', 'true');
+      }
+    }
+  }
+
+  applyReady();
   const unsubscribe = clock.subscribe(render);
-  let disposed = false;
 
   return {
+    setReady(next: boolean) {
+      if (disposed || next === ready) {
+        return;
+      }
+      ready = next;
+      applyReady();
+      if (lastState !== null) {
+        lastSpeedText = setText(simSpeed, speedText(lastState), lastSpeedText);
+      }
+    },
     dispose() {
       if (disposed) {
         return;
@@ -437,6 +602,7 @@ export function createTimeControls(
       }
       abort.abort();
       unsubscribe();
+      accuracyTip.dispose();
       section.remove();
     },
   };

@@ -214,14 +214,16 @@ test('frame counter and render stats', async ({ page }) => {
   expect(Object.keys(stats ?? {}).sort()).toEqual([
     'debugDrawCalls',
     'drawCalls',
+    'postFxDrawCalls',
+    'textureMiB',
     'triangles',
   ]);
 });
 
 test('DRAW_CALL_BUDGET', async ({ page }) => {
-  // DRAW_CALL_BUDGET from ADR-006 and ADR-009: one limit for the scene without
+  // DRAW_CALL_BUDGET from ADR-010 point 8: one limit for the scene without
   // debug objects. A literal on purpose, because e2e imports nothing from src.
-  const DRAW_CALL_BUDGET = 25;
+  const DRAW_CALL_BUDGET = 28;
   const TRIANGLE_BUDGET = 60_000;
 
   await openApp(page, '/?debug=1&days=0&paused=1');

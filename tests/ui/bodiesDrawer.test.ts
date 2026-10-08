@@ -306,8 +306,10 @@ test('labels from i18n', () => {
 
   expect(view.drawer.openButton.textContent).toBe('Planety');
   expect(view.drawer.openButton.textContent).toBe(i18n.t('bodies.drawer.open'));
-  expect(closeButton().textContent).toBe('Zamknij listę ciał');
-  expect(closeButton().textContent).toBe(i18n.t('bodies.drawer.close'));
+  expect(closeButton().getAttribute('aria-label')).toBe('Zamknij listę ciał');
+  expect(closeButton().getAttribute('aria-label')).toBe(
+    i18n.t('bodies.drawer.close'),
+  );
 
   view.drawer.dispose();
   view.panel.dispose();
@@ -336,5 +338,86 @@ test('open close idempotent; dispose cleans up', () => {
   expect(() => view.selection.select('sun')).not.toThrow();
   view.media.set(false);
 
+  view.panel.dispose();
+});
+
+test('drawer has a single close control', () => {
+  document.body.replaceChildren();
+  const view = mount(true);
+  view.drawer.open();
+
+  const drawer = drawerElement();
+  expect(drawer.querySelector('[data-testid="bodies-collapse"]')).toBeNull();
+  expect(
+    drawer.querySelectorAll('[data-testid="bodies-drawer-close"]'),
+  ).toHaveLength(1);
+  // The ✕ sits in the list head, next to the heading.
+  expect(closeButton().parentElement).toBe(view.panel.head);
+  expect(closeButton().querySelector('svg.icon')).not.toBeNull();
+
+  // Desktop: the list folds into the rail again, the ✕ is hidden.
+  view.media.set(false);
+  expect(
+    document.querySelectorAll('[data-testid="bodies-collapse"]'),
+  ).toHaveLength(1);
+  expect(closeButton().hidden).toBe(true);
+  view.media.set(true);
+  expect(document.querySelector('[data-testid="bodies-collapse"]')).toBeNull();
+
+  view.drawer.dispose();
+  expect(document.querySelector('[data-testid="bodies-drawer-close"]')).toBe(
+    null,
+  );
+  view.panel.dispose();
+});
+
+test('open button reflects state', () => {
+  document.body.replaceChildren();
+  const view = mount(true);
+  const openButton = view.drawer.openButton;
+
+  expect(openButton.getAttribute('aria-controls')).toBe('bodies-drawer');
+  expect(openButton.getAttribute('aria-expanded')).toBe('false');
+  expect(openButton.querySelector('svg.icon')).not.toBeNull();
+  openButton.click();
+  expect(openButton.getAttribute('aria-expanded')).toBe('true');
+
+  closeButton().click();
+  expect(openButton.getAttribute('aria-expanded')).toBe('false');
+  expect(view.drawer.isOpen()).toBe(false);
+  expect(document.activeElement).toBe(openButton);
+
+  view.drawer.dispose();
+  view.panel.dispose();
+});
+
+test('a tap outside the drawer closes it', () => {
+  document.body.replaceChildren();
+  const view = mount(true);
+  const scene = document.createElement('canvas');
+  document.body.append(scene);
+
+  view.drawer.open();
+  expect(document.activeElement).toBe(item('sun'));
+  // Taps inside the drawer and on its own button keep it open.
+  item('mars').dispatchEvent(
+    new PointerEvent('pointerdown', { bubbles: true }),
+  );
+  view.drawer.openButton.dispatchEvent(
+    new PointerEvent('pointerdown', { bubbles: true }),
+  );
+  expect(view.drawer.isOpen()).toBe(true);
+
+  scene.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+  expect(view.drawer.isOpen()).toBe(false);
+  expect(drawerElement().hidden).toBe(true);
+  // Focus was in the drawer, so it goes back to the open button.
+  expect(document.activeElement).toBe(view.drawer.openButton);
+
+  // Closed: a further tap changes nothing.
+  scene.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+  expect(view.drawer.isOpen()).toBe(false);
+
+  view.drawer.dispose();
   view.panel.dispose();
 });

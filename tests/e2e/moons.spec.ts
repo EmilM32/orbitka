@@ -65,3 +65,41 @@ test('moons › hook contains moons', async ({ page }) => {
   const second = await readPositions(page);
   expect(second).toEqual(first);
 });
+
+test('jupiter moons are labelled when selected', async ({ page }) => {
+  await page.goto('about:blank');
+  await assertWebGl(page);
+  // Day 3: no Galilean moon is behind Jupiter, so all four have labels.
+  await page.goto('/?debug=1&days=3&paused=1');
+  await waitForFrames(page, 3);
+  const moons = ['io', 'europa', 'ganymede', 'callisto'];
+  // System view: no moon labels.
+  for (const id of moons) {
+    await expect(page.getByTestId(`body-label-${id}`)).toHaveClass(
+      /is-hidden/u,
+    );
+  }
+
+  await page.getByTestId('body-item-jupiter').click();
+  await page.waitForFunction(
+    () =>
+      window.__orbitka?.getSelectedId() === 'jupiter' &&
+      window.__orbitka.getCameraState().flightActive === 0,
+  );
+  await waitForFrames(page, 3);
+  for (const id of moons) {
+    const label = page.getByTestId(`body-label-${id}`);
+    await expect(label).not.toHaveClass(/is-hidden/u);
+    expect(
+      await label.evaluate((element) => getComputedStyle(element).fontSize),
+    ).toBe('14px');
+  }
+
+  await page.getByTestId('view-reset').click();
+  await waitForFrames(page, 3);
+  for (const id of moons) {
+    await expect(page.getByTestId(`body-label-${id}`)).toHaveClass(
+      /is-hidden/u,
+    );
+  }
+});

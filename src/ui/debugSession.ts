@@ -5,7 +5,7 @@ import { createDebugOverlay, type DebugStats } from './debugOverlay.ts';
 
 export type DebugSession = {
   tick(nowMs: number): void;
-  update(stats: Pick<DebugStats, 'drawCalls' | 'triangles'>): void;
+  update(stats: Omit<DebugStats, 'fps'>): void;
   dispose(): void;
 };
 
@@ -28,7 +28,9 @@ export function createDebugSession(
       overlay.update({
         fps: meter.fps,
         drawCalls: stats.drawCalls,
+        postFxDrawCalls: stats.postFxDrawCalls,
         triangles: stats.triangles,
+        textureMiB: stats.textureMiB,
       });
     },
     dispose() {

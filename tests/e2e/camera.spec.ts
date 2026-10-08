@@ -902,8 +902,8 @@ test('resize during a flight', async ({ page }) => {
 });
 
 test('selection does not add draw calls', async ({ page }) => {
-  // DRAW_CALL_BUDGET from ADR-006 and ADR-009: scene without debug objects.
-  const DRAW_CALL_BUDGET = 25;
+  // DRAW_CALL_BUDGET from ADR-010 point 8: scene without debug objects.
+  const DRAW_CALL_BUDGET = 28;
 
   await openApp(page);
   await waitReady(page);
@@ -936,7 +936,36 @@ test('selection does not add draw calls', async ({ page }) => {
   expect(Object.keys(after.stats).sort()).toEqual([
     'debugDrawCalls',
     'drawCalls',
+    'postFxDrawCalls',
+    'textureMiB',
     'triangles',
   ]);
   expect(Number.isFinite(after.frameCount)).toBe(true);
+});
+
+test('zoom in disables at the limit', async ({ page }) => {
+  await openApp(page);
+  await waitReady(page);
+  await flyTo(page, 'jupiter');
+  const zoomIn = page.getByTestId('view-zoom-in');
+  await expect(zoomIn).not.toHaveAttribute('aria-disabled', 'true');
+
+  // Playwright waits on an aria-disabled button, so the 30 presses force it.
+  for (let step = 0; step < 30; step += 1) {
+    await zoomIn.click({ force: true });
+  }
+  await waitForStableDistance(page);
+  await expect(zoomIn).toHaveAttribute('aria-disabled', 'true');
+  // Still a Tab stop, and a click changes nothing.
+  await expect(zoomIn).toHaveJSProperty('tabIndex', 0);
+  const before = await cameraState(page);
+  await zoomIn.click({ force: true });
+  await waitForStableDistance(page);
+  const after = await cameraState(page);
+  expect(after.distance).toBeCloseTo(before.distance, 6);
+
+  const zoomOut = page.getByTestId('view-zoom-out');
+  await expect(zoomOut).not.toHaveAttribute('aria-disabled', 'true');
+  await zoomOut.click();
+  await expect(zoomIn).not.toHaveAttribute('aria-disabled', 'true');
 });

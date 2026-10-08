@@ -2,7 +2,12 @@ import { expect, test, vi } from 'vitest';
 
 import {
   computeLabelOrder,
+  LABEL_SIDE_ABOVE,
+  LABEL_SIDE_BELOW,
+  LABEL_SIDE_LEFT,
+  LABEL_SIDE_RIGHT,
   layoutLabels,
+  leaderLine,
   type LabelLayout,
 } from '@core/labelLayout.ts';
 import { VIEW_CONFIG } from '@core/viewConfig.ts';
@@ -31,11 +36,26 @@ const JUPITER_SCREEN = { x: 736, y: 321.4, radiusPx: 8.7 };
 const SATURN_SCREEN = { x: 748.5, y: 301.6, radiusPx: 7.7 };
 const START_LABEL = { width: 50, height: 24 };
 
+const MOON_PARENTS: Record<string, string> = {
+  moon: 'earth',
+  io: 'jupiter',
+  europa: 'jupiter',
+  ganymede: 'jupiter',
+  callisto: 'jupiter',
+};
+
+// Planets orbit the Sun; the Sun has no parent.
+function parentsOf(ids: readonly string[]): (string | null)[] {
+  return ids.map((id) => (id === 'sun' ? null : (MOON_PARENTS[id] ?? 'sun')));
+}
+
+const PLANET_PARENTS = parentsOf(IDS);
+
 test('priority order', () => {
   const order = new Uint16Array(IDS.length);
   const radii = Float64Array.from(RADII_KM);
 
-  computeLabelOrder(order, IDS, radii, 'mars');
+  computeLabelOrder(order, IDS, radii, 'mars', PLANET_PARENTS);
   expect(names(order, IDS)).toEqual([
     'mars',
     'sun',
@@ -48,7 +68,7 @@ test('priority order', () => {
     'mercury',
   ]);
 
-  computeLabelOrder(order, IDS, radii, 'jupiter');
+  computeLabelOrder(order, IDS, radii, 'jupiter', PLANET_PARENTS);
   expect(names(order, IDS)).toEqual([
     'jupiter',
     'sun',
@@ -61,32 +81,37 @@ test('priority order', () => {
     'mercury',
   ]);
 
-  computeLabelOrder(order, IDS, radii, 'sun');
+  computeLabelOrder(order, IDS, radii, 'sun', PLANET_PARENTS);
   expect(names(order, IDS)[0]).toBe('sun');
   expect(names(order, IDS).filter((id) => id === 'sun')).toEqual(['sun']);
 
   const tiedIds = ['mercury', 'venus', 'earth'];
   const tiedRadii = Float64Array.from([5, 5, 9]);
   const tied = new Uint16Array(tiedIds.length);
-  computeLabelOrder(tied, tiedIds, tiedRadii, null);
+  computeLabelOrder(tied, tiedIds, tiedRadii, null, parentsOf(tiedIds));
   expect(names(tied, tiedIds)).toEqual(['earth', 'mercury', 'venus']);
-  computeLabelOrder(tied, tiedIds, tiedRadii, 'venus');
+  computeLabelOrder(tied, tiedIds, tiedRadii, 'venus', parentsOf(tiedIds));
   expect(names(tied, tiedIds)).toEqual(['venus', 'earth', 'mercury']);
 });
 
 test('overlapping labels hide lower priority', () => {
   const gap = VIEW_CONFIG.labelGapPx;
-  const hidden = placePair(115 + gap - 1);
-  expect(hidden.shown[0]).toBe(1);
-  expect(hidden.shown[1]).toBe(0);
+  // Above and below are taken, so Mars moves beside its body with a leader.
+  const beside = placePair(115 + gap - 1);
+  expect(beside.shown[0]).toBe(1);
+  expect(beside.side[0]).toBe(LABEL_SIDE_ABOVE);
+  expect(beside.shown[1]).toBe(1);
+  expect(beside.side[1]).toBeGreaterThanOrEqual(LABEL_SIDE_RIGHT);
 
   const shown = placePair(115 + gap);
   expect(shown.shown[0]).toBe(1);
   expect(shown.shown[1]).toBe(1);
 
+  // Selected Mars goes first: it keeps the place above, Jupiter moves aside.
   const selected = placePair(115 + gap - 1, 'mars');
   expect(selected.shown[1]).toBe(1);
-  expect(selected.shown[0]).toBe(0);
+  expect(selected.side[1]).toBe(LABEL_SIDE_ABOVE);
+  expect(selected.side[0]).not.toBe(LABEL_SIDE_ABOVE);
 
   const stacked = createLayout(['sun', 'mercury', 'venus'], [1000, 10, 20]);
   for (let index = 0; index < stacked.count; index += 1) {
@@ -440,6 +465,7 @@ test('does not allocate', () => {
         IDS,
         layoutLabelRadii(layout),
         index % 2 === 0 ? 'mars' : null,
+        PLANET_PARENTS,
       );
       layoutLabels(layout);
     }
@@ -524,7 +550,13 @@ function orderAndLayout(
   selectedId: string | null,
 ): void {
   layout.selectedIndex = selectedId === null ? -1 : ids.indexOf(selectedId);
-  computeLabelOrder(layout.order, ids, layoutLabelRadii(layout), selectedId);
+  computeLabelOrder(
+    layout.order,
+    ids,
+    layoutLabelRadii(layout),
+    selectedId,
+    parentsOf(ids),
+  );
   layoutLabels(layout);
 }
 
@@ -663,3 +695,288 @@ function mulberry32(seed: number): () => number {
     return ((next ^ (next >>> 14)) >>> 0) / 4294967296;
   };
 }
+
+const ALL_IDS = [
+  'sun',
+  'mercury',
+  'venus',
+  'earth',
+  'moon',
+  'mars',
+  'jupiter',
+  'io',
+  'europa',
+  'ganymede',
+  'callisto',
+  'saturn',
+  'uranus',
+  'neptune',
+];
+const ALL_RADII_KM = [
+  695700, 2439.7, 6051.8, 6371, 1737.4, 3389.5, 69911, 1821.5, 1560.8, 2631.2,
+  2410.3, 58232, 25362, 24622,
+];
+
+test('order: selected, sun, its moons, planets, other moons', () => {
+  const order = new Uint16Array(ALL_IDS.length);
+  computeLabelOrder(
+    order,
+    ALL_IDS,
+    Float64Array.from(ALL_RADII_KM),
+    'jupiter',
+    parentsOf(ALL_IDS),
+  );
+  expect(names(order, ALL_IDS)).toEqual([
+    'jupiter',
+    'sun',
+    'ganymede',
+    'callisto',
+    'io',
+    'europa',
+    'saturn',
+    'uranus',
+    'neptune',
+    'earth',
+    'venus',
+    'mars',
+    'mercury',
+    'moon',
+  ]);
+});
+
+test('parentIds length mismatch throws', () => {
+  const order = new Uint16Array(IDS.length);
+  const call = () =>
+    computeLabelOrder(order, IDS, Float64Array.from(RADII_KM), null, [null]);
+  expect(call).toThrow(RangeError);
+  expect(call).toThrow(
+    'computeLabelOrder: parameter "parentIds" must have the same length as ids, got 1',
+  );
+});
+
+function spreadLayout(): LabelLayout {
+  const layout = createLayout(ALL_IDS, ALL_RADII_KM);
+  const parents = parentsOf(ALL_IDS);
+  layout.parentIndex = Int16Array.from(
+    parents.map((parent) => (parent === null ? -1 : ALL_IDS.indexOf(parent))),
+  );
+  // Far apart, so nothing collides: only the moon rule hides labels.
+  for (let index = 0; index < ALL_IDS.length; index += 1) {
+    layout.x[index] = 60 + (index % 7) * 170;
+    layout.y[index] = 120 + Math.floor(index / 7) * 300;
+    layout.radiusPx[index] = 6;
+    layout.visible[index] = 1;
+    layout.labelWidth[index] = 60;
+    layout.labelHeight[index] = 24;
+  }
+  return layout;
+}
+
+function shownIds(layout: LabelLayout): string[] {
+  return ALL_IDS.filter((_, index) => (layout.shown[index] ?? 0) === 1);
+}
+
+test('moon labels only when parent selected', () => {
+  const layout = spreadLayout();
+  const jupiterMoons = ['io', 'europa', 'ganymede', 'callisto'];
+
+  orderAndLayout(layout, ALL_IDS, null);
+  expect(shownIds(layout)).not.toContain('moon');
+  for (const id of jupiterMoons) {
+    expect(layout.shown[ALL_IDS.indexOf(id)]).toBe(0);
+  }
+
+  orderAndLayout(layout, ALL_IDS, 'saturn');
+  for (const id of [...jupiterMoons, 'moon']) {
+    expect(layout.shown[ALL_IDS.indexOf(id)]).toBe(0);
+  }
+
+  orderAndLayout(layout, ALL_IDS, 'jupiter');
+  for (const id of jupiterMoons) {
+    expect(layout.shown[ALL_IDS.indexOf(id)]).toBe(1);
+  }
+  expect(layout.shown[ALL_IDS.indexOf('moon')]).toBe(0);
+
+  orderAndLayout(layout, ALL_IDS, 'earth');
+  expect(layout.shown[ALL_IDS.indexOf('moon')]).toBe(1);
+  // Jupiter → Saturn: Jupiter's moons go in the same layout.
+  orderAndLayout(layout, ALL_IDS, 'jupiter');
+  orderAndLayout(layout, ALL_IDS, 'saturn');
+  for (const id of jupiterMoons) {
+    expect(layout.shown[ALL_IDS.indexOf(id)]).toBe(0);
+  }
+});
+
+test('sun and selected are always shown', () => {
+  // A tiny window filled by the Sun's disc: every candidate hits a disc.
+  const ids = ['sun', 'earth'];
+  const layout = createLayout(ids, [695700, 6371]);
+  layout.width = 120;
+  layout.height = 60;
+  layout.x[0] = 60;
+  layout.y[0] = 30;
+  layout.radiusPx[0] = 80;
+  layout.x[1] = 70;
+  layout.y[1] = 30;
+  layout.radiusPx[1] = 5;
+  for (const index of [0, 1]) {
+    layout.visible[index] = 1;
+    layout.labelWidth[index] = 50;
+    layout.labelHeight[index] = 24;
+  }
+
+  orderAndLayout(layout, ids, 'earth');
+  expect(layout.shown[0]).toBe(1);
+  expect(layout.shown[1]).toBe(1);
+  // Selected first: nothing accepted yet, so it stays above its body.
+  expect(layout.side[1]).toBe(LABEL_SIDE_ABOVE);
+  // The Sun takes the first place clear of that label, over the discs.
+  expectNoLabelOverlap(layout);
+
+  // Every place also taken by labels: the pinned label sits above anyway.
+  const crowded = createLayout(['sun'], [695700]);
+  crowded.width = 50;
+  crowded.height = 24;
+  crowded.x[0] = 25;
+  crowded.y[0] = 12;
+  crowded.radiusPx[0] = 80;
+  crowded.visible[0] = 1;
+  crowded.labelWidth[0] = 50;
+  crowded.labelHeight[0] = 24;
+  orderAndLayout(crowded, ['sun'], null);
+  expect(crowded.shown[0]).toBe(1);
+  expect(crowded.side[0]).toBe(LABEL_SIDE_ABOVE);
+
+  // Not selected: Earth loses, the Sun stays.
+  orderAndLayout(layout, ids, null);
+  expect(layout.shown[0]).toBe(1);
+  expect(layout.shown[1]).toBe(0);
+
+  // A selected body off screen gets no label.
+  layout.visible[1] = 0;
+  orderAndLayout(layout, ids, 'earth');
+  expect(layout.shown[1]).toBe(0);
+});
+
+test('falls back to side with leader', () => {
+  // Venus above and below Mars take both places; Mars goes right.
+  const ids = ['mars', 'venus', 'mercury'];
+  const layout = createLayout(ids, [3389.5, 6051.8, 2439.7]);
+  layout.width = 600;
+  layout.height = 400;
+  const place = (index: number, x: number, y: number): void => {
+    layout.x[index] = x;
+    layout.y[index] = y;
+    layout.radiusPx[index] = 4;
+    layout.visible[index] = 1;
+    layout.labelWidth[index] = 50;
+    layout.labelHeight[index] = 24;
+  };
+  place(0, 300, 200);
+  place(1, 300, 160);
+  place(2, 300, 240);
+  // Venus first, then Mercury: Mars, last, finds above and below taken.
+  computeLabelOrder(layout.order, ids, Float64Array.from([1, 3, 2]), null, [
+    null,
+    null,
+    null,
+  ]);
+  layoutLabels(layout);
+  expect(layout.shown[0]).toBe(1);
+  expect(layout.side[0]).toBe(LABEL_SIDE_RIGHT);
+
+  const left = layout.outX[0] ?? 0;
+  const top = layout.outY[0] ?? 0;
+  expect(left).toBe(300 + 4 + VIEW_CONFIG.labelLeaderOffsetPx);
+  expect(top + 12).toBe(200);
+  const line = new Float64Array(4);
+  leaderLine(line, LABEL_SIDE_RIGHT, 300, 200, 4, left, top, 50, 24);
+  const fromCenter = Math.hypot((line[0] ?? 0) - 300, (line[1] ?? 0) - 200);
+  expect(Math.abs(fromCenter - 4)).toBeLessThanOrEqual(0.5);
+  expect(line[2]).toBe(left);
+  expect(line[3]).toBe(top + 12);
+});
+
+test('rejects leader crossing another disc', () => {
+  const ids = ['mars', 'venus', 'mercury', 'earth'];
+  const layout = createLayout(ids, [1, 3, 2, 2.5]);
+  layout.width = 600;
+  layout.height = 400;
+  const place = (index: number, x: number, y: number, r: number): void => {
+    layout.x[index] = x;
+    layout.y[index] = y;
+    layout.radiusPx[index] = r;
+    layout.visible[index] = 1;
+    layout.labelWidth[index] = 50;
+    layout.labelHeight[index] = 24;
+  };
+  place(0, 300, 200, 4);
+  place(1, 300, 160, 4);
+  place(2, 300, 240, 4);
+  // A disc right of Mars, on the leader path but clear of the pill.
+  place(3, 316, 200, 3);
+  layout.labelWidth[3] = 1;
+  layout.labelHeight[3] = 1;
+  computeLabelOrder(
+    layout.order,
+    ids,
+    Float64Array.from([1, 3, 2, 2.5]),
+    null,
+    [null, null, null, null],
+  );
+  layoutLabels(layout);
+  expect(layout.shown[0]).toBe(1);
+  expect(layout.side[0]).toBe(LABEL_SIDE_LEFT);
+  expect(LABEL_SIDE_BELOW).toBe(1);
+});
+
+test('leaderLine rejects bad input', () => {
+  const out = new Float64Array(4);
+  for (const radius of [-1, Number.POSITIVE_INFINITY, Number.NaN]) {
+    const call = () =>
+      leaderLine(out, LABEL_SIDE_RIGHT, 0, 0, radius, 10, 0, 20, 10);
+    expect(call).toThrow(RangeError);
+    expect(call).toThrow(
+      `leaderLine: parameter "radiusPx" must be finite and >= 0, got ${radius}`,
+    );
+  }
+  expect(() =>
+    leaderLine(out, LABEL_SIDE_LEFT, Number.NaN, 0, 1, 10, 0, 20, 10),
+  ).toThrow('leaderLine: parameter "x" must be finite, got NaN');
+  // Left side ends on the right edge of the pill.
+  leaderLine(out, LABEL_SIDE_LEFT, 100, 50, 10, 20, 40, 30, 20);
+  expect([out[2], out[3]]).toEqual([50, 50]);
+  expect(out[0]).toBeCloseTo(90);
+  expect(out[1]).toBeCloseTo(50);
+});
+
+test('a moon in front of its planet keeps its label', () => {
+  const ids = ['jupiter', 'callisto', 'mars'];
+  const layout = createLayout(ids, [69911, 2410.3, 3389.5]);
+  layout.parentIndex = Int16Array.from([-1, 0, -1]);
+  layout.width = 1280;
+  layout.height = 720;
+  const place = (index: number, x: number, y: number, r: number): void => {
+    layout.x[index] = x;
+    layout.y[index] = y;
+    layout.radiusPx[index] = r;
+    layout.visible[index] = 1;
+    layout.labelWidth[index] = 66;
+    layout.labelHeight[index] = 26;
+  };
+  place(0, 464, 360, 106);
+  place(1, 489, 268, 3);
+  // Mars stands on Jupiter's disc too, but it is no moon of Jupiter.
+  place(2, 440, 330, 3);
+  computeLabelOrder(
+    layout.order,
+    ids,
+    Float64Array.from([69911, 2410.3, 3389.5]),
+    'jupiter',
+    ['sun', 'jupiter', 'sun'],
+  );
+  layout.selectedIndex = 0;
+  layoutLabels(layout);
+  expect(layout.shown[1]).toBe(1);
+  expect(layout.shown[2]).toBe(0);
+});

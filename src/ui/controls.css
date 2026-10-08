@@ -48,6 +48,11 @@
     color var(--dur-fast) var(--ease-out);
 }
 
+/* The display above would otherwise beat the hidden attribute. */
+.o-btn[hidden] {
+  display: none;
+}
+
 .o-btn:hover {
   background: var(--c-surface-hover);
 }

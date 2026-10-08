@@ -164,6 +164,34 @@ export function flightGoalDistance(
   return displayRadius * factor;
 }
 
+/**
+ * How much farther the body frame sits when a panel covers part of the window
+ * (ADR-009 annex): the body keeps the share of the free area it has in the
+ * full window. Insets are clamped so the free area is at least 1 px.
+ */
+export function freeAreaDistanceFactor(
+  widthPx: number,
+  heightPx: number,
+  insetRightPx: number,
+  insetBottomPx: number,
+): number {
+  requireFinitePositive('freeAreaDistanceFactor', 'widthPx', widthPx);
+  requireFinitePositive('freeAreaDistanceFactor', 'heightPx', heightPx);
+  requireFiniteAtLeastZero(
+    'freeAreaDistanceFactor',
+    'insetRightPx',
+    insetRightPx,
+  );
+  requireFiniteAtLeastZero(
+    'freeAreaDistanceFactor',
+    'insetBottomPx',
+    insetBottomPx,
+  );
+  const freeWidth = Math.max(1, widthPx - insetRightPx);
+  const freeHeight = Math.max(1, heightPx - insetBottomPx);
+  return Math.max(1, widthPx / freeWidth, heightPx / freeHeight);
+}
+
 export function clampPolar(polar: number): number {
   requireFinite('clampPolar', 'polar', polar);
   if (polar < POLAR_MIN_RAD) {

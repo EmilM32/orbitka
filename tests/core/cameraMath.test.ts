@@ -9,6 +9,7 @@ import {
   dampingFraction,
   easeInOutCubic,
   flightGoalDistance,
+  freeAreaDistanceFactor,
   flightProgress,
   lerp,
   lerpAngle,
@@ -146,6 +147,24 @@ test('flightGoalDistance', () => {
     expect(flightGoalDistance(radius, false)).toBe(6 * radius);
     expect(flightGoalDistance(radius, true)).toBe(3.5 * radius);
   }
+});
+
+test('freeAreaDistanceFactor', () => {
+  expect(freeAreaDistanceFactor(1280, 720, 0, 0)).toBe(1);
+  expect(freeAreaDistanceFactor(1280, 720, 352, 0)).toBeCloseTo(1280 / 928, 12);
+  expect(freeAreaDistanceFactor(768, 1024, 0, 512)).toBe(2);
+  expect(freeAreaDistanceFactor(1280, 720, 352, 360)).toBe(2);
+  // The free area keeps at least 1 px.
+  expect(freeAreaDistanceFactor(1280, 720, 2000, 0)).toBe(1280);
+  expect(() => freeAreaDistanceFactor(1280, 720, -1, 0)).toThrow(
+    'freeAreaDistanceFactor: parameter "insetRightPx" must be finite and >= 0, got -1',
+  );
+  expect(() => freeAreaDistanceFactor(0, 720, 0, 0)).toThrow(
+    'freeAreaDistanceFactor: parameter "widthPx" must be finite and > 0, got 0',
+  );
+  expect(() => freeAreaDistanceFactor(1280, 720, 0, Number.NaN)).toThrow(
+    RangeError,
+  );
 });
 
 test('clampPolar › property', () => {

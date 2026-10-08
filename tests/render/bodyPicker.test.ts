@@ -1,8 +1,12 @@
+import { PerspectiveCamera } from 'three';
 import { expect, test } from 'vitest';
 
 import { createBodyScreenFrame } from '@core/bodyScreenFrame.ts';
 import { createSelection, type Selection } from '@core/selection.ts';
+import { createViewInsets } from '@core/viewInsets.ts';
 import { createBodyPicker } from '@render/bodyPicker.ts';
+import { createBodyProjector } from '@render/bodyProjector.ts';
+import { createViewOffsetRig } from '@render/viewOffset.ts';
 import {
   createCameraPointerInput,
   type CameraPointerInput,
@@ -595,4 +599,74 @@ test('dispose removes listeners', () => {
 
   input.dispose();
   selection.dispose();
+});
+
+function tap(surface: Surface, x: number, y: number, pointerId: number): void {
+  const at = client(surface, x, y);
+  pointer(surface, 'pointerdown', {
+    pointerId,
+    ...at,
+    button: 0,
+    buttons: 1,
+    pointerType: 'mouse',
+    timeStamp: pointerId * 1000,
+  });
+  pointer(surface, 'pointerup', {
+    pointerId,
+    ...at,
+    button: 0,
+    buttons: 0,
+    pointerType: 'mouse',
+    timeStamp: pointerId * 1000 + 50,
+  });
+}
+
+test('hits the body under an active view offset', () => {
+  const { surface, input, selection } = setup();
+  const camera = new PerspectiveCamera(45, 1280 / 720, 0.1, 2000);
+  camera.position.set(0, 0, 20);
+  camera.lookAt(0, 0, 0);
+  camera.updateMatrixWorld();
+  const insets = createViewInsets();
+  const rig = createViewOffsetRig({
+    camera,
+    insets,
+    reducedMotion: {
+      matches: true,
+      subscribe: () => () => undefined,
+    },
+    widthCss: 1280,
+    heightCss: 720,
+  });
+  const marsPosition = { x: 0, y: 0, z: 0 };
+  const projector = createBodyProjector(
+    IDS.map((id) => ({
+      id,
+      position: id === 'mars' ? marsPosition : { x: 1000, y: 0, z: 0 },
+      displayRadius: 0.5,
+    })),
+    { onResize: () => () => undefined },
+  );
+  const picker = createBodyPicker({
+    surface,
+    frame: projector.frame,
+    selection,
+    pointerInput: input,
+  });
+
+  insets.set({ right: 352, bottom: 0 });
+  projector.update(camera, 1280, 720);
+  const marsIndex = IDS.indexOf('mars');
+  expect(projector.frame.x[marsIndex]).toBeCloseTo(464, 6);
+  expect(projector.frame.y[marsIndex]).toBeCloseTo(360, 6);
+
+  tap(surface, 640, 360, 1);
+  expect(selection.getSelectedId()).toBeNull();
+  tap(surface, 464, 360, 2);
+  expect(selection.getSelectedId()).toBe('mars');
+
+  picker.dispose();
+  projector.dispose();
+  rig.dispose();
+  input.dispose();
 });

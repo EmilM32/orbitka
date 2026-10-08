@@ -39,6 +39,7 @@ import { createRotationAnimator } from '@render/rotateBodies.ts';
 import { getRenderStats, trackDebugDrawCalls } from '@render/renderStats.ts';
 import { getBodyScenePosition as readBodyScenePosition } from '@render/scenePosition.ts';
 import { getBodyScreenPositions } from '@render/screenPositions.ts';
+import { createViewOffsetRig } from '@render/viewOffset.ts';
 import { createAnnouncer } from '@ui/announcer.ts';
 import { createBodiesDrawer, type BodiesDrawer } from '@ui/bodiesDrawer.ts';
 import { createBodiesPanel } from '@ui/bodiesPanel.ts';
@@ -152,6 +153,17 @@ function mount(canvas: HTMLCanvasElement): App {
     });
   }
   const viewportFade = createViewportFade(canvas);
+  const viewInsets = createViewInsets();
+  const viewOffset = createViewOffsetRig({
+    camera: view.camera,
+    insets: viewInsets,
+    reducedMotion,
+    widthCss: cssWidth,
+    heightCss: cssHeight,
+  });
+  const unsubscribeOffsetResize = view.onResize((width, height) => {
+    viewOffset.resize(width, height);
+  });
   const director = createCameraDirector({
     controller: cameraController,
     selection,
@@ -159,6 +171,15 @@ function mount(canvas: HTMLCanvasElement): App {
     reducedMotion,
     onJump() {
       viewportFade.play();
+    },
+    insets: viewInsets,
+    viewport: {
+      get width() {
+        return cssWidth;
+      },
+      get height() {
+        return cssHeight;
+      },
     },
   });
   const projector = createBodyProjector(projectorEntries, view);
@@ -243,7 +264,6 @@ function mount(canvas: HTMLCanvasElement): App {
     },
     before: canvas.nextSibling ?? undefined,
   });
-  const viewInsets = createViewInsets();
   const tabletQuery = window.matchMedia(
     `(min-width: ${VIEW_CONFIG.tabletMinWidthPx}px) and (max-width: ${VIEW_CONFIG.tabletMaxWidthPx}px)`,
   );
@@ -463,6 +483,7 @@ function mount(canvas: HTMLCanvasElement): App {
       rotationAnimator.update(clock.days, clock.daysPerSecond);
       director.update(dtSeconds);
       cameraController.update(dtSeconds);
+      viewOffset.update(dtSeconds);
       announcer.update(dtSeconds);
       if (!debug) {
         return;
@@ -529,6 +550,8 @@ function mount(canvas: HTMLCanvasElement): App {
       labels.dispose();
       pageHeader.remove();
       director.dispose();
+      unsubscribeOffsetResize();
+      viewOffset.dispose();
       viewportFade.dispose();
       ring.dispose();
       picker.dispose();

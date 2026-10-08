@@ -567,26 +567,30 @@ test('wheel zoom steps and limits', async ({ page }) => {
     Math.abs(stepped.distance / (start.distance * 0.9) - 1),
   ).toBeLessThanOrEqual(0.01);
 
-  await wheelTimes(page, -100, 60);
+  // One notch is one 0.9× or 1.1× step. Each count below reaches its limit
+  // with at least 1.2× margin (start → min 16 notches, min → max 22, Mars
+  // frame → max 42, max → Mars min 46). Every notch costs a frame in
+  // SwiftShader, so the counts stay near what is needed.
+  await wheelTimes(page, -100, 25);
   const zoomedIn = await waitForStableDistance(page);
   expect(Math.abs(zoomedIn.distance - ZOOM_MIN)).toBeLessThanOrEqual(0.01);
   expect(Math.abs(zoomedIn.distanceMin - ZOOM_MIN)).toBeLessThanOrEqual(0.01);
 
-  await wheelTimes(page, 100, 60);
+  await wheelTimes(page, 100, 30);
   const zoomedOut = await waitForStableDistance(page);
   expect(Math.abs(zoomedOut.distance - ZOOM_MAX)).toBeLessThanOrEqual(0.01);
   expect(Math.abs(zoomedOut.distanceMax - ZOOM_MAX)).toBeLessThanOrEqual(0.01);
 
   await flyTo(page, 'mars');
   await page.mouse.move(VIEWPORT.width / 2, VIEWPORT.height / 2);
-  await wheelTimes(page, 100, 60);
+  await wheelTimes(page, 100, 50);
   const bodyFar = await waitForStableDistance(page);
   expect(Math.abs(bodyFar.distance - START_DISTANCE)).toBeLessThanOrEqual(0.01);
   expect(Math.abs(bodyFar.distanceMax - START_DISTANCE)).toBeLessThanOrEqual(
     0.01,
   );
 
-  await wheelTimes(page, -100, 60);
+  await wheelTimes(page, -100, 55);
   const bodyNear = await waitForStableDistance(page);
   expect(bodyNear.selectedRadius).toBeGreaterThan(0);
   expect(

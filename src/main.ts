@@ -14,6 +14,7 @@ import { getSelectableBodies } from '@core/selectableBodies.ts';
 import { createSelection } from '@core/selection.ts';
 import { VIEW_CONFIG } from '@core/viewConfig.ts';
 import { createViewInsets } from '@core/viewInsets.ts';
+import { zoomLimitState } from '@core/zoomLimits.ts';
 import { isStartPaused, parseStartDays } from '@core/startParams.ts';
 import { bodies } from '@data/bodies.ts';
 import { radiusToScene } from '@sim/scale.ts';
@@ -523,6 +524,20 @@ function mount(canvas: HTMLCanvasElement): App {
     }
   }
 
+  // Shared per-frame objects: the loop reads the zoom limits without
+  // allocating.
+  const zoomCamera: CameraControllerState = {
+    azimuthDeg: 0,
+    polarDeg: 0,
+    distance: 1,
+    distanceMin: 1,
+    distanceMax: 1,
+    targetX: 0,
+    targetY: 0,
+    targetZ: 0,
+  };
+  const zoomLimits = { atMin: false, atMax: false };
+
   const loop = createLoop({
     update(dtSeconds) {
       simDt = dtSeconds;
@@ -533,6 +548,14 @@ function mount(canvas: HTMLCanvasElement): App {
       director.update(dtSeconds);
       cameraController.update(dtSeconds);
       viewOffset.update(dtSeconds);
+      cameraController.getState(zoomCamera);
+      zoomLimitState(
+        zoomCamera.distance,
+        zoomCamera.distanceMin,
+        zoomCamera.distanceMax,
+        zoomLimits,
+      );
+      viewControls.setZoomLimits(zoomLimits.atMin, zoomLimits.atMax);
       announcer.update(dtSeconds);
       if (!debug) {
         return;

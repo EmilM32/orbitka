@@ -31,6 +31,13 @@ export type BodiesPanel = {
   getMode(): BodiesPanelMode;
   /** The user folded the list with its own button (SPEC §5.4). */
   isUserCollapsed(): boolean;
+  /**
+   * Adds or removes the fold button. The tablet drawer has no rail, so its
+   * only control in the head is its own ✕ (SPEC §5.4).
+   */
+  setCollapsible(collapsible: boolean): void;
+  /** The list head, where the drawer puts its ✕. */
+  head: HTMLElement;
   focusItem(id: string): boolean;
   dispose(): void;
 };
@@ -41,6 +48,8 @@ export type BodiesPanelOptions = {
   i18n: AppI18n;
   before?: Node;
   getFocusFallback?: () => HTMLElement | null;
+  /** Renders the fold button. Default true. */
+  collapsible?: boolean;
   /**
    * Called after the fold button changes `isUserCollapsed()`; the owner
    * works out the mode again. Without it the panel follows the button alone.
@@ -92,7 +101,10 @@ export function createBodiesPanel(
   const listIcon = createIcon('list');
   listIcon.classList.add('bodies-list-icon');
   toggle.append(foldIcon, listIcon);
-  head.append(heading, toggle);
+  head.append(heading);
+  if (options.collapsible ?? true) {
+    head.append(toggle);
+  }
 
   const columnHead = document.createElement('div');
   columnHead.className = 'bodies-colhead';
@@ -167,6 +179,8 @@ export function createBodiesPanel(
     setMode,
     getMode: () => mode,
     isUserCollapsed: () => userCollapsed,
+    setCollapsible,
+    head,
     focusItem,
     dispose,
   };
@@ -206,6 +220,17 @@ export function createBodiesPanel(
       railLabel: name,
       tooltip: null,
     };
+  }
+
+  function setCollapsible(collapsible: boolean): void {
+    if (disposed || collapsible === (toggle.parentNode === head)) {
+      return;
+    }
+    if (collapsible) {
+      heading.after(toggle);
+      return;
+    }
+    toggle.remove();
   }
 
   function setMode(next: BodiesPanelMode): void {

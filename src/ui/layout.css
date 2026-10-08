@@ -1,43 +1,41 @@
 :root {
   --time-panel-height: 0px;
+  --drawer-open-w: 8rem;
+  /* Under the second row: 60 + 8 + 44 + 12 = 124 px. */
+  --drawer-top: calc(var(--topbar-h) + var(--s-2) + var(--hit) + var(--s-3));
 }
 
+/*
+ * Tablet (SPEC §3): a second row under the top bar holds "Planety" and the
+ * scale chip. "Planety" has a fixed width, so the chip can sit right after it.
+ */
 #bodies-drawer-open {
   position: fixed;
-  top: 60px;
-  left: 8px;
+  top: calc(var(--topbar-h) + var(--s-2));
+  left: var(--edge);
   z-index: var(--z-panels);
-  box-sizing: border-box;
-  min-width: 44px;
-  min-height: 44px;
-  margin: 0;
-  padding: 8px 12px;
-  color: var(--c-text);
-  font-family: var(--font-ui);
-  font-size: 16px;
-  line-height: 1.2;
-  background: rgba(10, 14, 30, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  border-radius: 8px;
-  touch-action: manipulation;
+  width: var(--drawer-open-w);
+  padding: 0 var(--s-3);
+  /* .o-btn is transparent; this one stands alone over the scene. */
+  background: var(--c-surface);
+}
+
+#bodies-drawer-open:hover {
+  background:
+    linear-gradient(var(--c-surface-hover), var(--c-surface-hover)),
+    var(--c-surface);
+}
+
+/* Pressed while the drawer is open: the same tokens as a pressed toggle. */
+#bodies-drawer-open[aria-expanded='true'] {
+  background: var(--c-surface-active);
+  border-color: var(--c-active-border);
 }
 
 #bodies-drawer-close {
-  box-sizing: border-box;
-  width: 100%;
-  min-width: 44px;
-  min-height: 44px;
-  margin: 0;
-  padding: 8px 12px;
-  color: var(--c-text);
-  font-family: var(--font-ui);
-  font-size: 16px;
-  line-height: 1.2;
-  text-align: left;
-  background: rgba(10, 14, 30, 0.85);
-  border: 0;
-  border-radius: 8px;
-  touch-action: manipulation;
+  flex: none;
+  width: var(--hit);
+  padding: 0;
 }
 
 @media (min-width: 1025px) {
@@ -56,6 +54,23 @@
 }
 
 @media (max-width: 1024px) {
+  #scale-notice {
+    position: fixed;
+    top: calc(var(--topbar-h) + var(--s-2));
+    left: calc(var(--edge) + var(--drawer-open-w) + var(--s-2));
+    max-width: calc(
+      100vw - var(--edge) - var(--drawer-open-w) - var(--s-2) - var(--edge)
+    );
+  }
+
+  /* The explanation opens under the second row, not under the top bar. */
+  #scale-explanation {
+    max-height: calc(
+      100vh - var(--drawer-top) - var(--time-panel-height, 0px) - 2 *
+        var(--edge)
+    );
+  }
+
   #time-controls {
     left: 16px;
     right: 16px;
@@ -65,21 +80,25 @@
     transform: none;
   }
 
+  /* 300 px, over the card sheet, slides in 16 px from the left (SPEC §6). */
   #bodies-drawer:not([hidden]) {
     position: fixed;
-    top: 112px;
-    left: 8px;
+    top: var(--drawer-top);
+    left: var(--edge);
     z-index: var(--z-drawer);
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    width: 280px;
+    width: var(--drawer-w);
+    max-width: calc(100vw - 2 * var(--edge));
     max-height: calc(
-      100vh - 112px - 16px - var(--time-panel-height, 0px) - 16px
+      100vh - var(--drawer-top) - var(--time-panel-height, 0px) - 2 *
+        var(--edge)
     );
     margin: 0;
     overflow: auto;
-    background: rgba(10, 14, 30, 0.85);
+    border-radius: var(--radius-panel);
+    animation: drawer-in var(--dur) var(--ease-out);
   }
 
   #bodies-panel {
@@ -90,20 +109,30 @@
     max-height: none;
   }
 
-  /* The drawer has no rail mode (SPEC §5.4). */
-  #bodies-collapse {
-    display: none;
-  }
-
   #bodies-panel button,
   #bodies-drawer-open,
   #bodies-drawer-close {
-    min-width: 44px;
-    min-height: 44px;
+    min-width: var(--hit);
+    min-height: var(--hit);
   }
 
   #debug-overlay {
-    top: 112px;
-    left: 8px;
+    top: var(--drawer-top);
+    left: var(--edge);
+  }
+}
+
+@keyframes drawer-in {
+  from {
+    opacity: 0;
+    transform: translateX(-1rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @keyframes drawer-in {
+    from {
+      opacity: 0;
+    }
   }
 }

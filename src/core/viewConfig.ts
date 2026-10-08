@@ -9,7 +9,7 @@ export const VIEW_CONFIG = {
   orbitsStorageKey: 'orbitka.orbits',
   tabletMaxWidthPx: 1024,
   tabletMinWidthPx: 768,
-  drawerWidthPx: 280,
+  drawerWidthPx: 300,
   railMaxWidthPx: 1440,
   selectionRingPaddingPx: 8,
   selectionRingMinRadiusPx: 12,

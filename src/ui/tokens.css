@@ -87,6 +87,7 @@
   --list-w: 15.75rem;
   --rail-w: 3.5rem;
   --card-w: 20rem;
+  --drawer-w: 18.75rem; /* tablet drawer "Planety", 300 px */
   --sheet-collapsed: 7rem;
   --sheet-expanded: 60dvh;
   --edge: 1rem; /* panel margin from the window edge */

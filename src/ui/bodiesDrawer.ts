@@ -4,6 +4,7 @@ import { VIEW_CONFIG } from '@core/viewConfig.ts';
 
 import { type BodiesPanel } from './bodiesPanel.ts';
 import { type Dictionary, type I18n } from './i18n.ts';
+import { createIcon } from './icons.ts';
 
 type AppI18n = I18n<Dictionary>;
 
@@ -34,23 +35,31 @@ export function createBodiesDrawer(
   const openLabel = i18n.t('bodies.drawer.open');
   const closeLabel = i18n.t('bodies.drawer.close');
 
+  // Looks pressed while the drawer is open (aria-expanded, SPEC §5.2).
   const openButton = document.createElement('button');
   openButton.type = 'button';
   openButton.id = 'bodies-drawer-open';
+  openButton.className = 'o-btn o-glass';
   openButton.setAttribute('data-testid', 'bodies-drawer-open');
   openButton.setAttribute('aria-controls', 'bodies-drawer');
-  openButton.textContent = openLabel;
+  const openText = document.createElement('span');
+  openText.textContent = openLabel;
+  openButton.append(createIcon('orbit'), openText);
 
+  // The one way out of the drawer that is a button: ✕ in the list head.
   const closeButton = document.createElement('button');
   closeButton.type = 'button';
   closeButton.id = 'bodies-drawer-close';
+  closeButton.className = 'o-btn o-btn--ghost';
   closeButton.setAttribute('data-testid', 'bodies-drawer-close');
-  closeButton.textContent = closeLabel;
+  closeButton.setAttribute('aria-label', closeLabel);
+  closeButton.append(createIcon('close'));
 
   const drawer = document.createElement('div');
   drawer.id = 'bodies-drawer';
   drawer.setAttribute('data-testid', 'bodies-drawer');
-  drawer.append(closeButton, panel.element);
+  drawer.append(panel.element);
+  panel.head.append(closeButton);
 
   parent.insertBefore(openButton, options.before ?? null);
   parent.insertBefore(drawer, options.before ?? null);
@@ -61,6 +70,7 @@ export function createBodiesDrawer(
   let openState = false;
 
   applyVisibility();
+  panel.setCollapsible(!isTablet);
   query.addEventListener('change', onMediaChange);
   openButton.addEventListener('click', onOpenClick);
   openButton.addEventListener('keydown', onEscape);
@@ -90,6 +100,7 @@ export function createBodiesDrawer(
     closeButton.hidden = false;
     drawer.hidden = false;
     openButton.setAttribute('aria-expanded', 'true');
+    document.addEventListener('pointerdown', onOutsidePointerDown, true);
     focusSelectedOrFirst();
   }
 
@@ -116,9 +127,24 @@ export function createBodiesDrawer(
     openButton.removeEventListener('keydown', onEscape);
     closeButton.removeEventListener('click', onCloseClick);
     drawer.removeEventListener('keydown', onEscape);
+    document.removeEventListener('pointerdown', onOutsidePointerDown, true);
     unsubscribe();
     openButton.remove();
+    closeButton.remove();
     drawer.remove();
+  }
+
+  // A tap on the scene closes the drawer; the open button keeps it open.
+  function onOutsidePointerDown(event: PointerEvent): void {
+    const target = event.target;
+    if (
+      target instanceof Node &&
+      (drawer.contains(target) || openButton.contains(target))
+    ) {
+      return;
+    }
+    const active = document.activeElement;
+    finishClose(active instanceof Node && drawer.contains(active));
   }
 
   function onOpenClick(): void {
@@ -164,6 +190,7 @@ export function createBodiesDrawer(
     }
 
     openState = false;
+    document.removeEventListener('pointerdown', onOutsidePointerDown, true);
     if (restoreFocus) {
       openButton.focus();
     }
@@ -183,6 +210,7 @@ export function createBodiesDrawer(
 
   function applyVisibility(): void {
     openState = false;
+    document.removeEventListener('pointerdown', onOutsidePointerDown, true);
     openButton.setAttribute('aria-expanded', 'false');
     if (isTablet) {
       drawer.hidden = true;
@@ -201,6 +229,7 @@ export function createBodiesDrawer(
       return;
     }
 
+    document.removeEventListener('pointerdown', onOutsidePointerDown, true);
     if (next) {
       const active = document.activeElement;
       const inside = active instanceof Node && drawer.contains(active);
@@ -213,9 +242,11 @@ export function createBodiesDrawer(
       drawer.hidden = true;
       closeButton.hidden = false;
       openButton.setAttribute('aria-expanded', 'false');
+      panel.setCollapsible(false);
       return;
     }
 
+    panel.setCollapsible(true);
     const onOpenButton = document.activeElement === openButton;
     isTablet = false;
     openState = false;

@@ -1,46 +1,60 @@
+/*
+ * The "Widok" group in the top bar (SPEC §5.2): one glass row on the right.
+ * "Orbity" always shows its text and a switch (mint when on), the zoom
+ * buttons grey out at the camera limits and stay in the Tab order.
+ */
 #view-controls {
   position: fixed;
-  top: 8px;
-  right: 8px;
+  top: var(--s-2);
+  right: var(--edge);
   z-index: var(--z-panels);
-  display: flex;
-  /* One row in the top bar, so the body card and the sheet stay clear. */
-  flex-direction: row;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  color: var(--c-text);
-  font-family: var(--font-ui);
-  font-size: 16px;
-  line-height: 1.2;
-}
-
-#view-controls button {
   box-sizing: border-box;
   display: flex;
-  gap: 6px;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
-  min-width: 44px;
-  min-height: 44px;
-  padding: 8px 12px;
+  gap: var(--s-1);
+  margin: 0;
+  /* 8 + 1 + 2 + 44 + 2 + 1 = 58 px: inside the 60 px top bar. */
+  padding: 0.125rem;
   color: var(--c-text);
-  background: rgba(10, 14, 30, 0.85);
-  border: 1px solid #8a93ad;
-  border-radius: 6px;
-  font: inherit;
-  touch-action: manipulation;
+  font-family: var(--font-ui);
+  border-radius: var(--radius-panel);
 }
 
-#view-controls button[aria-pressed='true'] {
-  background: var(--c-surface-active);
-  border-color: var(--c-active-border);
+#view-controls .o-btn {
+  padding: 0 var(--s-3);
 }
 
-.view-orbits-off {
-  display: none;
+#view-controls .view-zoom {
+  padding: 0;
 }
 
-.view-orbits[aria-pressed='false'] .view-orbits-off {
-  display: block;
+/* A thin line between the orbit switch and the zoom buttons. */
+#view-controls .view-zoom:first-of-type {
+  position: relative;
+  margin-left: var(--s-2);
+}
+
+#view-controls .view-zoom:first-of-type::before {
+  position: absolute;
+  top: 0.5rem;
+  bottom: 0.5rem;
+  left: calc(-1 * var(--s-1) - var(--s-1));
+  width: 1px;
+  content: '';
+  background: var(--c-line);
+}
+
+#view-controls .view-zoom[aria-disabled='true'] {
+  background: transparent;
+}
+
+/* The pressed look of .o-toggle stays off here: the switch shows the state. */
+#view-controls .view-orbits[aria-pressed='true'] {
+  background: transparent;
+  border-color: transparent;
+}
+
+#view-controls .view-orbits[aria-pressed='true']:hover {
+  background: var(--c-surface-hover);
 }

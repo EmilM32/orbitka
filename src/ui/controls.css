@@ -100,6 +100,43 @@
   border-color: var(--c-on);
 }
 
+/* On/off switch inside a toggle: a 32 × 18 px track, knob right and mint when on. */
+.o-toggle__switch {
+  position: relative;
+  flex: none;
+  box-sizing: border-box;
+  width: 2rem;
+  height: 1.125rem;
+  border: 1.5px solid var(--c-control-border);
+  border-radius: var(--radius-pill);
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+.o-toggle__switch::after {
+  position: absolute;
+  top: 50%;
+  left: 0.125rem;
+  width: 0.625rem;
+  height: 0.625rem;
+  content: '';
+  background: var(--c-control-border);
+  border-radius: 50%;
+  transform: translateY(-50%);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.o-toggle[aria-pressed='true'] .o-toggle__switch {
+  background: var(--c-on);
+  border-color: var(--c-on);
+}
+
+.o-toggle[aria-pressed='true'] .o-toggle__switch::after {
+  background: var(--c-on-ink);
+  transform: translate(0.875rem, -50%);
+}
+
 /* Current list item: a 3 px yellow line on the left and bold text, no fill. */
 .o-item {
   position: relative;
@@ -143,6 +180,11 @@
 :disabled {
   color: var(--c-text-disabled);
   cursor: not-allowed;
+}
+
+.o-btn[aria-disabled='true']:hover,
+.o-btn[aria-disabled='true']:active {
+  background: transparent;
 }
 
 .o-btn[aria-disabled='true']:hover,

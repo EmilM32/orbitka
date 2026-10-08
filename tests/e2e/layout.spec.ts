@@ -221,6 +221,89 @@ test('drawer open does not overlap at tablet sizes', async ({ page }) => {
   }
 });
 
+test('drawer at tablet sizes', async ({ page }) => {
+  for (const size of TABLET_SIZES) {
+    await page.setViewportSize(size);
+    await page.goto('/');
+    await settle(page);
+    const openButton = page.getByTestId('bodies-drawer-open');
+    await expect(openButton).toHaveAttribute('aria-expanded', 'false');
+    await openButton.click();
+    const drawer = page.getByTestId('bodies-drawer');
+    await expect(drawer).toBeVisible();
+    await expect(openButton).toHaveAttribute('aria-expanded', 'true');
+    // Pressed look: white 16 % (SPEC §5.2).
+    await expect
+      .poll(() =>
+        openButton.evaluate((el) => getComputedStyle(el).backgroundColor),
+      )
+      .toBe('rgba(255, 255, 255, 0.16)');
+
+    const box = await drawer.boundingBox();
+    if (box === null) {
+      throw new Error('drawer has no box');
+    }
+    expect(Math.abs(box.width - 300)).toBeLessThanOrEqual(1);
+    await expect(
+      drawer.getByRole('button', { name: 'Zamknij listę ciał' }),
+    ).toHaveCount(1);
+    await expect(drawer.getByTestId('bodies-collapse')).toHaveCount(0);
+
+    // A tap on the scene, away from the drawer, closes it.
+    await page.mouse.click(size.width - 40, size.height / 2);
+    await expect(drawer).toBeHidden();
+    await expect(openButton).toHaveAttribute('aria-expanded', 'false');
+
+    await openButton.click();
+    await expect(drawer).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(drawer).toBeHidden();
+    await expect(openButton).toBeFocused();
+  }
+});
+
+test('drawer stays open when the tablet turns', async ({ page }) => {
+  await page.setViewportSize(TABLET_PORTRAIT);
+  await page.goto('/');
+  await settle(page);
+  await page.getByTestId('bodies-drawer-open').click();
+  const drawer = page.getByTestId('bodies-drawer');
+  await expect(drawer).toBeVisible();
+
+  await page.setViewportSize(TABLET_LANDSCAPE);
+  await settle(page);
+  await expect(drawer).toBeVisible();
+  const box = await drawer.boundingBox();
+  if (box === null) {
+    throw new Error('drawer has no box');
+  }
+  expect(box.y + box.height).toBeLessThanOrEqual(TABLET_LANDSCAPE.height);
+});
+
+test('orbits label is visible on every breakpoint', async ({ page }) => {
+  for (const size of [
+    TABLET_PORTRAIT,
+    TABLET_LANDSCAPE,
+    DESKTOP_WIDE,
+    { width: 1920, height: 1080 },
+  ]) {
+    await page.setViewportSize(size);
+    await page.goto('/');
+    await settle(page);
+    const orbits = page.getByTestId('view-orbits');
+    await expect(orbits.getByText('Orbity')).toBeVisible();
+    await expect(orbits).toHaveAttribute('aria-pressed', 'true');
+    // The switch is mint when on.
+    await expect
+      .poll(() =>
+        orbits
+          .locator('.o-toggle__switch')
+          .evaluate((el) => getComputedStyle(el).backgroundColor),
+      )
+      .toBe('rgb(116, 227, 181)');
+  }
+});
+
 // The view group is one row in the top bar on every layout, so the body card
 // and the bottom sheet never cover it (EMI-200).
 test('view group sits in the top bar', async ({ page }) => {
@@ -238,7 +321,7 @@ test('view group sits in the top bar', async ({ page }) => {
     expect(view.y).toBeGreaterThanOrEqual(0);
     expect(view.y + view.height).toBeLessThanOrEqual(60);
     expect(
-      Math.abs(size.width - (view.x + view.width) - 8),
+      Math.abs(size.width - (view.x + view.width) - 16),
     ).toBeLessThanOrEqual(1);
     expect(intersects(view, scale)).toBe(false);
   }
@@ -290,8 +373,8 @@ test('tab order', async ({ page }) => {
     'viewport',
     'view-reset',
     'view-orbits',
-    'view-zoom-in',
     'view-zoom-out',
+    'view-zoom-in',
     'time-pause',
   ]);
 
@@ -304,8 +387,8 @@ test('tab order', async ({ page }) => {
     'viewport',
     'view-reset',
     'view-orbits',
-    'view-zoom-in',
     'view-zoom-out',
+    'view-zoom-in',
     'time-pause',
   ]);
 });

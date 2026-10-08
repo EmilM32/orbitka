@@ -866,3 +866,302 @@ test('card does not overlap panels', async ({ page }) => {
     expect(errors).toEqual([]);
   }
 });
+
+// EMI-224: the M4 gate. No two panels overlap in any target size and state.
+
+const M4_SIZES = [
+  TABLET_PORTRAIT,
+  TABLET_LANDSCAPE,
+  { width: 1280, height: 720 },
+  DESKTOP_WIDE,
+  { width: 1920, height: 1080 },
+];
+
+// 4 October 2054 in days since J2000, past the 1800–2050 range (SPEC §5.9).
+const DAYS_2054 =
+  (Date.UTC(2054, 9, 4) - Date.UTC(2000, 0, 1, 12)) / 86_400_000;
+
+// SPEC §5.5: the card ends 16 px above the time panel. SPEC §5.6: the
+// collapsed sheet lies 12 px above it.
+const CARD_GAP_PX = 16;
+const SHEET_GAP_PX = 12;
+
+type Named = { name: string; box: Box };
+
+// Overlaps SPEC §4 allows, as [upper layer, lower layer]; '*' is any layer.
+// A box check cannot see which one is on top: the z-index tokens decide that.
+const ALLOWED_OVERLAPS: ReadonlyArray<readonly [string, string]> = [
+  // SPEC §4: the modal (z 100) and its scrim (z 90) cover everything.
+  ['dialog', '*'],
+  ['scrim', '*'],
+  // SPEC §4 and §5.6: the "Planety" drawer (z 50) opens over the sheet (z 30).
+  ['drawer', 'card'],
+  // SPEC §4: tooltips (z 70) lie over everything but the modal; the modal
+  // pairs are already allowed above.
+  ['tooltip', '*'],
+];
+
+function overlapAllowed(a: string, b: string): boolean {
+  return ALLOWED_OVERLAPS.some(
+    ([upper, lower]) =>
+      (upper === a && (lower === '*' || lower === b)) ||
+      (upper === b && (lower === '*' || lower === a)),
+  );
+}
+
+// Every problem in one list: a box out of the window or a pair that overlaps.
+function collisions(
+  boxes: readonly Named[],
+  viewport: { width: number; height: number },
+): string[] {
+  const found: string[] = [];
+  for (const entry of boxes) {
+    if (!fits(entry.box, viewport)) {
+      found.push(`${entry.name} leaves the window`);
+    }
+  }
+  for (let left = 0; left < boxes.length; left += 1) {
+    for (let right = left + 1; right < boxes.length; right += 1) {
+      const a = boxes[left];
+      const b = boxes[right];
+      if (a === undefined || b === undefined) {
+        continue;
+      }
+      if (intersects(a.box, b.box) && !overlapAllowed(a.name, b.name)) {
+        found.push(`${a.name} overlaps ${b.name}`);
+      }
+    }
+  }
+  return found;
+}
+
+// The M4 chrome as it stands: only visible elements count.
+async function m4Chrome(page: Page): Promise<Named[]> {
+  const planets = page.getByRole('button', { name: 'Planety' });
+  const tablet = await planets.isVisible();
+  const candidates: Array<{ name: string; locator: Locator }> = [
+    // The mark is aria-hidden decoration, so no role reaches it.
+    { name: 'brand', locator: page.locator('.topbar .brand') },
+    { name: 'scale chip', locator: page.locator('#scale-notice') },
+    { name: 'view', locator: page.getByRole('group', { name: 'Widok' }) },
+    {
+      name: 'bodies',
+      locator: tablet
+        ? planets
+        : page.getByRole('navigation', { name: 'Ciała niebieskie' }),
+    },
+    { name: 'card', locator: page.getByTestId('body-card') },
+    { name: 'time', locator: page.locator('#time-controls') },
+    {
+      name: 'coach',
+      locator: page.getByRole('region', { name: 'Trening pilota' }),
+    },
+    { name: 'toast', locator: page.getByTestId('coach-toast') },
+    { name: 'drawer', locator: page.getByTestId('bodies-drawer') },
+    { name: 'dialog', locator: page.getByRole('dialog') },
+    { name: 'scrim', locator: page.getByTestId('scale-scrim') },
+    { name: 'tooltip', locator: page.getByRole('tooltip') },
+  ];
+  const visible: Named[] = [];
+  for (const candidate of candidates) {
+    const box = await boxOf(candidate.locator);
+    if (box !== null) {
+      visible.push({ name: candidate.name, box });
+    }
+  }
+  return visible;
+}
+
+// Flight over, then every finite CSS animation and transition finished.
+async function quiet(page: Page): Promise<void> {
+  await page.waitForFunction(
+    () => window.__orbitka?.getCameraState().flightActive === 0,
+  );
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const running = (): Animation[] =>
+          document.getAnimations().filter((animation) => {
+            const end = animation.effect?.getComputedTiming().endTime;
+            return (
+              animation.playState === 'running' &&
+              typeof end === 'number' &&
+              Number.isFinite(end)
+            );
+          });
+        await Promise.all(
+          running().map((animation) =>
+            animation.finished.then(
+              () => undefined,
+              () => undefined,
+            ),
+          ),
+        );
+        return running().length;
+      }),
+    )
+    .toBe(0);
+  await settle(page);
+}
+
+async function selectBody(page: Page, id: string): Promise<void> {
+  const item = page.getByTestId(`body-item-${id}`);
+  if (!(await item.isVisible())) {
+    await page.getByRole('button', { name: 'Planety' }).click();
+  }
+  await item.click();
+  await page.waitForFunction(
+    (target) => window.__orbitka?.getSelectedId() === target,
+    id,
+  );
+  await expect(page.getByTestId('body-card')).toBeVisible();
+  await quiet(page);
+}
+
+async function expectNoCollisions(
+  page: Page,
+  size: { width: number; height: number },
+  state: string,
+  expected: readonly string[],
+): Promise<void> {
+  const boxes = await m4Chrome(page);
+  const names = boxes.map((entry) => entry.name);
+  for (const name of expected) {
+    expect(names, `${state}: ${name} is not visible`).toContain(name);
+  }
+  expect(
+    collisions(boxes, size),
+    `${size.width}x${size.height}, ${state}`,
+  ).toEqual([]);
+}
+
+test.describe('M4 states', () => {
+  // These states include "Trening pilota": undo the top-level beforeEach.
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.removeItem('orbitka.coach.done');
+    });
+  });
+
+  // A failed run keeps a screenshot for the PR and Linear.
+  test.afterEach(async ({ page }, testInfo) => {
+    if (testInfo.status !== testInfo.expectedStatus && !page.isClosed()) {
+      const path = testInfo.outputPath('failure.png');
+      await page.screenshot({ path });
+      await testInfo.attach('failure', { path, contentType: 'image/png' });
+    }
+  });
+
+  for (const size of M4_SIZES) {
+    test(`no overlaps in M4 states at ${size.width}x${size.height}`, async ({
+      page,
+    }) => {
+      // Two app starts, two flights and the textures in SwiftShader.
+      test.setTimeout(120_000);
+      const base = ['brand', 'scale chip', 'view', 'bodies', 'time'];
+      const errors = await openAt(page, size, '/?debug=1&paused=1');
+      const tablet = await page
+        .getByRole('button', { name: 'Planety' })
+        .isVisible();
+      await quiet(page);
+      await expectNoCollisions(page, size, 'start', [...base, 'coach']);
+      // The issue checks the training in the start state only. On the
+      // tablet it overlaps the open drawer (reported on EMI-224 as a fix).
+      await page.getByRole('button', { name: 'Pomiń' }).click();
+      await expect(
+        page.getByRole('region', { name: 'Trening pilota' }),
+      ).toHaveCount(0);
+
+      await selectBody(page, 'jupiter');
+      await expectNoCollisions(page, size, 'jupiter card', [...base, 'card']);
+
+      await selectBody(page, 'saturn');
+      await expectNoCollisions(page, size, 'saturn card', [...base, 'card']);
+
+      if (tablet) {
+        const planets = page.getByRole('button', { name: 'Planety' });
+        await planets.click();
+        await expect(page.getByTestId('bodies-drawer')).toBeVisible();
+        await quiet(page);
+        await expectNoCollisions(page, size, 'drawer open', [
+          ...base,
+          'card',
+          'drawer',
+        ]);
+        await page.getByRole('button', { name: 'Zamknij listę ciał' }).click();
+        await expect(page.getByTestId('bodies-drawer')).toBeHidden();
+
+        await page.getByRole('button', { name: 'Rozwiń kartę' }).click();
+        await expect(
+          page.getByRole('button', { name: 'Zwiń kartę' }),
+        ).toBeVisible();
+        await quiet(page);
+        await expectNoCollisions(page, size, 'sheet expanded', [
+          ...base,
+          'card',
+        ]);
+        await page.getByRole('button', { name: 'Zwiń kartę' }).click();
+        await quiet(page);
+      }
+
+      await page.locator('#scale-why').click();
+      await expect(page.getByRole('dialog')).toBeVisible();
+      await quiet(page);
+      await expectNoCollisions(page, size, 'why dialog', [
+        ...base,
+        'dialog',
+        'scrim',
+      ]);
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('dialog')).toBeHidden();
+
+      await page.goto(`/?debug=1&paused=1&days=${DAYS_2054}`);
+      await settle(page);
+      const chip = page.getByRole('button', { name: /Pozycje przybliżone/u });
+      await expect(chip).toBeVisible();
+      await chip.focus();
+      await expect(page.getByRole('tooltip')).toBeVisible();
+      await quiet(page);
+      await expectNoCollisions(page, size, 'approximate positions', [
+        ...base,
+        'tooltip',
+      ]);
+      expect(errors).toEqual([]);
+    });
+  }
+});
+
+test('card and sheet keep their gaps', async ({ page }) => {
+  test.setTimeout(120_000);
+  for (const size of M4_SIZES) {
+    await openAt(page, size, '/?debug=1&paused=1');
+    await selectBody(page, 'jupiter');
+    const card = await boxOf(page.getByTestId('body-card'));
+    const time = await boxOf(page.locator('#time-controls'));
+    if (card === null || time === null) {
+      throw new Error('card or time panel has no box');
+    }
+    const gap = time.y - (card.y + card.height);
+    const label = `${size.width}x${size.height}`;
+    if (await page.getByRole('button', { name: 'Planety' }).isVisible()) {
+      expect(Math.abs(gap - SHEET_GAP_PX), label).toBeLessThanOrEqual(1);
+    } else {
+      expect(gap, label).toBeGreaterThanOrEqual(CARD_GAP_PX - 0.5);
+    }
+  }
+});
+
+// The check must fail when a panel moves onto another one.
+test('detects an injected overlap', async ({ page }) => {
+  const size = { width: 1280, height: 720 };
+  await openAt(page, size, '/?debug=1&paused=1');
+  await selectBody(page, 'jupiter');
+  expect(collisions(await m4Chrome(page), size)).toEqual([]);
+
+  await page.addStyleTag({
+    content: '#body-card { top: 0 !important; }',
+  });
+  await settle(page);
+  const found = collisions(await m4Chrome(page), size);
+  expect(found).toContain('view overlaps card');
+});

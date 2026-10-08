@@ -30,11 +30,14 @@ const BUTTON_IDS = [
   'time-reverse',
 ] as const;
 
-function setup(options: Parameters<typeof createClock>[0] = {}) {
+function setup(options: Parameters<typeof createClock>[0] = {}, ready = true) {
   const parent = document.createElement('div');
   document.body.append(parent);
   const clock = createClock({ nowMs: () => 0, ...options });
   const controls = createTimeControls(parent, clock, i18n);
+  if (ready) {
+    controls.setReady(true);
+  }
 
   return {
     parent,
@@ -95,14 +98,16 @@ test('timeControls › structure', () => {
 
   const buttons = [...(section?.querySelectorAll('button') ?? [])];
   expect(buttons.map((item) => item.getAttribute('data-testid'))).toEqual([
-    ...BUTTON_IDS,
+    'time-pause',
+    'time-accuracy',
+    ...BUTTON_IDS.slice(1),
   ]);
   expect(buttons.every((item) => item.getAttribute('type') === 'button')).toBe(
     true,
   );
   expect(view.parent.querySelector('#sim-date')).not.toBeNull();
   expect(
-    button(view.parent, 'time-preset-day').getAttribute('aria-pressed'),
+    button(view.parent, 'time-preset-day').getAttribute('aria-checked'),
   ).toBe('true');
 
   view.cleanup();
@@ -154,13 +159,13 @@ test('timeControls › clicks', () => {
 
   year.click();
   expect(view.clock.speed).toBe(365.25);
-  expect(year.getAttribute('aria-pressed')).toBe('true');
-  expect(day.getAttribute('aria-pressed')).toBe('false');
+  expect(year.getAttribute('aria-checked')).toBe('true');
+  expect(day.getAttribute('aria-checked')).toBe('false');
 
   pause.click();
   expect(view.clock.paused).toBe(true);
   expect(speedText(view.parent)).toBe('Pauza');
-  expect(year.getAttribute('aria-pressed')).toBe('false');
+  expect(year.getAttribute('aria-checked')).toBe('false');
 
   reverse.click();
   expect(view.clock.reversed).toBe(true);
@@ -169,7 +174,7 @@ test('timeControls › clicks', () => {
 
   pause.click();
   expect(view.clock.paused).toBe(false);
-  expect(speedText(view.parent)).toBe('Prędkość: cofanie 1 rok/s');
+  expect(speedText(view.parent)).toBe('Wstecz · 1 rok/s');
 
   pause.click();
   year.click();
@@ -188,18 +193,18 @@ test('timeControls › date and speed', () => {
   expect(date?.getAttribute('datetime')).toBe('2001-01-01');
 
   view.clock.setSpeed(123);
-  expect(speedText(view.parent)).toBe('Prędkość: 123 dni/s');
+  expect(speedText(view.parent)).toBe('123 dni/s');
   for (const testId of BUTTON_IDS) {
     if (!testId.startsWith('time-preset-')) {
       continue;
     }
-    expect(button(view.parent, testId).getAttribute('aria-pressed')).toBe(
+    expect(button(view.parent, testId).getAttribute('aria-checked')).toBe(
       'false',
     );
   }
 
   view.clock.applyPreset('month');
-  expect(speedText(view.parent)).toBe('Prędkość: 1 miesiąc/s');
+  expect(speedText(view.parent)).toBe('1 miesiąc/s');
 
   view.cleanup();
 });
@@ -251,10 +256,10 @@ test('timeControls › announcements', () => {
   expect(live.textContent).toBe('');
 
   button(view.parent, 'time-preset-year').click();
-  expect(live.textContent).toBe('Prędkość: 1 rok na sekundę');
+  expect(live.textContent).toBe('1 rok na sekundę');
 
   button(view.parent, 'time-reverse').click();
-  expect(live.textContent).toBe('Prędkość: cofanie 1 rok na sekundę');
+  expect(live.textContent).toBe('Wstecz · 1 rok na sekundę');
 
   live.textContent = 'marker';
   view.clock.applyPreset('year');
@@ -323,60 +328,57 @@ function accuracyNotice(parent: ParentNode): HTMLElement {
   return found;
 }
 
-test('timeControls › accuracy', () => {
+test('timeControls › approximate chip', () => {
   const view = setup();
-  const notice = accuracyNotice(view.parent);
+  const chip = accuracyNotice(view.parent);
   const date = view.parent.querySelector('#sim-date');
-  const live = liveRegion(view.parent);
-  const scaleNotice = view.parent.querySelector('#scale-notice');
 
-  expect(scaleNotice).toBeNull();
-  expect(notice.hidden).toBe(true);
-  expect(notice.textContent).toBe('');
-  expect(date?.nextElementSibling).toBe(notice);
+  expect(chip.tagName).toBe('BUTTON');
+  expect(chip.id).toBe('time-accuracy');
+  expect(chip.textContent).toBe('\u2248Pozycje przybliżone');
+  // Above the date, inside the date block.
+  expect(chip.nextElementSibling).toBe(date);
+  const tipId = chip.getAttribute('aria-describedby') ?? '';
+  const tip = document.getElementById(tipId);
+  expect(tip?.getAttribute('role')).toBe('tooltip');
+  expect(tip?.textContent).toContain('1800–2050');
 
+  // 2026: inside the range, no chip.
+  view.clock.setDays(9776);
+  expect(chip.hidden).toBe(true);
+
+  // 4 October 2054.
+  view.clock.setDays(
+    (Date.UTC(2054, 9, 4) - Date.UTC(2000, 0, 1, 12)) / 86_400_000,
+  );
+  expect(chip.hidden).toBe(false);
+
+  // The bounds are inclusive, as in orbitalElementsAreApproximate.
   view.clock.setDays(-73048.5);
-  expect(notice.hidden).toBe(true);
-  expect(notice.textContent).toBe('');
+  expect(chip.hidden).toBe(true);
   expect(date?.textContent).toBe('01.01.1800');
-
-  view.clock.setDays(-73049.5);
-  expect(notice.hidden).toBe(false);
-  expect(notice.textContent).toBe('Pozycje przybliżone');
-  expect(date?.textContent).toBe('31.12.1799');
-  expect(live.textContent).not.toContain('Pozycje przybliżone');
-
-  notice.textContent = 'marker';
-  view.clock.setDays(-73059.5);
-  expect(notice.textContent).toBe('marker');
-  expect(notice.hidden).toBe(false);
-  expect(live.textContent).not.toContain('Pozycje przybliżone');
-
-  view.clock.pause();
-  expect(view.clock.paused).toBe(true);
-  expect(notice.hidden).toBe(false);
-  expect(notice.textContent).toBe('marker');
-
-  view.clock.setDays(0);
-  expect(notice.hidden).toBe(true);
-  expect(notice.textContent).toBe('');
-  expect(live.textContent).not.toContain('Pozycje przybliżone');
-
   view.clock.setDays(18627);
-  expect(notice.hidden).toBe(true);
-  expect(notice.textContent).toBe('');
-
+  expect(chip.hidden).toBe(true);
   view.clock.setDays(18627.5);
-  expect(notice.hidden).toBe(false);
-  expect(notice.textContent).toBe('Pozycje przybliżone');
+  expect(chip.hidden).toBe(false);
   expect(date?.textContent).toBe('01.01.2051');
-  expect(live.textContent).not.toContain('Pozycje przybliżone');
-
-  view.clock.pause();
-  expect(notice.hidden).toBe(false);
-  expect(notice.textContent).toBe('Pozycje przybliżone');
 
   view.cleanup();
+  expect(document.getElementById(tipId)).toBeNull();
+});
+
+test('timeControls › approximate chip with invalid days', () => {
+  const parent = document.createElement('div');
+  document.body.append(parent);
+  for (const days of [Number.NaN, DAYS_LIMIT + 1, -DAYS_LIMIT - 1]) {
+    const controls = createTimeControls(parent, stubClock(days), i18n);
+    controls.setReady(true);
+    expect(accuracyNotice(parent).hidden).toBe(true);
+    expect(parent.querySelector('#sim-date')?.textContent).toBe('—');
+    expect(liveRegion(parent).textContent).toBe('');
+    controls.dispose();
+  }
+  parent.remove();
 });
 
 const PRESET_STEPS = [
@@ -415,7 +417,7 @@ function pressedPresets(parent: ParentNode): string[] {
   return BUTTON_IDS.filter(
     (testId) =>
       testId.startsWith('time-preset-') &&
-      button(parent, testId).getAttribute('aria-pressed') === 'true',
+      button(parent, testId).getAttribute('aria-checked') === 'true',
   );
 }
 
@@ -458,7 +460,7 @@ test('timeControls › slider input', () => {
   fireInput(slider, '219');
   expect(view.clock.speed).toBe(1);
   expect(
-    button(view.parent, 'time-preset-day').getAttribute('aria-pressed'),
+    button(view.parent, 'time-preset-day').getAttribute('aria-checked'),
   ).toBe('true');
 
   view.cleanup();
@@ -530,9 +532,7 @@ test('timeControls › slider aria-valuetext', () => {
     );
   }
 
-  expect(slider.getAttribute('aria-valuetext')).toBe(
-    'Prędkość: 1 rok na sekundę',
-  );
+  expect(slider.getAttribute('aria-valuetext')).toBe('1 rok na sekundę');
 
   view.clock.pause();
   expect(slider.getAttribute('aria-valuetext')).toBe('Pauza');
@@ -541,22 +541,16 @@ test('timeControls › slider aria-valuetext', () => {
   button(view.parent, 'time-preset-year').click();
   view.clock.setReversed(true);
   expect(slider.getAttribute('aria-valuetext')).toBe(
-    'Prędkość: cofanie 1 rok na sekundę',
+    'Wstecz · 1 rok na sekundę',
   );
 
   view.clock.setReversed(false);
   view.clock.setSpeed(123);
-  expect(slider.getAttribute('aria-valuetext')).toBe(
-    'Prędkość: 123 dni na sekundę',
-  );
+  expect(slider.getAttribute('aria-valuetext')).toBe('123 dni na sekundę');
   view.clock.setSpeed(1.5);
-  expect(slider.getAttribute('aria-valuetext')).toBe(
-    'Prędkość: 1,5 dnia na sekundę',
-  );
+  expect(slider.getAttribute('aria-valuetext')).toBe('1,5 dnia na sekundę');
   view.clock.setSpeed(1899.3);
-  expect(slider.getAttribute('aria-valuetext')).toBe(
-    'Prędkość: 5,2 roku na sekundę',
-  );
+  expect(slider.getAttribute('aria-valuetext')).toBe('5,2 roku na sekundę');
 
   view.cleanup();
 });
@@ -584,10 +578,8 @@ test.each([
   const frozen = slider.value;
   view.clock.setSpeed(5);
   expect(slider.value).toBe(frozen);
-  expect(speedText(view.parent)).toBe('Prędkość: 5 dni/s');
-  expect(slider.getAttribute('aria-valuetext')).toBe(
-    'Prędkość: 5 dni na sekundę',
-  );
+  expect(speedText(view.parent)).toBe('5 dni/s');
+  expect(slider.getAttribute('aria-valuetext')).toBe('5 dni na sekundę');
 
   slider.dispatchEvent(new Event(type, { bubbles: true }));
   view.clock.setSpeed(10);
@@ -710,4 +702,165 @@ test('timeControls › slider invalid value', () => {
   expect(view.clock.paused).toBe(false);
 
   view.cleanup();
+});
+
+test('timeControls › status text per state', () => {
+  const view = setup({}, false);
+
+  expect(speedText(view.parent)).toBe('Ładowanie sceny…');
+  view.controls.setReady(true);
+  expect(speedText(view.parent)).toBe('1 dzień/s');
+
+  view.clock.applyPreset('year');
+  view.clock.setReversed(true);
+  expect(speedText(view.parent)).toBe('Wstecz · 1 rok/s');
+
+  view.clock.pause();
+  expect(speedText(view.parent)).toBe('Pauza');
+
+  view.cleanup();
+});
+
+test('timeControls › presets are a radiogroup', () => {
+  const view = setup();
+  const group = view.parent.querySelector('[role="radiogroup"]');
+  expect(group?.getAttribute('aria-label')).toBe('Prędkość czasu');
+  const radios = [...(group?.querySelectorAll('[role="radio"]') ?? [])];
+  expect(radios).toHaveLength(4);
+
+  view.clock.applyPreset('month');
+  const checked = radios.filter(
+    (radio) => radio.getAttribute('aria-checked') === 'true',
+  );
+  expect(checked.map((radio) => radio.textContent)).toEqual(['1 miesiąc/s']);
+  // Roving tabindex: only the checked one is a Tab stop.
+  expect(radios.map((radio) => radio.getAttribute('tabindex'))).toEqual([
+    '-1',
+    '-1',
+    '0',
+    '-1',
+  ]);
+
+  // A slider step that is no preset: none is checked.
+  fireInput(sliderOf(view.parent), '500');
+  expect(pressedPresets(view.parent)).toEqual([]);
+  expect(radios[0]?.getAttribute('tabindex')).toBe('0');
+
+  // → moves to the next preset and applies it.
+  view.clock.applyPreset('month');
+  const month = button(view.parent, 'time-preset-month');
+  month.focus();
+  const applyPreset = vi.spyOn(view.clock, 'applyPreset');
+  month.dispatchEvent(
+    new KeyboardEvent('keydown', {
+      key: 'ArrowRight',
+      bubbles: true,
+      cancelable: true,
+    }),
+  );
+  expect(applyPreset).toHaveBeenCalledWith('year');
+  expect(document.activeElement).toBe(button(view.parent, 'time-preset-year'));
+  expect(pressedPresets(view.parent)).toEqual(['time-preset-year']);
+  // ← from the first wraps to the last.
+  button(view.parent, 'time-preset-day').focus();
+  button(view.parent, 'time-preset-day').dispatchEvent(
+    new KeyboardEvent('keydown', {
+      key: 'ArrowLeft',
+      bubbles: true,
+      cancelable: true,
+    }),
+  );
+  expect(applyPreset).toHaveBeenLastCalledWith('year');
+
+  view.clock.pause();
+  expect(pressedPresets(view.parent)).toEqual([]);
+  view.cleanup();
+});
+
+test('timeControls › reverse toggle', () => {
+  const view = setup();
+  const reverse = button(view.parent, 'time-reverse');
+
+  expect(reverse.textContent).toBe('Wstecz');
+  expect(reverse.getAttribute('aria-label')).toBe(
+    'Wstecz: przełącz kierunek czasu',
+  );
+  expect(reverse.getAttribute('aria-pressed')).toBe('false');
+  reverse.click();
+  expect(reverse.getAttribute('aria-pressed')).toBe('true');
+  expect(view.clock.reversed).toBe(true);
+
+  view.cleanup();
+});
+
+test('timeControls › controls are inert until ready', () => {
+  const view = setup({}, false);
+  const togglePause = vi.spyOn(view.clock, 'togglePause');
+  const applyPreset = vi.spyOn(view.clock, 'applyPreset');
+  const setReversed = vi.spyOn(view.clock, 'setReversed');
+  const pause = button(view.parent, 'time-pause');
+  const slider = sliderOf(view.parent);
+  const speed = view.clock.speed;
+
+  for (const control of [
+    pause,
+    button(view.parent, 'time-preset-year'),
+    button(view.parent, 'time-reverse'),
+    slider,
+  ]) {
+    expect(control.getAttribute('aria-disabled')).toBe('true');
+    // Still in the Tab order.
+    expect(control.hasAttribute('disabled')).toBe(false);
+  }
+  pause.click();
+  button(view.parent, 'time-preset-year').click();
+  button(view.parent, 'time-reverse').click();
+  fireInput(slider, '900');
+  expect(togglePause).not.toHaveBeenCalled();
+  expect(applyPreset).not.toHaveBeenCalled();
+  expect(setReversed).not.toHaveBeenCalled();
+  expect(view.clock.speed).toBe(speed);
+  expect(slider.value).toBe(String(speedToSlider(speed)));
+
+  view.controls.setReady(true);
+  expect(pause.hasAttribute('aria-disabled')).toBe(false);
+  pause.click();
+  expect(togglePause).toHaveBeenCalledTimes(1);
+
+  view.controls.dispose();
+  expect(() => view.controls.setReady(false)).not.toThrow();
+  view.parent.remove();
+});
+
+test('timeControls › announces approximate once', async () => {
+  vi.resetModules();
+  const fresh = await import('@ui/timeControls.ts');
+  const announce =
+    'Pozycje przybliżone. Dane orbit są dokładne dla lat 1800–2050.';
+  const parent = document.createElement('div');
+  document.body.append(parent);
+  const clock = createClock({ nowMs: () => 0, startDays: 0 });
+  const controls = fresh.createTimeControls(parent, clock, i18n);
+  controls.setReady(true);
+  const live = liveRegion(parent);
+  const heard: string[] = [];
+  new MutationObserver(() => {
+    heard.push(live.textContent ?? '');
+  }).observe(live, { childList: true, characterData: true, subtree: true });
+
+  clock.setDays(18_700);
+  clock.setDays(0);
+  clock.setDays(18_800);
+  await Promise.resolve();
+  expect(heard.filter((text) => text === announce)).toHaveLength(1);
+
+  // A new panel in the same session does not announce again.
+  controls.dispose();
+  const again = fresh.createTimeControls(parent, clock, i18n);
+  again.setReady(true);
+  clock.setDays(0);
+  clock.setDays(18_900);
+  expect(liveRegion(parent).textContent).not.toBe(announce);
+  again.dispose();
+  parent.remove();
 });

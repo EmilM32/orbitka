@@ -288,11 +288,11 @@ test('speed change', async ({ page }) => {
   const year = await readClock(page);
   expect(year.speed).toBe(365.25);
   await expect(page.getByTestId('time-preset-year')).toHaveAttribute(
-    'aria-pressed',
+    'aria-checked',
     'true',
   );
   await expect(page.getByTestId('time-preset-day')).toHaveAttribute(
-    'aria-pressed',
+    'aria-checked',
     'false',
   );
 
@@ -367,7 +367,7 @@ test('slider', async ({ page }) => {
   const snapped = await readClock(page);
   expect(Math.abs(snapped.speed - 10)).toBeLessThanOrEqual(1e-9);
   await expect(page.getByTestId('time-preset-ten-days')).toHaveAttribute(
-    'aria-pressed',
+    'aria-checked',
     'true',
   );
 
@@ -381,7 +381,7 @@ test('slider', async ({ page }) => {
     'time-preset-year',
   ]) {
     await expect(page.getByTestId(testId)).toHaveAttribute(
-      'aria-pressed',
+      'aria-checked',
       'false',
     );
   }
@@ -412,4 +412,84 @@ test('no hook without debug', async ({ page }) => {
     const hook = await page.evaluate(() => window.__orbitka);
     expect(hook).toBeUndefined();
   }
+});
+
+test('panel width is stable', async ({ page }) => {
+  await openApp(page, DEBUG_START);
+  const panel = page.locator('#time-controls');
+  await expect(page.getByTestId('time-pause')).not.toHaveAttribute(
+    'aria-disabled',
+    'true',
+  );
+  const widths: number[] = [];
+  const measure = async (): Promise<void> => {
+    const box = await panel.boundingBox();
+    widths.push(box?.width ?? Number.NaN);
+  };
+  await measure();
+  await page.getByTestId('time-pause').click();
+  await measure();
+  await page.getByTestId('time-pause').click();
+  await page.getByTestId('time-reverse').click();
+  await measure();
+  for (const id of ['day', 'ten-days', 'month', 'year']) {
+    await page.getByTestId(`time-preset-${id}`).click();
+    await measure();
+  }
+  await page.getByTestId('time-reverse').click();
+  await measure();
+  expect(Math.max(...widths) - Math.min(...widths)).toBeLessThanOrEqual(1);
+});
+
+test('status under the date', async ({ page }) => {
+  await openApp(page, DEBUG_START);
+  const status = page.locator('#sim-speed');
+  await page.getByTestId('time-preset-day').click();
+  await expect(status).toHaveText('1 dzień/s');
+  await page.getByTestId('time-preset-year').click();
+  await page.getByTestId('time-reverse').click();
+  await expect(status).toHaveText('Wstecz · 1 rok/s');
+  await page.getByTestId('time-pause').click();
+  await expect(status).toHaveText('Pauza');
+  await expect(page.getByTestId('time-reverse')).toHaveText('Wstecz');
+});
+
+test('two rows at 768', async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await openApp(page, DEBUG_START);
+  const slider = await page.getByTestId('time-slider').boundingBox();
+  const date = await page.getByTestId('sim-date').boundingBox();
+  const panel = await page.locator('#time-controls').boundingBox();
+  if (slider === null || date === null || panel === null) {
+    throw new Error('slider, date or panel has no box');
+  }
+  expect(slider.y).toBeGreaterThan(date.y + date.height);
+  expect(panel.x).toBeGreaterThanOrEqual(0);
+  expect(panel.x + panel.width).toBeLessThanOrEqual(768);
+  expect(panel.y + panel.height).toBeLessThanOrEqual(1024);
+
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await expect
+    .poll(async () => {
+      const s = await page.getByTestId('time-slider').boundingBox();
+      const d = await page.getByTestId('sim-date').boundingBox();
+      return s !== null && d !== null && s.y < d.y + d.height;
+    })
+    .toBe(true);
+});
+
+test('approximate chip for 2054', async ({ page }) => {
+  // 4 October 2054 in days since J2000 (2000-01-01 12:00 UTC).
+  const days = (Date.UTC(2054, 9, 4) - Date.UTC(2000, 0, 1, 12)) / 86_400_000;
+  await openApp(page, `/?debug=1&paused=1&days=${days}`);
+  const chip = page.getByTestId('time-accuracy');
+  await expect(chip).toBeVisible();
+  await expect(chip).toHaveText(/Pozycje przybliżone/u);
+  await chip.focus();
+  const tip = page.getByRole('tooltip');
+  await expect(tip).toBeVisible();
+  await expect(tip).toContainText('1800–2050');
+
+  await openApp(page, '/?debug=1&paused=1&days=9776');
+  await expect(page.getByTestId('time-accuracy')).toBeHidden();
 });

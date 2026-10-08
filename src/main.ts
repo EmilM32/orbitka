@@ -382,6 +382,7 @@ function mount(canvas: HTMLCanvasElement): App {
   });
   const debugSession = createDebugSession(search, document.body);
   let lastUiMs = Number.NEGATIVE_INFINITY;
+  let timeReady = false;
   let frameCount = 0;
   let presetId: string | null = null;
   let frameSnapshot: {
@@ -571,6 +572,11 @@ function mount(canvas: HTMLCanvasElement): App {
       view.syncPixelRatio();
       debugDraws?.reset();
       frameRenderer.render();
+      if (!timeReady) {
+        // The first frame is on screen: the time controls take input.
+        timeReady = true;
+        timeControls.setReady(true);
+      }
       if (cssWidth > 0 && cssHeight > 0) {
         projector.update(view.camera, cssWidth, cssHeight);
         labels.update(cssWidth, cssHeight, simDt);

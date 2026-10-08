@@ -9,6 +9,13 @@ import { createI18n } from '@ui/i18n.ts';
 import { createScaleNotice } from '@ui/scaleNotice.ts';
 
 const i18n = createI18n(pl, 'pl-PL');
+const SOURCES = {
+  textures: {
+    name: 'Solar System Scope',
+    url: 'https://www.solarsystemscope.com/textures/',
+    licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
+  },
+};
 
 function setup() {
   document.body.replaceChildren();
@@ -16,7 +23,7 @@ function setup() {
   const canvas = document.createElement('canvas');
   const panels = document.createElement('nav');
   document.body.append(header, panels, canvas);
-  const notice = createScaleNotice(header, i18n);
+  const notice = createScaleNotice(header, i18n, SOURCES);
   const root = document.querySelector<HTMLElement>('#scale-notice');
   const why = document.querySelector<HTMLButtonElement>('#scale-why');
   const dialog = document.querySelector<HTMLElement>('#scale-explanation');
@@ -105,6 +112,66 @@ test('scaleNotice › opens a modal dialog', () => {
   expect(view.confirm.classList.contains('o-btn--primary')).toBe(true);
   expect(view.dismiss.getAttribute('aria-label')).toBe('Zamknij');
   expect(view.dismiss.querySelector('svg.icon')).not.toBeNull();
+
+  view.notice.dispose();
+});
+
+test('scaleNotice › sources section', () => {
+  const view = setup();
+  view.why.click();
+  const toggle = document.querySelector<HTMLButtonElement>('#sources-toggle');
+  const section = document.querySelector<HTMLElement>('#sources');
+  if (!toggle || !section) {
+    throw new Error('missing sources toggle or section');
+  }
+
+  expect(toggle.textContent).toBe('Źródła i licencje');
+  expect(toggle.getAttribute('type')).toBe('button');
+  expect(toggle.getAttribute('aria-controls')).toBe('sources');
+  expect(toggle.getAttribute('aria-expanded')).toBe('false');
+  expect(section.hidden).toBe(true);
+  // Right under "Liczby z danych NASA.".
+  expect(toggle.previousElementSibling?.textContent).toBe(
+    'Liczby z danych NASA.',
+  );
+
+  toggle.click();
+  expect(toggle.getAttribute('aria-expanded')).toBe('true');
+  expect(section.hidden).toBe(false);
+  const items = [...section.querySelectorAll('li')].map(
+    (item) => item.textContent,
+  );
+  expect(items[0]).toBe('Dane o planetach: NASA i JPL');
+  expect(items[1]).toContain(
+    'Tekstury planet: Solar System Scope, licencja CC BY 4.0. Zmiany: zmniejszone i skompresowane do JPG.',
+  );
+  expect(items[2]).toBe('Fonty: Inter i Space Grotesk (SIL OFL 1.1)');
+  expect(items[3]).toBe('Ikony: Lucide (ISC)');
+  const links = [...section.querySelectorAll('a')];
+  expect(links.map((link) => [link.textContent, link.href])).toEqual([
+    ['Solar System Scope', 'https://www.solarsystemscope.com/textures/'],
+    ['licencja CC BY 4.0', 'https://creativecommons.org/licenses/by/4.0/'],
+  ]);
+  for (const link of links) {
+    expect(link.target).toBe('_blank');
+    expect(link.rel).toBe('noopener noreferrer');
+  }
+  const disclaimer = section.querySelector(
+    '[data-i18n="attribution.textures.disclaimer"]',
+  );
+  expect(disclaimer?.textContent).toBe(
+    i18n.t('attribution.textures.disclaimer'),
+  );
+
+  toggle.click();
+  expect(toggle.getAttribute('aria-expanded')).toBe('false');
+  expect(section.hidden).toBe(true);
+
+  // Closing the dialog folds the section again.
+  toggle.click();
+  view.confirm.click();
+  expect(toggle.getAttribute('aria-expanded')).toBe('false');
+  expect(section.hidden).toBe(true);
 
   view.notice.dispose();
 });

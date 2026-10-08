@@ -8,6 +8,71 @@ type AppI18n = I18n<Dictionary>;
 
 const POINTS = [1, 2, 3, 4] as const;
 
+/** Links for the sources and licenses section; main.ts passes them in. */
+export type SourceLinks = {
+  textures: { name: string; url: string; licenseUrl: string };
+};
+
+function externalLink(href: string, text: string): HTMLAnchorElement {
+  const link = document.createElement('a');
+  link.href = href;
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.textContent = text;
+  return link;
+}
+
+// The CC BY 4.0 attribution for the textures (name, license, changes) and the
+// other sources, folded under a link-style button.
+function createSources(
+  i18n: AppI18n,
+  links: SourceLinks,
+): { toggle: HTMLButtonElement; section: HTMLElement } {
+  const toggle = document.createElement('button');
+  toggle.setAttribute('type', 'button');
+  toggle.setAttribute('id', 'sources-toggle');
+  toggle.className = 'o-btn scale-sources-toggle';
+  toggle.setAttribute('aria-expanded', 'false');
+  toggle.setAttribute('aria-controls', 'sources');
+  toggle.textContent = i18n.t('sources.toggle');
+
+  const section = document.createElement('section');
+  section.setAttribute('id', 'sources');
+  section.setAttribute('aria-labelledby', 'sources-toggle');
+  section.hidden = true;
+  const list = document.createElement('ul');
+  list.className = 'scale-sources';
+
+  const data = document.createElement('li');
+  data.textContent = i18n.t('sources.data');
+
+  const { name, url, licenseUrl } = links.textures;
+  const textures = document.createElement('li');
+  const line = i18n.t('sources.textures', { name });
+  const at = line.indexOf(name);
+  textures.append(
+    line.slice(0, at),
+    externalLink(url, name),
+    `${line.slice(at + name.length)}, `,
+    externalLink(licenseUrl, i18n.t('sources.texturesLicense')),
+    `. ${i18n.t('sources.texturesChanges')}`,
+  );
+  const disclaimer = document.createElement('p');
+  disclaimer.className = 'scale-sources-note';
+  disclaimer.setAttribute('data-i18n', 'attribution.textures.disclaimer');
+  disclaimer.textContent = i18n.t('attribution.textures.disclaimer');
+  textures.append(disclaimer);
+
+  const fonts = document.createElement('li');
+  fonts.textContent = i18n.t('sources.fonts');
+  const icons = document.createElement('li');
+  icons.textContent = i18n.t('sources.icons');
+
+  list.append(data, textures, fonts, icons);
+  section.append(list);
+  return { toggle, section };
+}
+
 // The scale chip in the top bar and its "Dlaczego?" dialog (SPEC §5.11). The
 // dialog is not a native <dialog>: the top layer would ignore the --z-*
 // tokens, and the "Gotowe!" toast must stay above it (SPEC §4). So the focus
@@ -16,6 +81,7 @@ const POINTS = [1, 2, 3, 4] as const;
 export function createScaleNotice(
   parent: HTMLElement,
   i18n: AppI18n,
+  sourceLinks: SourceLinks,
   before?: Node | null,
 ): { dispose(): void } {
   const page = parent.ownerDocument.body;
@@ -78,19 +144,23 @@ export function createScaleNotice(
     item.append(text);
     list.append(item);
   }
-  body.append(list);
+  const sources = createSources(i18n, sourceLinks);
+  body.append(list, sources.section);
 
   const foot = document.createElement('div');
   foot.className = 'scale-explanation-foot';
   const source = document.createElement('p');
   source.className = 'scale-source';
   source.textContent = i18n.t('scaleNotice.source');
+  const credits = document.createElement('div');
+  credits.className = 'scale-credits';
+  credits.append(source, sources.toggle);
   const confirm = document.createElement('button');
   confirm.setAttribute('type', 'button');
   confirm.setAttribute('id', 'scale-close');
   confirm.className = 'o-btn o-btn--primary';
   confirm.textContent = i18n.t('scaleNotice.confirm');
-  foot.append(source, confirm);
+  foot.append(credits, confirm);
 
   dialog.append(head, body, foot);
   parent.insertBefore(root, before ?? null);
@@ -132,6 +202,20 @@ export function createScaleNotice(
     }
   }
 
+  function setSourcesOpen(expanded: boolean): void {
+    sources.toggle.setAttribute('aria-expanded', String(expanded));
+    sources.section.hidden = !expanded;
+    updateScrollStop();
+  }
+
+  function toggleSources(): void {
+    const expanded = sources.toggle.getAttribute('aria-expanded') !== 'true';
+    setSourcesOpen(expanded);
+    if (expanded) {
+      sources.section.scrollIntoView?.({ block: 'nearest' });
+    }
+  }
+
   function openDialog(): void {
     if (disposed || open) {
       return;
@@ -155,6 +239,7 @@ export function createScaleNotice(
     setBackgroundInert(false);
     scrim.hidden = true;
     dialog.hidden = true;
+    setSourcesOpen(false);
     whyButton.focus();
   }
 
@@ -173,6 +258,7 @@ export function createScaleNotice(
   }
 
   whyButton.addEventListener('click', openDialog);
+  sources.toggle.addEventListener('click', toggleSources);
   confirm.addEventListener('click', closeDialog);
   dismiss.addEventListener('click', closeDialog);
   scrim.addEventListener('click', closeDialog);
@@ -192,6 +278,7 @@ export function createScaleNotice(
       window.removeEventListener('resize', updateScrollStop);
       disposed = true;
       whyButton.removeEventListener('click', openDialog);
+      sources.toggle.removeEventListener('click', toggleSources);
       confirm.removeEventListener('click', closeDialog);
       dismiss.removeEventListener('click', closeDialog);
       scrim.removeEventListener('click', closeDialog);

@@ -12,7 +12,7 @@ import type { BodyDef, MoonDef } from '@data/types.ts';
 import { moonRadiiToScene, radiusToScene } from '@sim/scale.ts';
 
 import { createRing, type Ring } from './saturnRing.ts';
-import { SPHERE_SEGMENTS, createSphere } from './sphereFactory.ts';
+import { SPHERE_SEGMENTS_DETAILED, createSphere } from './sphereFactory.ts';
 import { createTextureMemory, type TextureMemory } from './textureMemory.ts';
 
 export type BodyMeshes = {
@@ -198,16 +198,16 @@ export function createBodies(
       }
 
       let radius = radiusToScene(def.radiusKm);
-      let segments: number = SPHERE_SEGMENTS.planet;
+      let segments: number = SPHERE_SEGMENTS_DETAILED.planet;
       if (def.type === 'star') {
-        segments = SPHERE_SEGMENTS.sun;
+        segments = SPHERE_SEGMENTS_DETAILED.sun;
       } else if (def.type === 'moon') {
         const moonRadius = moonRadii.get(def.id);
         if (moonRadius === undefined) {
           throw new Error(`createBodies: moon "${def.id}" has no scene radius`);
         }
         radius = moonRadius;
-        segments = SPHERE_SEGMENTS.moon;
+        segments = SPHERE_SEGMENTS_DETAILED.moon;
       }
 
       const mesh = createSphere(radius, segments, materialFor(def));

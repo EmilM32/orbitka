@@ -352,3 +352,26 @@ test('saturn ring golden values', () => {
     }
   }
 });
+
+test('bodies › texture keys', () => {
+  const keys = Object.fromEntries(
+    bodies.map((body) => [body.id, body.visual.texture]),
+  );
+
+  expect(keys).toEqual({
+    sun: 'sun',
+    mercury: 'mercury',
+    venus: 'venus',
+    earth: 'earth',
+    moon: 'moon',
+    mars: 'mars',
+    jupiter: 'jupiter',
+    io: null,
+    europa: null,
+    ganymede: null,
+    callisto: null,
+    saturn: 'saturn',
+    uranus: 'uranus',
+    neptune: 'neptune',
+  });
+});

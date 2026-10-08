@@ -44,6 +44,12 @@ import { createStarfield } from '@render/starfield.ts';
 import { createSunGlow } from '@render/sunGlow.ts';
 import { getRenderStats, trackDebugDrawCalls } from '@render/renderStats.ts';
 import { createTextureMemory } from '@render/textureMemory.ts';
+import {
+  TEXTURE_LIMITS,
+  TEXTURE_SOURCE,
+  createTextureLoader,
+  createTextureStore,
+} from '@render/textureStore.ts';
 import { getBodyScenePosition as readBodyScenePosition } from '@render/scenePosition.ts';
 import { getBodyScreenPositions } from '@render/screenPositions.ts';
 import { createViewOffsetRig } from '@render/viewOffset.ts';
@@ -142,6 +148,19 @@ function mount(canvas: HTMLCanvasElement): App {
   view.scene.add(starfield.points);
   const bodyView = createBodies(bodies, textureMemory);
   view.scene.add(bodyView.group);
+  const textureStore = createTextureStore({
+    renderer: view.renderer,
+    bodies,
+    meshes: bodyView.meshes,
+    memory: textureMemory,
+    loader: createTextureLoader(),
+    baseUrl: `${import.meta.env.BASE_URL}assets/textures/`,
+    onWarn: (message) => {
+      console.warn(message);
+    },
+  });
+  // Until the quality levels (EMI-223) subscribe with their own level.
+  textureStore.setLimits(TEXTURE_LIMITS.high);
   const sunMesh = bodyView.meshes.get('sun');
   const sunRadius = bodyView.radii.get('sun');
   const sunDef = bodies.find((body) => body.type === 'star');
@@ -246,6 +265,7 @@ function mount(canvas: HTMLCanvasElement): App {
       orbitLines.setSelectedBody(event.id);
       gapMesh = bodyView.meshes.get(event.id) ?? null;
       gapRadius = gapMesh === null ? 0 : (bodyView.radii.get(event.id) ?? 0);
+      textureStore.requestDetailed(event.id);
       return;
     }
     if (event.kind === 'system') {
@@ -294,7 +314,9 @@ function mount(canvas: HTMLCanvasElement): App {
     ariaLabel: i18n.t('canvas.ariaLabel'),
   });
   const pageHeader = createPageHeader(document.body, i18n, canvas);
-  const scaleNotice = createScaleNotice(pageHeader, i18n);
+  const scaleNotice = createScaleNotice(pageHeader, i18n, {
+    textures: TEXTURE_SOURCE,
+  });
   let bodiesDrawer: BodiesDrawer | null = null;
   const bodyById = new Map(bodies.map((body) => [body.id, body]));
   const bodiesPanel = createBodiesPanel(document.body, {
@@ -544,6 +566,12 @@ function mount(canvas: HTMLCanvasElement): App {
         const current = viewInsets.get();
         return { right: current.right, bottom: current.bottom };
       },
+      getTextureState() {
+        return textureStore.getState();
+      },
+      setTextureLevel(level) {
+        textureStore.setLimits(TEXTURE_LIMITS[level]);
+      },
       getOrbitState() {
         const opacities: number[] = [];
         for (const id of planetIds) {
@@ -624,6 +652,8 @@ function mount(canvas: HTMLCanvasElement): App {
         // The first frame is on screen: the time controls take input.
         timeReady = true;
         timeControls.setReady(true);
+        // Textures load after the first frame, so the start is not delayed.
+        textureStore.preloadBase();
       }
       if (cssWidth > 0 && cssHeight > 0) {
         projector.update(view.camera, cssWidth, cssHeight);
@@ -699,6 +729,7 @@ function mount(canvas: HTMLCanvasElement): App {
       debugAxes?.dispose();
       orbitLines.dispose();
       sunGlow.dispose();
+      textureStore.dispose();
       bodyView.dispose();
       starfield.dispose();
       textureMemory.dispose();

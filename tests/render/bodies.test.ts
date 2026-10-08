@@ -11,7 +11,7 @@ import type { BodyDef } from '@data/types.ts';
 import { createBodyAnimator } from '@render/animateBodies.ts';
 import { createMoonAnimator } from '@render/animateMoons.ts';
 import { SUN_DISC_TINT, createBodies } from '@render/bodies.ts';
-import { SPHERE_SEGMENTS } from '@render/sphereFactory.ts';
+import { SPHERE_SEGMENTS_DETAILED } from '@render/sphereFactory.ts';
 import {
   moonRadiiToScene,
   moonRadiusToScene,
@@ -91,7 +91,9 @@ test('bodies › moon meshes', () => {
         view.dispose();
         throw new Error(`missing moon mesh: ${moon?.id}`);
       }
-      expect(mesh.geometry.parameters.widthSegments).toBe(SPHERE_SEGMENTS.moon);
+      expect(mesh.geometry.parameters.widthSegments).toBe(
+        SPHERE_SEGMENTS_DETAILED.moon,
+      );
       expect(mesh.material.roughness).toBe(1);
       expect(mesh.material.metalness).toBe(0);
       expect(mesh.material.color.getHexString()).toBe(
@@ -288,7 +290,7 @@ test('bodies › triangle budget', () => {
     triangles += index.count / 3;
   }
 
-  expect(triangles).toBe(26_432);
+  expect(triangles).toBe(45_568);
   expect(triangles).toBeLessThanOrEqual(60_000);
   view.dispose();
 });

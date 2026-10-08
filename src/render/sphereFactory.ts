@@ -6,6 +6,15 @@ export const SPHERE_SEGMENTS = {
   sun: 64,
 } as const;
 
+// Denser spheres for textured bodies: a smooth edge at the closest zoom
+// (64×32, the Sun 96×48, moons 32×16). The low level goes back to
+// SPHERE_SEGMENTS (EMI-223).
+export const SPHERE_SEGMENTS_DETAILED = {
+  moon: 32,
+  planet: 64,
+  sun: 96,
+} as const;
+
 export function createSphere(
   radius: number,
   segments: number,

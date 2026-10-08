@@ -57,6 +57,12 @@ export type OrbitkaOrbitState = {
   gapRadius: number;
 };
 
+export type OrbitkaTextureState = {
+  memoryMiB: number;
+  bodies: Record<string, '512' | '1k' | '2k' | null>;
+  failed: string[];
+};
+
 declare global {
   interface Window {
     __orbitka?: {
@@ -70,6 +76,9 @@ declare global {
       getSelectedId: () => string | null;
       getOrbitState: () => OrbitkaOrbitState;
       getViewInsets: () => { right: number; bottom: number };
+      getTextureState: () => OrbitkaTextureState;
+      /** For e2e only, until ?quality= (EMI-223). */
+      setTextureLevel: (level: 'high' | 'medium' | 'low') => void;
     };
   }
 }

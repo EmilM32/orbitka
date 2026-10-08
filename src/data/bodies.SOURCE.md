@@ -33,7 +33,14 @@ g. The only bound for the Table 1 years 1800–2050 is `ELEMENT_VALID_FROM_DAYS`
 
 - `visual.color` values are chosen for appearance, not taken from NASA.
 - The convention in (e) and the use of EM Bary for Earth (b) are design decisions.
-- `visual.texture` is `null` until textures are added.
+- `visual.texture` is a key into `public/assets/textures/{512,1k,2k}/<key>.jpg`. The Galilean moons have no texture in the source below and keep `null`.
+
+## Textures
+
+`visual.texture` of the Sun, the eight planets, and the Moon points to textures from [Solar System Scope](https://www.solarsystemscope.com/textures/), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The download URL for each key is in `scripts/textures/sources.json` (checked on 2026-10-08).
+
+- Changes: the 2k originals are downscaled to 512×256, 1024×512, and 2048×1024 and re-encoded as JPEG with mozjpeg q82 (`scripts/textures/prepare.mjs`).
+- The authors note that unmapped areas of the surfaces are filled with fictional terrain and that the colours are slightly enhanced. The textures show what a body looks like, not measured data.
 
 ## Saturn's rings
 

@@ -26,9 +26,8 @@ test('media queries match config', () => {
 test('tablet rules', () => {
   expect(CSS).toContain('left: 16px');
   expect(CSS).toContain('right: 16px');
-  expect(CSS).toContain(
-    'bottom: calc(var(--time-panel-height, 0px) + 16px + 16px)',
-  );
+  // The view group stays in the top bar, clear of the bottom sheet.
+  expect(CSS).not.toContain('#view-controls');
   expect(CSS.includes('transition')).toBe(false);
 });
 

@@ -16,6 +16,6 @@ test('pl.json canvas label', () => {
     'utf8',
   );
   expect(css).toContain('#viewport:focus-visible');
-  expect(css).toContain('outline: 2px solid #ffd54a');
+  expect(css).toContain('outline: 2px solid var(--c-focus)');
   expect(css).toContain('outline-offset: -2px');
 });

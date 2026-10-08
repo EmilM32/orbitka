@@ -75,3 +75,22 @@ test('eslintCssRule › a UI stylesheet is imported by its own module', async ()
     );
   }
 });
+
+test('css under docs/design/src is ignored, other docs css is rejected', async () => {
+  const [mockup] = await eslint.lintText('body { color: red; }\n', {
+    filePath: 'docs/design/src/x.css',
+  });
+  // ESLint has no config for the file, so it only warns that it skipped it.
+  expect(mockup?.errorCount).toBe(0);
+  expect(
+    (mockup?.messages ?? []).filter((message) => message.ruleId === RULE_ID),
+  ).toEqual([]);
+
+  for (const filePath of ['docs/design/x.css', 'docs/x.css']) {
+    const errors = await stylesheetErrors(filePath, 'body { color: red; }\n');
+    expect(errors, filePath).toHaveLength(1);
+    expect(errors[0]?.message).toBe(
+      'Stylesheets are allowed only in src/ui/**/*.css and src/style.css.',
+    );
+  }
+});

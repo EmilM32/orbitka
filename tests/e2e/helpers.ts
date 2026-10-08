@@ -213,3 +213,33 @@ export async function readCanvasPixels(
     },
   );
 }
+
+// Middle of the part of the window the body card or the sheet leaves free
+// (ADR-009 annex): ((W - right) / 2, (H - bottom) / 2) from the debug hook.
+export async function freeAreaCenter(
+  page: Page,
+): Promise<{ x: number; y: number }> {
+  return page.evaluate(() => {
+    const hook = window.__orbitka;
+    if (!hook) {
+      throw new Error('missing debug hook');
+    }
+    const insets = hook.getViewInsets();
+    return {
+      x: (window.innerWidth - insets.right) / 2,
+      y: (window.innerHeight - insets.bottom) / 2,
+    };
+  });
+}
+
+// "Trening pilota" shows on the first visit and changes the layout. Specs
+// that test something else mark it done before the app loads (EMI-201).
+export async function skipCoach(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('orbitka.coach.done', '1');
+    } catch {
+      // No storage: the training shows; the spec runs anyway.
+    }
+  });
+}

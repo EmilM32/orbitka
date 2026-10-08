@@ -1,14 +1,18 @@
 import './style.css';
+import '@ui/controls.ts';
 
 import { parseBodyContentCatalog } from '@content/bodyContent.ts';
 import pl from '@content/locales/pl.json' with { type: 'json' };
 import bodyContentRaw from '@content/pl/bodies.json' with { type: 'json' };
 import { createClock, daysFromDate } from '@core/clock.ts';
+import { createCoachTracker } from '@core/coach.ts';
 import { isDebugEnabled } from '@core/debugFlag.ts';
 import { createLoop } from '@core/loop.ts';
 import { createReducedMotion } from '@core/reducedMotion.ts';
 import { getSelectableBodies } from '@core/selectableBodies.ts';
 import { createSelection } from '@core/selection.ts';
+import { VIEW_CONFIG } from '@core/viewConfig.ts';
+import { createViewInsets } from '@core/viewInsets.ts';
 import { isStartPaused, parseStartDays } from '@core/startParams.ts';
 import { bodies } from '@data/bodies.ts';
 import { radiusToScene } from '@sim/scale.ts';
@@ -38,6 +42,9 @@ import { getBodyScreenPositions } from '@render/screenPositions.ts';
 import { createAnnouncer } from '@ui/announcer.ts';
 import { createBodiesDrawer, type BodiesDrawer } from '@ui/bodiesDrawer.ts';
 import { createBodiesPanel } from '@ui/bodiesPanel.ts';
+import { createBodyCard } from '@ui/bodyCard.ts';
+import { createCoachPanel, type CoachPanel } from '@ui/coachPanel.ts';
+import { loadCoachDone, type CoachStorages } from '@ui/coachPreference.ts';
 import { createBodyLabels } from '@ui/bodyLabels.ts';
 import { createDebugSession } from '@ui/debugSession.ts';
 import { createI18n } from '@ui/i18n.ts';
@@ -192,9 +199,8 @@ function mount(canvas: HTMLCanvasElement): App {
   const debugAxes = debug ? addDebugAxes(bodies, bodyView.meshes) : null;
   const debugDraws = debug ? trackDebugDrawCalls(view.scene) : null;
   const i18n = createI18n(pl, 'pl-PL');
-  // Validated at startup so a broken content file fails fast. The body card
-  // (EMI-200) receives this catalog as a parameter.
-  parseBodyContentCatalog(
+  // Validated at startup so a broken content file fails fast.
+  const bodyContent = parseBodyContentCatalog(
     bodyContentRaw,
     bodies
       .filter((body) => !BODIES_WITHOUT_CONTENT.has(body.id))
@@ -209,7 +215,7 @@ function mount(canvas: HTMLCanvasElement): App {
     ariaLabel: i18n.t('canvas.ariaLabel'),
   });
   const pageHeader = createPageHeader(document.body, i18n, canvas);
-  const scaleNotice = createScaleNotice(document.body, i18n, canvas);
+  const scaleNotice = createScaleNotice(pageHeader, i18n);
   let bodiesDrawer: BodiesDrawer | null = null;
   const bodiesPanel = createBodiesPanel(document.body, {
     bodies: selectable,
@@ -237,12 +243,58 @@ function mount(canvas: HTMLCanvasElement): App {
     },
     before: canvas.nextSibling ?? undefined,
   });
+  const viewInsets = createViewInsets();
+  const tabletQuery = window.matchMedia(
+    `(min-width: ${VIEW_CONFIG.tabletMinWidthPx}px) and (max-width: ${VIEW_CONFIG.tabletMaxWidthPx}px)`,
+  );
+  // After the canvas and before the view group in the Tab order (SPEC §8).
+  const bodyCard = createBodyCard(document.body, {
+    bodies,
+    content: bodyContent,
+    selection,
+    insets: viewInsets,
+    i18n,
+    isTablet: () => tabletQuery.matches,
+    before: viewControls.element,
+    reducedMotion,
+    focusOnClose: canvas,
+  });
   const timeControls = createTimeControls(
     document.body,
     clock,
     i18n,
     viewControls.element.nextSibling,
   );
+  // "Trening pilota" runs until it is finished or skipped once.
+  const coachStorage: CoachStorages = {
+    local: () => window.localStorage,
+    session: () => window.sessionStorage,
+    memory: { done: false },
+  };
+  let coachPanel: CoachPanel | null = null;
+  let unsubscribeCoachInput: (() => void) | null = null;
+  let unsubscribeCoachSelection: (() => void) | null = null;
+  if (!loadCoachDone(coachStorage)) {
+    const coach = createCoachTracker();
+    unsubscribeCoachInput = cameraController.onCameraInput((input) => {
+      coach.onCameraInput(input);
+    });
+    unsubscribeCoachSelection = selection.subscribe((event) => {
+      if (event.kind === 'selected') {
+        coach.onSelected();
+      }
+    });
+    coachPanel = createCoachPanel(document.body, {
+      tracker: coach,
+      i18n,
+      storage: coachStorage,
+      insets: viewInsets,
+      isTablet: () => tabletQuery.matches,
+      leftEdge: () => bodiesPanel.element.getBoundingClientRect().right,
+      matchMedia: window.matchMedia.bind(window),
+      reducedMotion,
+    });
+  }
   const timePanel = document.querySelector('#time-controls');
   if (!(timePanel instanceof HTMLElement)) {
     throw new Error('Missing time controls element #time-controls');
@@ -372,6 +424,10 @@ function mount(canvas: HTMLCanvasElement): App {
       getSelectedId() {
         return selection.getSelectedId();
       },
+      getViewInsets() {
+        const current = viewInsets.get();
+        return { right: current.right, bottom: current.bottom };
+      },
       getOrbitState() {
         const opacities: number[] = [];
         for (const id of planetIds) {
@@ -466,6 +522,10 @@ function mount(canvas: HTMLCanvasElement): App {
       announcer.dispose();
       bodiesPanel.dispose();
       bodiesDrawer?.dispose();
+      bodyCard.dispose();
+      coachPanel?.dispose();
+      unsubscribeCoachInput?.();
+      unsubscribeCoachSelection?.();
       labels.dispose();
       pageHeader.remove();
       director.dispose();

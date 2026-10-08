@@ -8,7 +8,9 @@ test('timeControlsCss › rules', () => {
   expect(css).toContain('min-width: 44px');
   expect(css).toContain('min-height: 44px');
   expect(css).toContain('touch-action: manipulation');
-  expect(css).toMatch(/:focus-visible\s*\{[^}]*outline:\s*3px solid #ffd54a/u);
+  // Focus is the global ring from controls.css (EMI-217), never yellow.
+  expect(css).not.toContain('focus-visible');
+  expect(css).not.toContain('#ffd54a');
   expect(css).toContain('flex-wrap: wrap');
   expect(css).toContain('width: max-content');
   expect(css).toContain('max-width: calc(100vw - 16px)');

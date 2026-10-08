@@ -2,7 +2,7 @@
   position: fixed;
   top: 0;
   left: 0;
-  z-index: var(--layer-overlay);
+  z-index: var(--z-labels);
   margin: 0;
   padding: 0;
   pointer-events: none;
@@ -17,8 +17,8 @@
   height: 24px;
   margin: 0;
   padding: 4px 6px;
-  color: #ffffff;
-  font-family: system-ui, sans-serif;
+  color: var(--c-text);
+  font-family: var(--font-ui);
   font-size: 13px;
   line-height: 16px;
   white-space: nowrap;
@@ -31,8 +31,8 @@
 }
 
 .body-label.is-hovered {
-  color: #0a0e1e;
-  background: #ffd54a;
+  background: var(--c-surface-active);
+  outline: 1.5px solid var(--c-accent);
 }
 
 .body-label.is-hidden {

@@ -34,6 +34,7 @@ test('locales › body names', () => {
 
 test('locales › shape', () => {
   expect(messages['time.accuracy.approximate']).toBe('Pozycje przybliżone');
+  expect(messages['app.brand']).toBe('Orbitka');
 
   for (const value of Object.values(messages)) {
     if (typeof value === 'string') {
@@ -49,4 +50,57 @@ test('locales › shape', () => {
       expect(forms[form]).not.toBe('');
     }
   }
+});
+
+test('locales › card texts', () => {
+  const genitives: Record<string, string> = {
+    sun: 'Słońca',
+    mercury: 'Merkurego',
+    venus: 'Wenus',
+    earth: 'Ziemi',
+    moon: 'Księżyca',
+    mars: 'Marsa',
+    jupiter: 'Jowisza',
+    saturn: 'Saturna',
+    uranus: 'Urana',
+    neptune: 'Neptuna',
+  };
+  for (const [id, genitive] of Object.entries(genitives)) {
+    expect(messages[`bodies.${id}.nameGenitive`]).toBe(genitive);
+  }
+  expect(messages['card.close.ariaLabel']).toBe('Zamknij kartę');
+  expect(messages['card.facts.year']).toBe('Rok trwa');
+  expect(messages['card.facts.rotation']).toBe('Obrót wokół osi');
+  expect(messages['card.system']).toBe('Cały układ');
+  expect(messages['card.more']).toBe('Więcej');
+  expect(messages['card.less']).toBe('Mniej');
+  expect(messages['card.sheet.expand']).toBe('Rozwiń kartę');
+  expect(messages['card.sheet.collapse']).toBe('Zwiń kartę');
+  expect(messages['card.facts.days']).toEqual({
+    one: '{count} doba',
+    few: '{count} doby',
+    many: '{count} dób',
+    other: '{count} doby',
+  });
+});
+
+test('locales › coach texts', () => {
+  expect(messages['coach.title']).toBe('Trening pilota');
+  expect(messages['coach.counter']).toBe('{done}/3');
+  expect(messages['coach.skip']).toBe('Pomiń');
+  expect(messages['coach.done']).toBe('(zaliczone)');
+  expect(messages['coach.step.rotate']).toBe('Obróć widok');
+  expect(messages['coach.step.zoom']).toBe('Przybliż');
+  expect(messages['coach.step.select']).toBe('Wybierz planetę');
+  expect(messages['coach.hint.mouse.rotate']).toBe('przeciągnij myszą');
+  expect(messages['coach.hint.mouse.zoom']).toBe('kółko myszy lub +');
+  expect(messages['coach.hint.mouse.select']).toBe(
+    'kliknij lub wybierz z listy',
+  );
+  expect(messages['coach.hint.touch.rotate']).toBe('przeciągnij palcem');
+  expect(messages['coach.hint.touch.zoom']).toBe('rozsuń dwa palce');
+  expect(messages['coach.hint.touch.select']).toBe('dotknij jej na niebie');
+  expect(messages['coach.toast']).toBe(
+    'Gotowe! Trening ukończony. Miłego lotu.',
+  );
 });

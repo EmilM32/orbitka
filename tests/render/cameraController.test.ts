@@ -497,3 +497,48 @@ test('cameraController › dispose is idempotent', () => {
   motion.setMatches(true);
   expect(camera.position.distanceTo(position)).toBe(0);
 });
+
+test('cameraController › onCameraInput reports rotate and zoom', () => {
+  const { controller } = setup();
+  const inputs: Array<{ kind: string; amount: number }> = [];
+  const unsubscribe = controller.onCameraInput((input) => {
+    inputs.push({
+      kind: input.kind,
+      amount: input.kind === 'rotate' ? input.deg : input.ratio,
+    });
+  });
+
+  controller.rotateBy(5 * DEG, 0, false);
+  controller.zoomBy(0.9, false);
+  // The pointer input calls with notify = false; it still counts.
+  controller.rotateBy(-2 * DEG, 3 * DEG, true, false);
+  controller.zoomBy(1.1, true, false);
+  expect(inputs.map((entry) => entry.kind)).toEqual([
+    'rotate',
+    'zoom',
+    'rotate',
+    'zoom',
+  ]);
+  expect(inputs[0]?.amount).toBeCloseTo(5, 9);
+  expect(inputs[1]?.amount).toBeCloseTo(0.1, 9);
+  expect(inputs[2]?.amount).toBeCloseTo(5, 9);
+  expect(inputs[3]?.amount).toBeCloseTo(0.1, 9);
+
+  // No change, flights (setPose) and frames emit nothing.
+  controller.rotateBy(0, 0, false);
+  controller.zoomBy(1, false);
+  controller.setPose(readPose(controller));
+  controller.update(1 / 60);
+  controller.notifyUserInput();
+  expect(inputs).toHaveLength(4);
+
+  unsubscribe();
+  controller.rotateBy(DEG, 0, false);
+  expect(inputs).toHaveLength(4);
+
+  const second = vi.fn();
+  controller.onCameraInput(second);
+  controller.dispose();
+  controller.rotateBy(DEG, 0, false);
+  expect(second).not.toHaveBeenCalled();
+});

@@ -13,9 +13,14 @@ import {
   assertWebGl,
   expectPaintedFrame,
   readCanvasPixels,
+  skipCoach,
   waitForBrowserFrames,
   waitForFrames,
 } from './helpers.ts';
+
+test.beforeEach(async ({ page }) => {
+  await skipCoach(page);
+});
 
 type ScreenPosition = {
   id: string;

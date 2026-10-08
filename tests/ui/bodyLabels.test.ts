@@ -54,10 +54,10 @@ test('one label per body', () => {
 
 test('css contract', () => {
   expect(CSS).toContain('font-size: 13px');
-  expect(CSS).toContain('#ffffff');
+  expect(CSS).toContain('color: var(--c-text)');
   expect(CSS).toContain('rgba(10, 14, 30, 0.85)');
   expect(CSS).toContain('font-weight: 700');
-  expect(CSS).toContain('z-index: var(--layer-overlay)');
+  expect(CSS).toContain('z-index: var(--z-labels)');
   expect(CSS).not.toMatch(/transition/iu);
   expect(CSS).not.toMatch(/animation/iu);
   expect(CSS).toMatch(/#body-labels\s*\{[^}]*pointer-events:\s*none/u);

@@ -23,7 +23,7 @@ export function createSelectionRing(
   element.style.top = '0';
   element.style.left = '0';
   element.style.boxSizing = 'border-box';
-  element.style.border = '2px solid #ffd54a';
+  element.style.border = '1.5px solid rgba(255, 194, 75, 0.75)';
   element.style.borderRadius = '50%';
   element.style.pointerEvents = 'none';
   element.setAttribute('aria-hidden', 'true');

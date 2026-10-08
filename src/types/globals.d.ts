@@ -65,6 +65,7 @@ declare global {
       getCameraState: () => OrbitkaCameraState;
       getSelectedId: () => string | null;
       getOrbitState: () => OrbitkaOrbitState;
+      getViewInsets: () => { right: number; bottom: number };
     };
   }
 }

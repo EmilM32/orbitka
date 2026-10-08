@@ -10,7 +10,12 @@ import {
   ZOOM_MAX,
   ZOOM_MIN,
 } from './fixtures.ts';
-import { assertWebGl, readCanvasPixels, waitForFrames } from './helpers.ts';
+import {
+  assertWebGl,
+  readCanvasPixels,
+  skipCoach,
+  waitForFrames,
+} from './helpers.ts';
 
 const DEBUG_PATH = '/?debug=1&days=0&paused=1';
 const POLL_MS = 10_000;
@@ -63,6 +68,10 @@ const test = base.extend<{ consoleErrors: string[] }>({
     },
     { auto: true },
   ],
+});
+
+test.beforeEach(async ({ page }) => {
+  await skipCoach(page);
 });
 
 test.describe.configure({ timeout: 120_000 });

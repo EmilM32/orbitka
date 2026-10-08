@@ -3,6 +3,14 @@ import { fileURLToPath } from 'node:url';
 
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
+// The training panel (EMI-201) has its own layout checks in coach.spec.ts.
+// Inline, because this spec imports nothing but Playwright and node.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('orbitka.coach.done', '1');
+  });
+});
+
 const DESKTOP_WIDE = { width: 1280, height: 800 };
 const DESKTOP_EDGE = { width: 1025, height: 768 };
 const TABLET_LANDSCAPE = { width: 1024, height: 768 };
@@ -213,21 +221,26 @@ test('drawer open does not overlap at tablet sizes', async ({ page }) => {
   }
 });
 
-test('view group sits 16px above time panel on tablet', async ({ page }) => {
-  for (const size of TABLET_SIZES) {
+// The view group is one row in the top bar on every layout, so the body card
+// and the bottom sheet never cover it (EMI-200).
+test('view group sits in the top bar', async ({ page }) => {
+  for (const size of [DESKTOP_WIDE, ...TABLET_SIZES]) {
     await page.setViewportSize(size);
     await page.goto('/');
     await settle(page);
-    const time = await page.locator('#time-controls').boundingBox();
     const view = await page
       .locator('[data-testid="view-controls"]')
       .boundingBox();
-    if (time === null || view === null) {
-      throw new Error('time panel or view group has no box');
+    const scale = await page.locator('#scale-notice').boundingBox();
+    if (view === null || scale === null) {
+      throw new Error('view group or scale notice has no box');
     }
-    const gap = time.y - (view.y + view.height);
-    expect(gap).toBeGreaterThanOrEqual(15);
-    expect(gap).toBeLessThanOrEqual(17);
+    expect(view.y).toBeGreaterThanOrEqual(0);
+    expect(view.y + view.height).toBeLessThanOrEqual(60);
+    expect(
+      Math.abs(size.width - (view.x + view.width) - 8),
+    ).toBeLessThanOrEqual(1);
+    expect(intersects(view, scale)).toBe(false);
   }
 });
 
@@ -504,6 +517,33 @@ test('bodies panel has no horizontal scroll at 1280x720 and 1920x1080', async ({
 
     await page.getByTestId('bodies-collapse').click();
     await assertPanelFits(page);
+    expect(errors).toEqual([]);
+  }
+});
+
+test('card does not overlap panels', async ({ page }) => {
+  for (const size of [
+    { width: 1280, height: 720 },
+    DESKTOP_WIDE,
+    TABLET_LANDSCAPE,
+  ]) {
+    const errors = await openAt(page, size, '/?debug=1');
+    const item = page.getByTestId('body-item-jupiter');
+    if (!(await item.isVisible())) {
+      await page.getByTestId('bodies-drawer-open').click();
+    }
+    await item.click();
+    await page.waitForFunction(
+      () => window.__orbitka?.getCameraState().flightActive === 0,
+    );
+    await expect(page.getByTestId('body-card')).toBeVisible();
+    await settle(page);
+    const card = await boxOf(page.getByTestId('body-card'));
+    if (card === null) {
+      throw new Error('card has no box');
+    }
+    const boxes = [{ name: 'card', box: card }, ...(await closedChrome(page))];
+    await assertPairwise(boxes, size);
     expect(errors).toEqual([]);
   }
 });

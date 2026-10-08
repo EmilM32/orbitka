@@ -24,3 +24,17 @@ test('visually hidden h1', () => {
   );
   expect(CSS).not.toMatch(/\.visually-hidden\s*\{[^}]*display:\s*none/u);
 });
+
+test('brand is visible and aria-hidden', () => {
+  document.body.replaceChildren();
+  const header = createPageHeader(document.body, i18n);
+  const brand = header.querySelector('.brand');
+  expect(brand?.textContent).toBe('Orbitka');
+  expect(brand?.getAttribute('aria-hidden')).toBe('true');
+  expect(brand?.querySelector('svg.icon')).not.toBeNull();
+  expect(brand?.closest('a')).toBeNull();
+  expect(header.querySelector('h1.visually-hidden')?.textContent).toBe(
+    'Orbitka: Układ Słoneczny',
+  );
+  expect(header.firstElementChild?.tagName).toBe('H1');
+});

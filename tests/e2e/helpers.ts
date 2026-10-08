@@ -231,3 +231,15 @@ export async function freeAreaCenter(
     };
   });
 }
+
+// "Trening pilota" shows on the first visit and changes the layout. Specs
+// that test something else mark it done before the app loads (EMI-201).
+export async function skipCoach(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('orbitka.coach.done', '1');
+    } catch {
+      // No storage: the training shows; the spec runs anyway.
+    }
+  });
+}

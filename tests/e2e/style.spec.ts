@@ -1,5 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { skipCoach } from './helpers.ts';
+
+test.beforeEach(async ({ page }) => {
+  await skipCoach(page);
+});
+
 // EMI-217: the style A foundation as the browser renders it: fonts, the scale
 // chip size, the blue focus ring on selected controls and the UI scale on
 // large screens.

@@ -1,0 +1,215 @@
+/*
+ * "Trening pilota" (SPEC §5.10) and its "Gotowe!" toast. Desktop: below the
+ * top bar, centered in the free area (left set by coachPanel.ts). Tablet:
+ * full width, 12 px above the time panel (or the sheet).
+ */
+#coach {
+  position: fixed;
+  top: calc(var(--topbar-h) + 12px);
+  z-index: var(--z-coach);
+  box-sizing: border-box;
+  width: min(41.5rem, calc(100vw - 2 * var(--edge)));
+  margin: 0;
+  color: var(--c-text);
+  font-size: var(--fs-md);
+  line-height: var(--lh);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+#coach.has-toast {
+  z-index: var(--z-toast);
+}
+
+#coach.is-tablet {
+  top: auto;
+  right: var(--edge);
+  bottom: calc(var(--time-panel-height, 0px) + 16px + 12px);
+  left: var(--edge);
+  width: auto;
+  transform: none;
+}
+
+.coach {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding: var(--s-3) var(--s-3) 0.875rem var(--s-4);
+  border-radius: 1.25rem;
+  pointer-events: auto;
+  animation: coach-fade var(--dur) var(--ease-out);
+  transition: opacity var(--dur) var(--ease-out);
+}
+
+/* Out of the flow, so the toast takes its place at once. */
+.coach.is-leaving {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  opacity: 0;
+}
+
+@keyframes coach-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.coach-head {
+  display: flex;
+  gap: 0.625rem;
+  align-items: center;
+}
+
+#coach-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-display);
+  line-height: 1;
+}
+
+.coach-counter {
+  color: var(--c-text-2);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.coach-bars {
+  display: flex;
+  gap: var(--s-1);
+  margin-left: var(--s-1);
+}
+
+.coach-bars i {
+  width: 1.625rem;
+  height: 4px;
+  background: var(--c-surface-active);
+  border-radius: 2px;
+}
+
+.coach-bars i.is-done {
+  background: var(--c-on);
+}
+
+.coach-skip {
+  margin-left: auto;
+}
+
+.coach-steps {
+  display: flex;
+  gap: var(--s-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.coach-step {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 0.625rem;
+  align-items: center;
+  min-width: 0;
+  padding: var(--s-2) var(--s-3) var(--s-2) var(--s-2);
+  border: 1px solid var(--c-control-border);
+  border-radius: 0.875rem;
+}
+
+.coach-step.is-current {
+  background: rgba(140, 200, 255, 0.08);
+  border-color: var(--c-focus);
+}
+
+.coach-tick {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 1.875rem;
+  height: 1.875rem;
+  color: transparent;
+  border: 1.5px solid var(--c-control-border);
+  border-radius: 50%;
+}
+
+.coach-tick .icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.coach-step.is-current .coach-tick {
+  border-color: var(--c-focus);
+}
+
+.coach-step.is-done {
+  border-color: var(--c-on);
+}
+
+.coach-step.is-done .coach-tick,
+.coach-toast .coach-tick {
+  color: var(--c-on-ink);
+  background: var(--c-on);
+  border-color: var(--c-on);
+}
+
+.coach-step.is-done .coach-tick .icon {
+  animation: coach-check var(--dur) var(--ease-out);
+}
+
+@keyframes coach-check {
+  from {
+    transform: scale(0.6);
+  }
+}
+
+.coach-step-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.coach-step-title {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-strong);
+  white-space: nowrap;
+}
+
+.coach-step.is-done .coach-step-title {
+  color: var(--c-text-2);
+  text-decoration: line-through;
+}
+
+.coach-step-hint {
+  overflow: hidden;
+  color: var(--c-text-2);
+  font-size: 0.8125rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.coach-toast {
+  display: flex;
+  gap: 0.625rem;
+  align-items: center;
+  width: max-content;
+  max-width: 100%;
+  min-height: var(--hit);
+  margin: 0 auto;
+  padding: 0 1.125rem 0 var(--s-2);
+  font-weight: var(--fw-strong);
+  border-radius: var(--radius-pill);
+  animation: coach-fade var(--dur) var(--ease-out);
+  transition: opacity var(--dur-slow) var(--ease-out);
+}
+
+.coach-toast.is-leaving {
+  opacity: 0;
+}
+
+/* No scaling without motion; the fades stay (150 ms from the tokens). */
+@media (prefers-reduced-motion: reduce) {
+  .coach-step.is-done .coach-tick .icon {
+    animation: none;
+  }
+}

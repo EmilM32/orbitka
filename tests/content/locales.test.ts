@@ -83,3 +83,24 @@ test('locales › card texts', () => {
     other: '{count} doby',
   });
 });
+
+test('locales › coach texts', () => {
+  expect(messages['coach.title']).toBe('Trening pilota');
+  expect(messages['coach.counter']).toBe('{done}/3');
+  expect(messages['coach.skip']).toBe('Pomiń');
+  expect(messages['coach.done']).toBe('(zaliczone)');
+  expect(messages['coach.step.rotate']).toBe('Obróć widok');
+  expect(messages['coach.step.zoom']).toBe('Przybliż');
+  expect(messages['coach.step.select']).toBe('Wybierz planetę');
+  expect(messages['coach.hint.mouse.rotate']).toBe('przeciągnij myszą');
+  expect(messages['coach.hint.mouse.zoom']).toBe('kółko myszy lub +');
+  expect(messages['coach.hint.mouse.select']).toBe(
+    'kliknij lub wybierz z listy',
+  );
+  expect(messages['coach.hint.touch.rotate']).toBe('przeciągnij palcem');
+  expect(messages['coach.hint.touch.zoom']).toBe('rozsuń dwa palce');
+  expect(messages['coach.hint.touch.select']).toBe('dotknij jej na niebie');
+  expect(messages['coach.toast']).toBe(
+    'Gotowe! Trening ukończony. Miłego lotu.',
+  );
+});

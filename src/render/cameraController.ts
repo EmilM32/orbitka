@@ -15,6 +15,7 @@ import {
   type DistanceLimits,
   type Vec3,
 } from '@core/cameraMath.ts';
+import type { CameraUserInput } from '@core/coach.ts';
 import type { ReducedMotion } from '@core/reducedMotion.ts';
 
 export type ReducedMotionSource = Pick<ReducedMotion, 'matches' | 'subscribe'>;
@@ -47,6 +48,12 @@ export type CameraController = {
   getState(out: CameraControllerState): CameraControllerState;
   notifyUserInput(): void;
   onUserInput(listener: () => void): () => void;
+  /**
+   * Every rotateBy and zoomBy with a change, whatever `notify` says. Only user
+   * input calls them; flights go through setPose. The input object is shared
+   * and overwritten by the next call.
+   */
+  onCameraInput(listener: (input: CameraUserInput) => void): () => void;
   dispose(): void;
 };
 
@@ -124,6 +131,15 @@ export function createCameraController(
   const limits: DistanceLimits = { min: 1, max: 1 };
   const position: Vec3 = { x: 0, y: 0, z: 0 };
   const listeners: Array<() => void> = [];
+  const inputListeners: Array<(input: CameraUserInput) => void> = [];
+  const rotateInput: Extract<CameraUserInput, { kind: 'rotate' }> = {
+    kind: 'rotate',
+    deg: 0,
+  };
+  const zoomInput: Extract<CameraUserInput, { kind: 'zoom' }> = {
+    kind: 'zoom',
+    ratio: 0,
+  };
 
   let aspect = camera.aspect;
   if (!Number.isFinite(aspect) || aspect <= 0) {
@@ -199,6 +215,8 @@ export function createCameraController(
         residualAzimuth += dAzimuth;
         residualPolar += dPolar;
       }
+      rotateInput.deg = (Math.abs(dAzimuth) + Math.abs(dPolar)) * RAD_TO_DEG;
+      emitCameraInput(rotateInput);
 
       if (notify) {
         emitUserInput();
@@ -222,6 +240,8 @@ export function createCameraController(
       } else {
         residualLogZoom += Math.log(factor);
       }
+      zoomInput.ratio = Math.abs(1 - factor);
+      emitCameraInput(zoomInput);
 
       if (notify) {
         emitUserInput();
@@ -344,6 +364,19 @@ export function createCameraController(
         }
       };
     },
+    onCameraInput(listener: (input: CameraUserInput) => void): () => void {
+      if (disposed) {
+        return () => undefined;
+      }
+
+      inputListeners.push(listener);
+      return () => {
+        const index = inputListeners.indexOf(listener);
+        if (index >= 0) {
+          inputListeners.splice(index, 1);
+        }
+      };
+    },
     dispose(): void {
       if (disposed) {
         return;
@@ -352,6 +385,7 @@ export function createCameraController(
       disposed = true;
       unsubscribeReducedMotion();
       listeners.length = 0;
+      inputListeners.length = 0;
       residualAzimuth = 0;
       residualPolar = 0;
       residualLogZoom = 0;
@@ -406,6 +440,12 @@ export function createCameraController(
   function emitUserInput(): void {
     for (let index = 0; index < listeners.length; index += 1) {
       listeners[index]?.();
+    }
+  }
+
+  function emitCameraInput(input: CameraUserInput): void {
+    for (let index = 0; index < inputListeners.length; index += 1) {
+      inputListeners[index]?.(input);
     }
   }
 }

@@ -5,6 +5,7 @@ import { parseBodyContentCatalog } from '@content/bodyContent.ts';
 import pl from '@content/locales/pl.json' with { type: 'json' };
 import bodyContentRaw from '@content/pl/bodies.json' with { type: 'json' };
 import { createClock, daysFromDate } from '@core/clock.ts';
+import { createCoachTracker } from '@core/coach.ts';
 import { isDebugEnabled } from '@core/debugFlag.ts';
 import { createLoop } from '@core/loop.ts';
 import { createReducedMotion } from '@core/reducedMotion.ts';
@@ -42,6 +43,8 @@ import { createAnnouncer } from '@ui/announcer.ts';
 import { createBodiesDrawer, type BodiesDrawer } from '@ui/bodiesDrawer.ts';
 import { createBodiesPanel } from '@ui/bodiesPanel.ts';
 import { createBodyCard } from '@ui/bodyCard.ts';
+import { createCoachPanel, type CoachPanel } from '@ui/coachPanel.ts';
+import { loadCoachDone, type CoachStorages } from '@ui/coachPreference.ts';
 import { createBodyLabels } from '@ui/bodyLabels.ts';
 import { createDebugSession } from '@ui/debugSession.ts';
 import { createI18n } from '@ui/i18n.ts';
@@ -262,6 +265,36 @@ function mount(canvas: HTMLCanvasElement): App {
     i18n,
     viewControls.element.nextSibling,
   );
+  // "Trening pilota" runs until it is finished or skipped once.
+  const coachStorage: CoachStorages = {
+    local: () => window.localStorage,
+    session: () => window.sessionStorage,
+    memory: { done: false },
+  };
+  let coachPanel: CoachPanel | null = null;
+  let unsubscribeCoachInput: (() => void) | null = null;
+  let unsubscribeCoachSelection: (() => void) | null = null;
+  if (!loadCoachDone(coachStorage)) {
+    const coach = createCoachTracker();
+    unsubscribeCoachInput = cameraController.onCameraInput((input) => {
+      coach.onCameraInput(input);
+    });
+    unsubscribeCoachSelection = selection.subscribe((event) => {
+      if (event.kind === 'selected') {
+        coach.onSelected();
+      }
+    });
+    coachPanel = createCoachPanel(document.body, {
+      tracker: coach,
+      i18n,
+      storage: coachStorage,
+      insets: viewInsets,
+      isTablet: () => tabletQuery.matches,
+      leftEdge: () => bodiesPanel.element.getBoundingClientRect().right,
+      matchMedia: window.matchMedia.bind(window),
+      reducedMotion,
+    });
+  }
   const timePanel = document.querySelector('#time-controls');
   if (!(timePanel instanceof HTMLElement)) {
     throw new Error('Missing time controls element #time-controls');
@@ -490,6 +523,9 @@ function mount(canvas: HTMLCanvasElement): App {
       bodiesPanel.dispose();
       bodiesDrawer?.dispose();
       bodyCard.dispose();
+      coachPanel?.dispose();
+      unsubscribeCoachInput?.();
+      unsubscribeCoachSelection?.();
       labels.dispose();
       pageHeader.remove();
       director.dispose();

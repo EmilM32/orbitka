@@ -6,7 +6,16 @@ import {
   MOON_IDS,
   VIEWPORT,
 } from './fixtures.ts';
-import { assertWebGl, expectPaintedFrame, waitForFrames } from './helpers.ts';
+import {
+  assertWebGl,
+  expectPaintedFrame,
+  skipCoach,
+  waitForFrames,
+} from './helpers.ts';
+
+test.beforeEach(async ({ page }) => {
+  await skipCoach(page);
+});
 
 type ScreenPosition = {
   id: string;

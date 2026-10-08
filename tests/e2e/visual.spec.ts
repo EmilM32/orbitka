@@ -1,6 +1,10 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { assertWebGl, waitForFrames } from './helpers.ts';
+import { assertWebGl, skipCoach, waitForFrames } from './helpers.ts';
+
+test.beforeEach(async ({ page }) => {
+  await skipCoach(page);
+});
 
 // Baselines exist only for Chromium on Linux in the Playwright image that CI
 // uses (ADR-010 point 12). Anywhere else fonts and antialiasing differ, so the
@@ -63,6 +67,16 @@ async function settle(page: Page): Promise<void> {
 test('start 1280×720', async ({ page }) => {
   await openStable(page, DESKTOP);
   await expect(page).toHaveScreenshot('start-1280x720.png');
+});
+
+test('start with the training 1280×720', async ({ page }) => {
+  // The other screens mark the training done (beforeEach); this one clears it.
+  await page.addInitScript(() => {
+    localStorage.removeItem('orbitka.coach.done');
+  });
+  await openStable(page, DESKTOP);
+  await expect(page.getByTestId('coach')).toBeVisible();
+  await expect(page).toHaveScreenshot('start-coach-1280x720.png');
 });
 
 test('start 1920×1080', async ({ page }) => {

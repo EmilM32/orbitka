@@ -1,6 +1,15 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { assertWebGl, freeAreaCenter, waitForFrames } from './helpers.ts';
+import {
+  assertWebGl,
+  freeAreaCenter,
+  skipCoach,
+  waitForFrames,
+} from './helpers.ts';
+
+test.beforeEach(async ({ page }) => {
+  await skipCoach(page);
+});
 
 // EMI-200: the body card on the desktop and the bottom sheet on the tablet.
 
@@ -204,6 +213,7 @@ test('sheet on tablet', async ({ browser }) => {
     hasTouch: true,
   });
   const page = await context.newPage();
+  await skipCoach(page);
   await open(page, { width: 768, height: 1024 });
   await select(page, 'saturn');
 

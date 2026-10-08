@@ -126,5 +126,19 @@
   "card.gauge.earth": "Ziemia jest punktem odniesienia dla pozostałych planet.",
   "card.gauge.km": "Średnica: {km} km",
   "card.gauge.ariaMore": "Średnica: {name} około {value} razy średnica Ziemi",
-  "card.gauge.ariaLess": "Średnica: {name} to {value} średnicy Ziemi"
+  "card.gauge.ariaLess": "Średnica: {name} to {value} średnicy Ziemi",
+  "coach.title": "Trening pilota",
+  "coach.counter": "{done}/3",
+  "coach.skip": "Pomiń",
+  "coach.done": "(zaliczone)",
+  "coach.step.rotate": "Obróć widok",
+  "coach.step.zoom": "Przybliż",
+  "coach.step.select": "Wybierz planetę",
+  "coach.hint.mouse.rotate": "przeciągnij myszą",
+  "coach.hint.mouse.zoom": "kółko myszy lub +",
+  "coach.hint.mouse.select": "kliknij lub wybierz z listy",
+  "coach.hint.touch.rotate": "przeciągnij palcem",
+  "coach.hint.touch.zoom": "rozsuń dwa palce",
+  "coach.hint.touch.select": "dotknij jej na niebie",
+  "coach.toast": "Gotowe! Trening ukończony. Miłego lotu."
 }

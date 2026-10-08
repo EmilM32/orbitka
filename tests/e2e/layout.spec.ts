@@ -3,6 +3,14 @@ import { fileURLToPath } from 'node:url';
 
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
+// The training panel (EMI-201) has its own layout checks in coach.spec.ts.
+// Inline, because this spec imports nothing but Playwright and node.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('orbitka.coach.done', '1');
+  });
+});
+
 const DESKTOP_WIDE = { width: 1280, height: 800 };
 const DESKTOP_EDGE = { width: 1025, height: 768 };
 const TABLET_LANDSCAPE = { width: 1024, height: 768 };

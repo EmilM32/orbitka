@@ -1,7 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
 
 import { VIEWPORT } from './fixtures.ts';
-import { assertWebGl } from './helpers.ts';
+import { assertWebGl, skipCoach } from './helpers.ts';
+
+test.beforeEach(async ({ page }) => {
+  await skipCoach(page);
+});
 
 const DEBUG_START = '/?debug=1&days=0';
 

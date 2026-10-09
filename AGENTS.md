@@ -28,6 +28,7 @@ A new decision that affects the whole project gets its own ADR in Linear. This f
 - TypeScript 6 rejects `baseUrl` (TS5101). Aliases live in `paths` as paths relative to `tsconfig.json` (`@core/*` → `./src/core/*`), with the same prefixes in `vite.config.ts`.
 - Scene mount point: `<canvas id="viewport">`.
 - Deployment is deferred. The app has to run through `npm run dev` and `vite preview`.
+- Claude Code cloud sessions run `.claude/hooks/session-start.sh` at start: Node from `.nvmrc` on `PATH` (nvm default unchanged), `npm ci` when `package-lock.json` changed, and the Chromium build the pinned `@playwright/test` expects in `~/.cache/ms-playwright`. Locally the hook does nothing.
 
 ## Layers
 

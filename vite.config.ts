@@ -6,9 +6,16 @@ export default defineConfig({
     alias: layerAliases,
   },
   build: {
-    // kB after minification. The bundle is about 550 kB, almost all three.js,
-    // well inside the ADR-006 budget of about 10 MB transfer. The limit sits
-    // above that so the warning comes back only on a real jump in size.
+    // kB after minification, per chunk. three.js has a chunk of its own
+    // (EMI-235), so the limit guards both the library and the app; the app
+    // chunk has its own tighter check in tests/repo/bundleSize.test.ts.
     chunkSizeWarningLimit: 700,
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [{ name: 'three', test: /[\\/]node_modules[\\/]three[\\/]/ }],
+        },
+      },
+    },
   },
 });

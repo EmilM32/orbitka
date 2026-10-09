@@ -980,3 +980,169 @@ test('a moon in front of its planet keeps its label', () => {
   expect(layout.shown[1]).toBe(1);
   expect(layout.shown[2]).toBe(0);
 });
+
+function placeOne(
+  layout: LabelLayout,
+  index: number,
+  x: number,
+  y: number,
+  radiusPx = 4,
+): void {
+  layout.x[index] = x;
+  layout.y[index] = y;
+  layout.radiusPx[index] = radiusPx;
+  layout.visible[index] = 1;
+  layout.labelWidth[index] = 50;
+  layout.labelHeight[index] = 24;
+}
+
+test('a UI panel is an obstacle: the label moves off it or hides', () => {
+  const ids = ['mars'];
+  const layout = createLayout(ids, [3389.5]);
+  layout.width = 600;
+  layout.height = 400;
+  placeOne(layout, 0, 300, 200);
+  computeLabelOrder(layout.order, ids, [1], null, [null]);
+
+  // A panel over the place above Mars: the label goes below.
+  layout.obstacles = Float64Array.from([250, 150, 350, 195]);
+  layout.obstacleCount = 1;
+  layoutLabels(layout);
+  expect(layout.shown[0]).toBe(1);
+  expect(layout.side[0]).toBe(LABEL_SIDE_BELOW);
+
+  // A panel over every place: the label hides instead of sitting under it.
+  layout.obstacles = Float64Array.from([0, 0, 600, 400]);
+  layoutLabels(layout);
+  expect(layout.shown[0]).toBe(0);
+
+  // obstacleCount limits what is read.
+  layout.obstacleCount = 0;
+  layoutLabels(layout);
+  expect(layout.side[0]).toBe(LABEL_SIDE_ABOVE);
+});
+
+test('the selected label avoids panels when it can', () => {
+  const ids = ['mars'];
+  const layout = createLayout(ids, [3389.5]);
+  layout.width = 600;
+  layout.height = 400;
+  layout.selectedIndex = 0;
+  placeOne(layout, 0, 300, 200);
+  computeLabelOrder(layout.order, ids, [1], 'mars', [null]);
+  // Panels above and below and on both sides: the pinned label still shows.
+  layout.obstacles = Float64Array.from([0, 0, 600, 195, 0, 205, 600, 400]);
+  layout.obstacleCount = 2;
+  layoutLabels(layout);
+  expect(layout.shown[0]).toBe(1);
+});
+
+test('keepSides: a label keeps its side while it stays clear', () => {
+  const ids = ['mars', 'venus'];
+  const layout = createLayout(ids, [3389.5, 6051.8]);
+  layout.width = 600;
+  layout.height = 400;
+  layout.keepSides = true;
+  placeOne(layout, 0, 300, 200);
+  placeOne(layout, 1, 300, 160);
+  computeLabelOrder(layout.order, ids, [1, 2], null, [null, null]);
+
+  // Venus' label sits above Venus, Mars' label below Mars.
+  layoutLabels(layout);
+  expect(layout.side[0]).toBe(LABEL_SIDE_BELOW);
+
+  // Venus moves away: above Mars is free, but Mars keeps the place below.
+  placeOne(layout, 1, 100, 60);
+  layoutLabels(layout);
+  expect(layout.side[0]).toBe(LABEL_SIDE_BELOW);
+
+  // Without keepSides it would jump to the first free place, above.
+  layout.keepSides = false;
+  layoutLabels(layout);
+  expect(layout.side[0]).toBe(LABEL_SIDE_ABOVE);
+});
+
+test('keepSides: a leader label returns above only with room to spare', () => {
+  const ids = ['mars'];
+  const layout = createLayout(ids, [3389.5]);
+  layout.width = 600;
+  layout.height = 400;
+  layout.keepSides = true;
+  placeOne(layout, 0, 300, 200);
+  computeLabelOrder(layout.order, ids, [1], null, [null]);
+  layout.shown[0] = 1;
+  layout.side[0] = LABEL_SIDE_RIGHT;
+
+  // Label above Mars spans y 164..188 (radius 4, offset 6). A panel 2 px
+  // past the gap below it leaves too little room: the leader stays.
+  const gap = VIEW_CONFIG.labelGapPx;
+  const below = 200 + 4 + VIEW_CONFIG.labelOffsetPx;
+  layout.obstacles = Float64Array.from([
+    0,
+    0,
+    600,
+    164 - gap - 2,
+    0,
+    below + 24 + gap + 2,
+    600,
+    400,
+  ]);
+  layout.obstacleCount = 2;
+  layoutLabels(layout);
+  expect(layout.side[0]).toBe(LABEL_SIDE_RIGHT);
+
+  // With the hysteresis margin clear, it moves back above.
+  layout.obstacleCount = 0;
+  layoutLabels(layout);
+  expect(layout.side[0]).toBe(LABEL_SIDE_ABOVE);
+});
+
+test('keepSides: a leader label waits labelSideHoldLayouts before moving back', () => {
+  const ids = ['mars'];
+  const layout = createLayout(ids, [3389.5]);
+  layout.width = 600;
+  layout.height = 400;
+  layout.keepSides = true;
+  layout.sideHeld = new Uint16Array(1);
+  placeOne(layout, 0, 300, 200);
+  computeLabelOrder(layout.order, ids, [1], null, [null]);
+  layout.shown[0] = 1;
+  layout.side[0] = LABEL_SIDE_RIGHT;
+
+  for (let run = 1; run < VIEW_CONFIG.labelSideHoldLayouts; run += 1) {
+    layoutLabels(layout);
+    expect(layout.side[0]).toBe(LABEL_SIDE_RIGHT);
+    expect(layout.sideHeld[0]).toBe(run);
+  }
+  layoutLabels(layout);
+  layoutLabels(layout);
+  expect(layout.side[0]).toBe(LABEL_SIDE_ABOVE);
+  expect(layout.sideHeld[0]).toBe(0);
+});
+
+test('keepSides: a body that moved far gets a fresh side', () => {
+  const ids = ['mars'];
+  const layout = createLayout(ids, [3389.5]);
+  layout.width = 600;
+  layout.height = 400;
+  layout.keepSides = true;
+  layout.lastX = new Float64Array(1);
+  layout.lastY = new Float64Array(1);
+  placeOne(layout, 0, 300, 200);
+  computeLabelOrder(layout.order, ids, [1], null, [null]);
+  layout.shown[0] = 1;
+  layout.side[0] = LABEL_SIDE_BELOW;
+  layout.lastX[0] = 300;
+  layout.lastY[0] = 200;
+
+  // A small move keeps the side.
+  placeOne(layout, 0, 310, 205);
+  layoutLabels(layout);
+  expect(layout.side[0]).toBe(LABEL_SIDE_BELOW);
+  expect(layout.lastX[0]).toBe(310);
+
+  // A jump past labelKeepMaxMovePx starts over from the first free place.
+  placeOne(layout, 0, 310 + VIEW_CONFIG.labelKeepMaxMovePx + 1, 205);
+  layoutLabels(layout);
+  expect(layout.side[0]).toBe(LABEL_SIDE_ABOVE);
+});

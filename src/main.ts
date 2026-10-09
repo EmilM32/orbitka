@@ -67,6 +67,7 @@ import { createBodyCard } from '@ui/bodyCard.ts';
 import { createCoachPanel, type CoachPanel } from '@ui/coachPanel.ts';
 import { loadCoachDone, type CoachStorages } from '@ui/coachPreference.ts';
 import { createBodyLabels } from '@ui/bodyLabels.ts';
+import { createLabelObstacles } from '@ui/labelObstacles.ts';
 import { createDebugSession } from '@ui/debugSession.ts';
 import { createI18n } from '@ui/i18n.ts';
 import { showSceneUnavailable } from '@ui/sceneUnavailable.ts';
@@ -265,11 +266,10 @@ function mount(canvas: HTMLCanvasElement): App {
     if (mesh === undefined || radius === undefined) {
       continue;
     }
-    // A label sits outside Saturn's rings, not on them.
     labelEntries.push({
       id: body.id,
       position: mesh.position,
-      displayRadius: bodyView.rings.get(body.id)?.framingRadius ?? radius,
+      displayRadius: radius,
     });
     labelBodies.push({
       id: body.id,
@@ -491,11 +491,25 @@ function mount(canvas: HTMLCanvasElement): App {
     root: document.documentElement,
   });
   const announcer = createAnnouncer(document.body, selection, i18n);
+  // Scene labels stay off the panels (EMI-234).
+  const labelObstacles = createLabelObstacles({
+    root: document.body,
+    elements: () => [
+      pageHeader,
+      bodiesDrawer?.openButton,
+      bodiesPanel.element,
+      viewControls.element,
+      bodyCard.element,
+      timePanel,
+      coachPanel?.element,
+    ],
+  });
   const labels = createBodyLabels(document.body, {
     bodies: labelBodies,
     selection,
     i18n,
     frame: labelProjector.frame,
+    obstacles: labelObstacles,
   });
   const debugSession = createDebugSession(search, document.body);
   let lastUiMs = Number.NEGATIVE_INFINITY;
@@ -770,6 +784,7 @@ function mount(canvas: HTMLCanvasElement): App {
       unsubscribeCoachInput?.();
       unsubscribeCoachSelection?.();
       labels.dispose();
+      labelObstacles.dispose();
       pageHeader.remove();
       director.dispose();
       unsubscribeOffsetResize();

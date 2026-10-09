@@ -53,6 +53,30 @@ export type LabelLayout = {
   side: Uint8Array;
   width: number;
   height: number;
+  /**
+   * UI panels the labels stay off: left, top, right, bottom per panel, in
+   * the same CSS px as the labels. `obstacleCount` panels are read.
+   */
+  obstacles?: Float64Array;
+  obstacleCount?: number;
+  /**
+   * Hysteresis: a label shown in the last layout keeps its side while that
+   * side stays clear, so it does not jump when another one is barely better.
+   * A label beside its body (leader line) moves back above or below only
+   * with `labelSideHysteresisPx` to spare and after `labelSideHoldLayouts`
+   * runs on its side (counted in `sideHeld`, when given). Reads `shown` and
+   * `side` from the last run, so the arrays must carry over between calls.
+   */
+  keepSides?: boolean;
+  /** Runs each label has kept its side; written when `keepSides` is on. */
+  sideHeld?: Uint16Array;
+  /**
+   * Body position at the last run, written when `keepSides` is on. A body
+   * that moved more than `labelKeepMaxMovePx` since then does not keep its
+   * side (camera flight, fast time).
+   */
+  lastX?: Float64Array;
+  lastY?: Float64Array;
 };
 
 const candidate = new Float64Array(2);
@@ -150,7 +174,16 @@ export function layoutLabels(layout: LabelLayout): void {
     const chosen = chooseSide(layout, index, step, gap);
     if (chosen < 0) {
       layout.shown[index] = 0;
+      if (layout.sideHeld !== undefined) {
+        layout.sideHeld[index] = 0;
+      }
       continue;
+    }
+    if (layout.keepSides === true && layout.sideHeld !== undefined) {
+      const kept =
+        (layout.shown[index] ?? 0) === 1 && layout.side[index] === chosen;
+      const held = layout.sideHeld[index] ?? 0;
+      layout.sideHeld[index] = kept ? Math.min(held + 1, 0xffff) : 0;
     }
 
     layout.shown[index] = 1;
@@ -158,6 +191,27 @@ export function layoutLabels(layout: LabelLayout): void {
     layout.outX[index] = candidate[0] ?? 0;
     layout.outY[index] = candidate[1] ?? 0;
   }
+
+  if (layout.keepSides === true) {
+    for (let index = 0; index < count; index += 1) {
+      if (layout.lastX !== undefined) {
+        layout.lastX[index] = layout.x[index] ?? 0;
+      }
+      if (layout.lastY !== undefined) {
+        layout.lastY[index] = layout.y[index] ?? 0;
+      }
+    }
+  }
+}
+
+function movedFar(layout: LabelLayout, index: number): boolean {
+  if (layout.lastX === undefined || layout.lastY === undefined) {
+    return false;
+  }
+  const dx = (layout.x[index] ?? 0) - (layout.lastX[index] ?? 0);
+  const dy = (layout.y[index] ?? 0) - (layout.lastY[index] ?? 0);
+  const limit = VIEW_CONFIG.labelKeepMaxMovePx;
+  return dx * dx + dy * dy > limit * limit;
 }
 
 function isCandidate(layout: LabelLayout, index: number): boolean {
@@ -283,6 +337,45 @@ function chooseSide(
   const radiusPx = layout.radiusPx[index] ?? 0;
   const pinned = index === layout.selectedIndex || index === layout.sunIndex;
 
+  if (
+    layout.keepSides === true &&
+    (layout.shown[index] ?? 0) === 1 &&
+    !movedFar(layout, index)
+  ) {
+    const previous = layout.side[index] ?? LABEL_SIDE_ABOVE;
+    const held =
+      layout.sideHeld === undefined
+        ? VIEW_CONFIG.labelSideHoldLayouts
+        : (layout.sideHeld[index] ?? 0);
+    if (
+      previous >= LABEL_SIDE_RIGHT &&
+      held >= VIEW_CONFIG.labelSideHoldLayouts
+    ) {
+      const margin = gap + VIEW_CONFIG.labelSideHysteresisPx;
+      for (let side = LABEL_SIDE_ABOVE; side < LABEL_SIDE_RIGHT; side += 1) {
+        if (isClear(layout, index, step, side, gap, margin)) {
+          return side;
+        }
+      }
+    }
+    if (isClear(layout, index, step, previous, gap, gap)) {
+      return previous;
+    }
+  }
+
+  for (let side = LABEL_SIDE_ABOVE; side < LABEL_SIDE_COUNT; side += 1) {
+    if (isClear(layout, index, step, side, gap, gap)) {
+      return side;
+    }
+  }
+
+  if (!pinned) {
+    return -1;
+  }
+
+  // The Sun and the selected body keep a label anyway: the first place clear
+  // of accepted labels and panels, even over a small disc, then clear of
+  // accepted labels only, else above the body.
   for (let side = LABEL_SIDE_ABOVE; side < LABEL_SIDE_COUNT; side += 1) {
     labelCandidateOrigin(
       candidate,
@@ -299,20 +392,11 @@ function chooseSide(
     const top = candidate[1] ?? 0;
     if (
       !hitsAccepted(layout, step, left, top, width, height, gap) &&
-      !hitsVisibleDisc(layout, index, left, top, width, height, gap) &&
-      (side < LABEL_SIDE_RIGHT ||
-        !leaderHitsOtherDisc(layout, index, side, left, top, width, height))
+      !hitsObstacle(layout, left, top, width, height, gap)
     ) {
       return side;
     }
   }
-
-  if (!pinned) {
-    return -1;
-  }
-
-  // The Sun and the selected body keep a label anyway: the first place clear
-  // of accepted labels, even over a small disc, else above the body.
   for (let side = LABEL_SIDE_ABOVE; side < LABEL_SIDE_COUNT; side += 1) {
     labelCandidateOrigin(
       candidate,
@@ -352,6 +436,80 @@ function chooseSide(
     layout.height,
   );
   return LABEL_SIDE_ABOVE;
+}
+
+/**
+ * Writes the origin of `side` into `candidate` and reports whether it keeps
+ * `gap` from visible discs and `spacing` from accepted labels and panels
+ * (and, beside the body, whether its leader misses other discs).
+ */
+function isClear(
+  layout: LabelLayout,
+  index: number,
+  step: number,
+  side: number,
+  gap: number,
+  spacing: number,
+): boolean {
+  const width = layout.labelWidth[index] ?? 0;
+  const height = layout.labelHeight[index] ?? 0;
+  labelCandidateOrigin(
+    candidate,
+    side,
+    layout.x[index] ?? 0,
+    layout.y[index] ?? 0,
+    layout.radiusPx[index] ?? 0,
+    width,
+    height,
+    layout.width,
+    layout.height,
+  );
+  const left = candidate[0] ?? 0;
+  const top = candidate[1] ?? 0;
+  return (
+    !hitsAccepted(layout, step, left, top, width, height, spacing) &&
+    !hitsVisibleDisc(layout, index, left, top, width, height, gap) &&
+    !hitsObstacle(layout, left, top, width, height, spacing) &&
+    (side < LABEL_SIDE_RIGHT ||
+      !leaderHitsOtherDisc(layout, index, side, left, top, width, height))
+  );
+}
+
+/** True when the rectangle comes closer than `gap` to a UI panel. */
+export function hitsObstacle(
+  layout: Pick<LabelLayout, 'obstacles' | 'obstacleCount'>,
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+  gap: number,
+): boolean {
+  const obstacles = layout.obstacles;
+  const count = layout.obstacleCount ?? 0;
+  if (obstacles === undefined || count <= 0) {
+    return false;
+  }
+  const right = left + width;
+  const bottom = top + height;
+  for (let index = 0; index < count; index += 1) {
+    const base = index * 4;
+    if (
+      rectsHit(
+        left,
+        top,
+        right,
+        bottom,
+        obstacles[base] ?? 0,
+        obstacles[base + 1] ?? 0,
+        obstacles[base + 2] ?? 0,
+        obstacles[base + 3] ?? 0,
+        gap,
+      )
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function leaderHitsOtherDisc(

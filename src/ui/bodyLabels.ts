@@ -3,6 +3,7 @@ import './bodyLabels.css';
 import { type BodyScreenFrame } from '@core/bodyScreenFrame.ts';
 import {
   computeLabelOrder,
+  hitsObstacle,
   LABEL_SIDE_RIGHT,
   labelCandidateOrigin,
   layoutLabels,
@@ -40,6 +41,8 @@ export type BodyLabelsOptions = {
   frame: BodyScreenFrame;
   measure?: (element: HTMLElement) => number;
   before?: Node;
+  /** UI panels labels stay off (left, top, right, bottom per panel). */
+  obstacles?: { readonly rects: Float64Array; count(): number };
 };
 
 const LAYOUT_INTERVAL_SECONDS = 1 / VIEW_CONFIG.labelLayoutHz;
@@ -154,6 +157,7 @@ export function createBodyLabels(
   const side = new Uint8Array(count);
   const radiiKm = new Float64Array(count);
   const lastHidden = new Uint8Array(count);
+  const lastSide = new Uint8Array(count).fill(255);
   const lastLeft = new Float64Array(count);
   const lastTop = new Float64Array(count);
   const written = new Uint8Array(count);
@@ -184,6 +188,12 @@ export function createBodyLabels(
     side,
     width: 1,
     height: 1,
+    obstacles: options.obstacles?.rects,
+    obstacleCount: 0,
+    keepSides: true,
+    sideHeld: new Uint16Array(count),
+    lastX: new Float64Array(count),
+    lastY: new Float64Array(count),
   };
 
   let disposed = false;
@@ -321,12 +331,19 @@ export function createBodyLabels(
       }
     }
     layout.selectedIndex = selectedIndex;
+    layout.obstacleCount = options.obstacles?.count() ?? 0;
     layout.width = viewWidth;
     layout.height = viewHeight;
     computeLabelOrder(order, ids, radiiKm, selectedId, parentIds);
     layoutLabels(layout);
     for (let index = 0; index < count; index += 1) {
-      writeHidden(index, (shown[index] ?? 0) === 0 ? 1 : 0);
+      const hidden = (shown[index] ?? 0) === 0 ? 1 : 0;
+      writeHidden(index, hidden);
+      if (hidden === 0 && lastSide[index] !== side[index]) {
+        lastSide[index] = side[index] ?? 0;
+        // LABEL_SIDE_* for tests and debugging; written only on change.
+        elements[index]?.setAttribute('data-side', String(lastSide[index]));
+      }
     }
   }
 
@@ -348,7 +365,7 @@ export function createBodyLabels(
 
   /**
    * Between layouts a label follows its body and can slide onto another
-   * disc (fast time). Such a label hides until the next layout. Pinned
+   * disc or a panel (fast time). Such a label hides until the next layout. Pinned
    * labels (selected, Sun) stay, as in the layout.
    */
   function crossesOtherDisc(index: number, left: number, top: number): boolean {
@@ -357,6 +374,9 @@ export function createBodyLabels(
     }
     const width = labelWidth[index] ?? 0;
     const height = labelHeight[index] ?? 0;
+    if (hitsObstacle(layout, left, top, width, height, 0)) {
+      return true;
+    }
     const parent = moons[index] === 1 ? (parentIndex[index] ?? -1) : -1;
     for (let other = 0; other < count; other += 1) {
       const slot = frameIndex[other] ?? 0;
@@ -387,6 +407,8 @@ export function createBodyLabels(
   }
 
   function writeTransforms(): void {
+    // Panels can move between layouts (a card opens); the count is live.
+    layout.obstacleCount = options.obstacles?.count() ?? 0;
     for (let index = 0; index < count; index += 1) {
       const slot = frameIndex[index] ?? 0;
       labelCandidateOrigin(

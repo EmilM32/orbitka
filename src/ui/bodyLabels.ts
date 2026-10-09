@@ -365,17 +365,19 @@ export function createBodyLabels(
 
   /**
    * Between layouts a label follows its body and can slide onto another
-   * disc or a panel (fast time). Such a label hides until the next layout. Pinned
-   * labels (selected, Sun) stay, as in the layout.
+   * disc or a panel (fast time). Such a label hides until the next layout.
+   * Pinned labels (selected, Sun) stay over discs, as in the layout, but not
+   * under a panel.
    */
   function crossesOtherDisc(index: number, left: number, top: number): boolean {
-    if (index === selectedIndex || index === layout.sunIndex) {
-      return false;
-    }
     const width = labelWidth[index] ?? 0;
     const height = labelHeight[index] ?? 0;
+    // A panel hides any label, pinned ones too (as in the layout).
     if (hitsObstacle(layout, left, top, width, height, 0)) {
       return true;
+    }
+    if (index === selectedIndex || index === layout.sunIndex) {
+      return false;
     }
     const parent = moons[index] === 1 ? (parentIndex[index] ?? -1) : -1;
     for (let other = 0; other < count; other += 1) {

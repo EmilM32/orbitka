@@ -496,6 +496,8 @@ function mount(canvas: HTMLCanvasElement): App {
     root: document.body,
     elements: () => [
       pageHeader,
+      // On a tablet the chip wraps to a second row outside the header box.
+      document.getElementById('scale-notice'),
       bodiesDrawer?.openButton,
       bodiesPanel.element,
       viewControls.element,

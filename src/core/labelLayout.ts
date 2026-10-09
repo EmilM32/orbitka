@@ -153,10 +153,11 @@ function orderGroup(
  * first candidate that clears accepted labels and every visible disc (its
  * own included, which matters once a label is clamped into the viewport)
  * by `labelGapPx` is shown. A leader candidate is also dropped when its
- * line crosses another visible disc. The selected body and the Sun never
- * lose their label: when every candidate collides they take the first place
- * clear of accepted labels, else above the body. Other labels are hidden
- * then. A moon is a candidate only while its planet is selected.
+ * line crosses another visible disc. The selected body and the Sun keep
+ * their label over discs: when every candidate collides they take the first
+ * place clear of accepted labels and panels, else above the body. Only a UI
+ * panel hides them. Other labels are hidden then. A moon is a candidate only
+ * while its planet is selected.
  */
 export function layoutLabels(layout: LabelLayout): void {
   requirePositive('width', layout.width);
@@ -374,8 +375,9 @@ function chooseSide(
   }
 
   // The Sun and the selected body keep a label anyway: the first place clear
-  // of accepted labels and panels, even over a small disc, then clear of
-  // accepted labels only, else above the body.
+  // of accepted labels and panels, even over a small disc, else above the
+  // body. A panel always wins: a pinned label with no place outside the
+  // panels hides too.
   for (let side = LABEL_SIDE_ABOVE; side < LABEL_SIDE_COUNT; side += 1) {
     labelCandidateOrigin(
       candidate,
@@ -397,32 +399,6 @@ function chooseSide(
       return side;
     }
   }
-  for (let side = LABEL_SIDE_ABOVE; side < LABEL_SIDE_COUNT; side += 1) {
-    labelCandidateOrigin(
-      candidate,
-      side,
-      x,
-      y,
-      radiusPx,
-      width,
-      height,
-      layout.width,
-      layout.height,
-    );
-    if (
-      !hitsAccepted(
-        layout,
-        step,
-        candidate[0] ?? 0,
-        candidate[1] ?? 0,
-        width,
-        height,
-        gap,
-      )
-    ) {
-      return side;
-    }
-  }
 
   labelCandidateOrigin(
     candidate,
@@ -435,7 +411,16 @@ function chooseSide(
     layout.width,
     layout.height,
   );
-  return LABEL_SIDE_ABOVE;
+  return hitsObstacle(
+    layout,
+    candidate[0] ?? 0,
+    candidate[1] ?? 0,
+    width,
+    height,
+    gap,
+  )
+    ? -1
+    : LABEL_SIDE_ABOVE;
 }
 
 /**

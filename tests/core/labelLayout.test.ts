@@ -1023,18 +1023,24 @@ test('a UI panel is an obstacle: the label moves off it or hides', () => {
 });
 
 test('the selected label avoids panels when it can', () => {
-  const ids = ['mars'];
-  const layout = createLayout(ids, [3389.5]);
+  const ids = ['mars', 'venus'];
+  const layout = createLayout(ids, [3389.5, 6051.8]);
   layout.width = 600;
   layout.height = 400;
   layout.selectedIndex = 0;
   placeOne(layout, 0, 300, 200);
-  computeLabelOrder(layout.order, ids, [1], 'mars', [null]);
-  // Panels above and below and on both sides: the pinned label still shows.
-  layout.obstacles = Float64Array.from([0, 0, 600, 195, 0, 205, 600, 400]);
-  layout.obstacleCount = 2;
+  // Venus' disc sits right below Mars: below is taken by a disc.
+  placeOne(layout, 1, 300, 232, 12);
+  computeLabelOrder(layout.order, ids, [1, 2], 'mars', [null, null]);
+  // A panel over the place above Mars.
+  layout.obstacles = Float64Array.from([0, 0, 600, 195]);
+  layout.obstacleCount = 1;
   layoutLabels(layout);
+
+  // Pinned: shown, not under the panel (the leader place beside Mars).
   expect(layout.shown[0]).toBe(1);
+  expect(layout.side[0]).toBeGreaterThanOrEqual(LABEL_SIDE_RIGHT);
+  expect(layout.outY[0] ?? 0).toBeGreaterThanOrEqual(195);
 });
 
 test('keepSides: a label keeps its side while it stays clear', () => {
@@ -1145,4 +1151,17 @@ test('keepSides: a body that moved far gets a fresh side', () => {
   placeOne(layout, 0, 310 + VIEW_CONFIG.labelKeepMaxMovePx + 1, 205);
   layoutLabels(layout);
   expect(layout.side[0]).toBe(LABEL_SIDE_ABOVE);
+});
+
+test('a pinned label hides when the only place is under a panel', () => {
+  const ids = ['sun'];
+  const layout = createLayout(ids, [695700]);
+  layout.width = 600;
+  layout.height = 400;
+  placeOne(layout, 0, 300, 200, 20);
+  computeLabelOrder(layout.order, ids, [1], null, [null]);
+  layout.obstacles = Float64Array.from([0, 0, 600, 400]);
+  layout.obstacleCount = 1;
+  layoutLabels(layout);
+  expect(layout.shown[0]).toBe(0);
 });

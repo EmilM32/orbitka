@@ -8,6 +8,7 @@ type Box = { left: number; top: number; right: number; bottom: number };
 
 const PANELS = [
   '.topbar',
+  '#scale-notice',
   '#view-controls',
   '#body-card',
   '#time-controls',
@@ -66,17 +67,22 @@ async function overlaps(page: Page): Promise<string[]> {
 }
 
 test.describe('labels and panels', () => {
+  // As in visual.spec.ts: the camera jumps, so the layout settles at once.
+  test.use({ reducedMotion: 'reduce' });
+
   for (const viewport of [
     { width: 1920, height: 1080 },
     { width: 1280, height: 720 },
     { width: 768, height: 1024 },
+    { width: 1024, height: 768 },
   ]) {
     test(`no visible label under a panel at ${viewport.width}×${viewport.height}`, async ({
       page,
     }) => {
       await page.setViewportSize(viewport);
       // The training panel stays: it is one of the panels to avoid.
-      await open(page, '/?debug=1&paused=1&quality=medium');
+      // J2000, as in visual.spec.ts: Saturn sits right under the top bar.
+      await open(page, '/?debug=1&days=0&paused=1&quality=medium');
       // Labels re-lay out at 10 Hz; give them a few layouts.
       await page.waitForTimeout(400);
       expect(await overlaps(page)).toEqual([]);
@@ -97,6 +103,16 @@ test.describe('labels and panels', () => {
       // Camera flight 1.2 s, then a few layouts.
       await page.waitForTimeout(1800);
       expect(await overlaps(page)).toEqual([]);
+
+      // Tablet: the expanded sheet leaves a thin strip under the top bar.
+      const handle = page.getByTestId('body-card-handle');
+      if (await handle.isVisible()) {
+        await handle.click();
+        await expect(handle).toHaveAttribute('aria-expanded', 'true');
+        await page.waitForFunction(() => document.getAnimations().length === 0);
+        await page.waitForTimeout(600);
+        expect(await overlaps(page)).toEqual([]);
+      }
     });
   }
 });

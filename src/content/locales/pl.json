@@ -128,7 +128,7 @@
   "sources.texturesChanges": "Zmiany: zmniejszone i skompresowane do JPG.",
   "sources.fonts": "Fonty: Inter i Space Grotesk (SIL OFL 1.1)",
   "sources.icons": "Ikony: Lucide (ISC)",
-  "attribution.textures.disclaimer": "[Treści: zastrzeżenie o teksturach]",
+  "attribution.textures.disclaimer": "Tekstury to ilustracje, a nie zdjęcia. Tam, gdzie sondy nie sfotografowały powierzchni, teren jest dorysowany, a kolory są wzmocnione.",
   "card.close.ariaLabel": "Zamknij kartę",
   "card.facts.year": "Rok trwa",
   "card.facts.rotation": "Obrót wokół osi",

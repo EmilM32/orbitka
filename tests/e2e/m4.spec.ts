@@ -34,7 +34,7 @@ const SHEET_EXPANDED_DVH = 0.6;
 // EMI-219: the selected body stands in the middle of the free area.
 const CENTER_PX = 3;
 
-// ?quality=medium is read once EMI-223 lands; until then the app ignores it.
+// ?quality=medium fixes the level, so the frame rate cannot change the scene.
 // paused=1 keeps the selected body still for the centering checks.
 const APP_PATH = '/?debug=1&quality=medium&paused=1';
 // 4 October 2054 in days since J2000 (2000-01-01 12:00 UTC), outside the

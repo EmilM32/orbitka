@@ -63,6 +63,16 @@ export type OrbitkaTextureState = {
   failed: string[];
 };
 
+export type OrbitkaQualityState = {
+  level: 'high' | 'medium' | 'low';
+  source: string;
+  locked: boolean;
+  medianFps: number | null;
+  p90FrameMs: number | null;
+  /** Pixel ratio the renderer draws at, after the level's cap. */
+  pixelRatio: number;
+};
+
 declare global {
   interface Window {
     __orbitka?: {
@@ -77,8 +87,7 @@ declare global {
       getOrbitState: () => OrbitkaOrbitState;
       getViewInsets: () => { right: number; bottom: number };
       getTextureState: () => OrbitkaTextureState;
-      /** For e2e only, until ?quality= (EMI-223). */
-      setTextureLevel: (level: 'high' | 'medium' | 'low') => void;
+      getQuality: () => OrbitkaQualityState;
     };
   }
 }

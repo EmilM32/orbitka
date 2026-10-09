@@ -12,7 +12,12 @@ import type { BodyDef, MoonDef } from '@data/types.ts';
 import { moonRadiiToScene, radiusToScene } from '@sim/scale.ts';
 
 import { createRing, type Ring } from './saturnRing.ts';
-import { SPHERE_SEGMENTS_DETAILED, createSphere } from './sphereFactory.ts';
+import {
+  SPHERE_SEGMENTS_DETAILED,
+  createSphere,
+  type SphereKind,
+  type SphereTarget,
+} from './sphereFactory.ts';
 import { createTextureMemory, type TextureMemory } from './textureMemory.ts';
 
 export type BodyMeshes = {
@@ -22,6 +27,8 @@ export type BodyMeshes = {
   radii: Map<string, number>;
   /** Ring meshes by body id, children of the body meshes. */
   rings: Map<string, Ring>;
+  /** Every sphere with its kind, for the quality levels. */
+  spheres: SphereTarget[];
   dispose: () => void;
 };
 
@@ -163,6 +170,7 @@ export function createBodies(
   const meshes = new Map<string, Mesh>();
   const radii = new Map<string, number>();
   const rings = new Map<string, Ring>();
+  const spheres: SphereTarget[] = [];
   let disposed = false;
 
   const dispose = (): void => {
@@ -198,23 +206,28 @@ export function createBodies(
       }
 
       let radius = radiusToScene(def.radiusKm);
-      let segments: number = SPHERE_SEGMENTS_DETAILED.planet;
+      let kind: SphereKind = 'planet';
       if (def.type === 'star') {
-        segments = SPHERE_SEGMENTS_DETAILED.sun;
+        kind = 'sun';
       } else if (def.type === 'moon') {
         const moonRadius = moonRadii.get(def.id);
         if (moonRadius === undefined) {
           throw new Error(`createBodies: moon "${def.id}" has no scene radius`);
         }
         radius = moonRadius;
-        segments = SPHERE_SEGMENTS_DETAILED.moon;
+        kind = 'moon';
       }
 
-      const mesh = createSphere(radius, segments, materialFor(def));
+      const mesh = createSphere(
+        radius,
+        SPHERE_SEGMENTS_DETAILED[kind],
+        materialFor(def),
+      );
       mesh.name = def.id;
       group.add(mesh);
       meshes.set(def.id, mesh);
       radii.set(def.id, radius);
+      spheres.push({ mesh, radius, kind });
 
       const ringDef = def.visual.ring;
       if (ringDef !== undefined) {
@@ -234,5 +247,5 @@ export function createBodies(
     throw error;
   }
 
-  return { group, meshes, radii, rings, dispose };
+  return { group, meshes, radii, rings, spheres, dispose };
 }

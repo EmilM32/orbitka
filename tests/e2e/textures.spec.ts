@@ -15,10 +15,10 @@ test.beforeEach(async ({ page }) => {
   await skipCoach(page);
 });
 
-async function openApp(page: Page): Promise<void> {
+async function openApp(page: Page, level = 'high'): Promise<void> {
   await page.goto('about:blank');
   await assertWebGl(page);
-  await page.goto('/?debug=1&days=0&paused=1');
+  await page.goto(`/?debug=1&days=0&paused=1&quality=${level}`);
   await page.waitForFunction(() => (window.__orbitka?.frameCount ?? 0) > 0);
 }
 
@@ -37,10 +37,7 @@ async function select(
 
 for (const { level, memoryMiB, slots, resolution } of LEVELS) {
   test(`memory limit at ${level}`, async ({ page }) => {
-    await openApp(page);
-    await page.evaluate((name) => {
-      window.__orbitka?.setTextureLevel(name);
-    }, level);
+    await openApp(page, level);
     // The base textures first, so the budget is checked with all of them.
     await page.waitForFunction(
       (count) =>

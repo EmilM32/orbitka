@@ -375,6 +375,7 @@ test('tab order', async ({ page }) => {
     'view-orbits',
     'view-zoom-out',
     'view-zoom-in',
+    'view-settings',
     'time-pause',
   ]);
 
@@ -389,6 +390,7 @@ test('tab order', async ({ page }) => {
     'view-orbits',
     'view-zoom-out',
     'view-zoom-in',
+    'view-settings',
     'time-pause',
   ]);
 });

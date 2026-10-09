@@ -21,6 +21,9 @@ export type SceneView = {
   scene: Scene;
   camera: PerspectiveCamera;
   syncPixelRatio: () => void;
+  /** Upper bound on the pixel ratio from the quality level; null = none. */
+  setPixelRatioCap: (cap: number | null) => void;
+  getPixelRatio: () => number;
   requestFrame: (tick: () => void) => void;
   cancelFrame: () => void;
   onResize: (listener: ResizeListener) => () => void;
@@ -43,6 +46,7 @@ export function createRenderer(canvas: HTMLCanvasElement): SceneView {
   const resizeListeners: ResizeListener[] = [];
 
   let appliedDevicePixelRatio = window.devicePixelRatio;
+  let pixelRatioCap = Number.POSITIVE_INFINITY;
 
   const resize = (): void => {
     const width = document.body.clientWidth;
@@ -54,7 +58,7 @@ export function createRenderer(canvas: HTMLCanvasElement): SceneView {
     appliedDevicePixelRatio = window.devicePixelRatio;
     const coarsePointer = window.matchMedia('(pointer: coarse)').matches;
     renderer.setPixelRatio(
-      resolvePixelRatio(appliedDevicePixelRatio, coarsePointer),
+      resolvePixelRatio(appliedDevicePixelRatio, coarsePointer, pixelRatioCap),
     );
     renderer.setSize(width, height, false);
     // Do not reframe. Distance scaling belongs to the camera controller.
@@ -84,6 +88,17 @@ export function createRenderer(canvas: HTMLCanvasElement): SceneView {
       if (window.devicePixelRatio !== appliedDevicePixelRatio) {
         resize();
       }
+    },
+    setPixelRatioCap(cap) {
+      const next = cap ?? Number.POSITIVE_INFINITY;
+      if (next === pixelRatioCap) {
+        return;
+      }
+      pixelRatioCap = next;
+      resize();
+    },
+    getPixelRatio() {
+      return renderer.getPixelRatio();
     },
     requestFrame(tick: () => void) {
       renderer.setAnimationLoop(() => {

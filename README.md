@@ -13,6 +13,20 @@ npm run dev
 
 Open the address printed in the terminal.
 
+### Production build
+
+```bash
+npm run build      # tsc --noEmit && vite build, output in dist/
+npm run preview    # serves dist/ with vite preview
+```
+
+`vite preview` prints the address, by default `http://localhost:4173`. Options go after `--`:
+
+- `npm run preview -- --host` exposes the app on the local network (for example to test on a tablet).
+- `npm run preview -- --port 5000` changes the port.
+
+`preview` serves the last build, so run `npm run build` again after changing the code. Use `npm run dev` for day-to-day work. Deployment is deferred; `vite preview` is the only supported way to run the build for now.
+
 ## CI
 
 Every pull request and every push to `main` runs the GitHub Actions workflow in `.github/workflows/ci.yml`, with two jobs: `verify` and `e2e`. A push to any other branch runs nothing until it has a pull request. The `verify` job on Node 24 (the version from `.nvmrc`, the same major version as `engines`) runs `npm ci`, then `npm run verify`. Before a pull request, run `npm run verify` locally: the same command checks format (`format:check`), lint, typecheck, tests with coverage, and the build, and stops at the first failure. The check name to mark as required in branch protection for `main` is `verify`; a red result then blocks the merge. A new push to the same branch cancels the previous unfinished run.

@@ -1,11 +1,20 @@
 import './debugOverlay.css';
 
+export type DebugQuality = {
+  level: string;
+  source: string;
+  locked: boolean;
+  medianFps: number | null;
+  p90FrameMs: number | null;
+};
+
 export type DebugStats = {
   fps: number;
   drawCalls: number;
   postFxDrawCalls: number;
   triangles: number;
   textureMiB: number;
+  quality?: DebugQuality;
 };
 
 export type DebugOverlay = {
@@ -68,6 +77,20 @@ function writeMiB(line: HTMLElement, label: string, value: number): void {
     : `${label}: —`;
 }
 
+function writeQuality(
+  qualityLine: HTMLElement,
+  measureLine: HTMLElement,
+  quality: DebugQuality,
+): void {
+  const flags = quality.locked ? `${quality.source}, locked` : quality.source;
+  qualityLine.textContent = `Quality: ${quality.level} (${flags})`;
+  const median =
+    quality.medianFps === null ? '—' : `${Math.floor(quality.medianFps)}`;
+  const p90 =
+    quality.p90FrameMs === null ? '—' : `${quality.p90FrameMs.toFixed(1)} ms`;
+  measureLine.textContent = `Median FPS: ${median}, p90: ${p90}`;
+}
+
 export function createDebugOverlay(parent: HTMLElement): DebugOverlay {
   const root = document.createElement('div');
   root.id = 'debug-overlay';
@@ -82,7 +105,19 @@ export function createDebugOverlay(parent: HTMLElement): DebugOverlay {
   postFxLine.dataset.debugLine = 'postfx';
   trianglesLine.dataset.debugLine = 'triangles';
   texturesLine.dataset.debugLine = 'textures';
-  root.append(fpsLine, callsLine, postFxLine, trianglesLine, texturesLine);
+  const qualityLine = document.createElement('div');
+  const measureLine = document.createElement('div');
+  qualityLine.dataset.debugLine = 'quality';
+  measureLine.dataset.debugLine = 'measure';
+  root.append(
+    fpsLine,
+    callsLine,
+    postFxLine,
+    trianglesLine,
+    texturesLine,
+    qualityLine,
+    measureLine,
+  );
   parent.append(root);
 
   let disposed = false;
@@ -98,6 +133,9 @@ export function createDebugOverlay(parent: HTMLElement): DebugOverlay {
       writeLine(postFxLine, 'Post-FX calls', stats.postFxDrawCalls, false);
       writeLine(trianglesLine, 'Triangles', stats.triangles, false);
       writeMiB(texturesLine, 'Textures', stats.textureMiB);
+      if (stats.quality !== undefined) {
+        writeQuality(qualityLine, measureLine, stats.quality);
+      }
     },
     dispose() {
       if (disposed) {

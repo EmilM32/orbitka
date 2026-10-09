@@ -31,6 +31,7 @@ export function createDebugSession(
         postFxDrawCalls: stats.postFxDrawCalls,
         triangles: stats.triangles,
         textureMiB: stats.textureMiB,
+        quality: stats.quality,
       });
     },
     dispose() {

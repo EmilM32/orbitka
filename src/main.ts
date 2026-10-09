@@ -8,6 +8,12 @@ import { createClock, daysFromDate } from '@core/clock.ts';
 import { shouldShowRail } from '@core/bodiesRail.ts';
 import { createCoachTracker } from '@core/coach.ts';
 import { isDebugEnabled } from '@core/debugFlag.ts';
+import {
+  createQualityStore,
+  loadStoredQuality,
+  resolveInitialQuality,
+  type QualityLevel,
+} from '@core/quality.ts';
 import { createLoop } from '@core/loop.ts';
 import { createReducedMotion } from '@core/reducedMotion.ts';
 import { getSelectableBodies } from '@core/selectableBodies.ts';
@@ -21,6 +27,7 @@ import { bodies } from '@data/bodies.ts';
 import { radiusToScene } from '@sim/scale.ts';
 import { createBodyAnimator } from '@render/animateBodies.ts';
 import { createMoonAnimator } from '@render/animateMoons.ts';
+import { applyQualityLevel } from '@render/applyQuality.ts';
 import { createBodies } from '@render/bodies.ts';
 import { createBodyPicker } from '@render/bodyPicker.ts';
 import { createBodyProjector } from '@render/bodyProjector.ts';
@@ -45,7 +52,6 @@ import { createSunGlow } from '@render/sunGlow.ts';
 import { getRenderStats, trackDebugDrawCalls } from '@render/renderStats.ts';
 import { createTextureMemory } from '@render/textureMemory.ts';
 import {
-  TEXTURE_LIMITS,
   TEXTURE_SOURCE,
   createTextureLoader,
   createTextureStore,
@@ -83,11 +89,11 @@ const BODIES_WITHOUT_CONTENT = new Set([
   'callisto',
 ]);
 
-function orbitStorage(): Pick<Storage, 'getItem' | 'setItem'> | null {
+function localStore(): Storage | null {
   try {
     return window.localStorage;
   } catch {
-    // Reading localStorage can throw. The group then stays in memory only.
+    // Reading localStorage can throw (private mode). State then stays in memory.
     return null;
   }
 }
@@ -143,8 +149,16 @@ function mount(canvas: HTMLCanvasElement): App {
     surface: canvas,
     controller: cameraController,
   });
-  // The quality levels pick the star count later (light mode task).
-  const starfield = createStarfield(STAR_COUNTS.high);
+  const storage = localStore();
+  const search = window.location.search;
+  const pointerCoarse = window.matchMedia('(pointer: coarse)').matches;
+  const stored = loadStoredQuality(storage);
+  const quality = createQualityStore(
+    resolveInitialQuality({ search, pointerCoarse, ...stored }),
+    storage,
+    { fallbackLevel: pointerCoarse ? 'medium' : 'high' },
+  );
+  const starfield = createStarfield(STAR_COUNTS[quality.get()]);
   view.scene.add(starfield.points);
   const bodyView = createBodies(bodies, textureMemory);
   view.scene.add(bodyView.group);
@@ -159,8 +173,6 @@ function mount(canvas: HTMLCanvasElement): App {
       console.warn(message);
     },
   });
-  // Until the quality levels (EMI-223) subscribe with their own level.
-  textureStore.setLimits(TEXTURE_LIMITS.high);
   const sunMesh = bodyView.meshes.get('sun');
   const sunRadius = bodyView.radii.get('sun');
   const sunDef = bodies.find((body) => body.type === 'star');
@@ -169,6 +181,18 @@ function mount(canvas: HTMLCanvasElement): App {
   }
   const sunGlow = createSunGlow(sunRadius, sunDef.visual.color, textureMemory);
   sunMesh.add(sunGlow.sprite);
+  const qualityTargets = {
+    spheres: bodyView.spheres,
+    starfield,
+    textureStore,
+    view,
+  };
+  const applyLevel = (level: QualityLevel): void => {
+    applyQualityLevel(level, qualityTargets);
+    document.documentElement.dataset.quality = level;
+  };
+  applyLevel(quality.get());
+  const unsubscribeQuality = quality.subscribe(applyLevel);
   const orbitLines = addOrbitLines(view.scene, bodies);
   // The selected body the orbit lines leave a gap around (null = none).
   let gapMesh: ReturnType<typeof bodyView.meshes.get> | null = null;
@@ -275,7 +299,6 @@ function mount(canvas: HTMLCanvasElement): App {
     }
   });
   view.scene.add(createLights());
-  const search = window.location.search;
   const clock = createClock({
     startDays: parseStartDays(search, daysFromDate(new Date())),
   });
@@ -297,6 +320,17 @@ function mount(canvas: HTMLCanvasElement): App {
       postFxDrawCalls: frameRenderer.getPostFxDrawCalls(),
       textureMiB: textureMemory.getMiB(),
     });
+  const readQuality = () => {
+    const summary = quality.getLastSummary();
+    return {
+      level: quality.get(),
+      source: quality.getSource(),
+      locked: quality.isLocked(),
+      medianFps: summary?.medianFps ?? null,
+      p90FrameMs: summary?.p90FrameMs ?? null,
+      pixelRatio: view.getPixelRatio(),
+    };
+  };
   const i18n = createI18n(pl, 'pl-PL');
   // Validated at startup so a broken content file fails fast.
   const bodyContent = parseBodyContentCatalog(
@@ -372,13 +406,18 @@ function mount(canvas: HTMLCanvasElement): App {
   const viewControls = createViewControls(document.body, {
     i18n,
     selection,
-    storage: orbitStorage(),
+    storage,
     onZoom: (factor) => {
       cameraController.zoomBy(factor, false);
     },
     onOrbitsChange: (visible) => {
       orbitLines.setOrbitLinesVisible(visible);
     },
+    onQualityChange: (level) => {
+      quality.setOverride(level);
+    },
+    qualityValue: quality.getSource() === 'override' ? quality.get() : null,
+    qualityLocked: quality.getSource() === 'param',
     before: canvas.nextSibling ?? undefined,
   });
   const tabletQuery = window.matchMedia(
@@ -569,8 +608,8 @@ function mount(canvas: HTMLCanvasElement): App {
       getTextureState() {
         return textureStore.getState();
       },
-      setTextureLevel(level) {
-        textureStore.setLimits(TEXTURE_LIMITS[level]);
+      getQuality() {
+        return readQuality();
       },
       getOrbitState() {
         const opacities: number[] = [];
@@ -616,6 +655,10 @@ function mount(canvas: HTMLCanvasElement): App {
   const loop = createLoop({
     update(dtSeconds) {
       simDt = dtSeconds;
+      // The first frame after a start or a resume has dt = 0: no sample.
+      if (dtSeconds > 0) {
+        quality.sampleFrame(dtSeconds, !document.hidden);
+      }
       clock.tick(dtSeconds);
       animator.update(clock.days);
       moonAnimator.update(clock.days, clock.daysPerSecond);
@@ -669,7 +712,7 @@ function mount(canvas: HTMLCanvasElement): App {
       const nowMs = performance.now();
       debugSession.tick(nowMs);
       if (nowMs - lastUiMs >= 100) {
-        debugSession.update(readRenderStats());
+        debugSession.update({ ...readRenderStats(), quality: readQuality() });
         lastUiMs = nowMs;
       }
     },
@@ -679,13 +722,21 @@ function mount(canvas: HTMLCanvasElement): App {
 
   const onVisibilityChange = (): void => {
     if (document.hidden) {
+      // A hidden tab ends the window and the warmup; both start over on return.
+      quality.sampleFrame(0, false);
       loop.stop();
     } else {
       loop.start();
     }
   };
 
+  // The level for the next session is saved when the page goes away.
+  const onPageHide = (): void => {
+    quality.flush();
+  };
+
   document.addEventListener('visibilitychange', onVisibilityChange);
+  window.addEventListener('pagehide', onPageHide);
 
   if (!document.hidden) {
     loop.start();
@@ -695,6 +746,8 @@ function mount(canvas: HTMLCanvasElement): App {
     dispose() {
       loop.stop();
       document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('pagehide', onPageHide);
+      unsubscribeQuality();
       announcer.dispose();
       unsubscribeListMode();
       tabletListQuery.removeEventListener('change', updateListMode);

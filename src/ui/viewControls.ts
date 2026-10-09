@@ -1,6 +1,7 @@
 import './viewControls.css';
 
 import { CAMERA_CONFIG } from '@core/cameraConfig.ts';
+import { parseQualityLevel, type QualityLevel } from '@core/quality.ts';
 import { type Selection } from '@core/selection.ts';
 
 import { type Dictionary, type I18n } from './i18n.ts';
@@ -31,6 +32,12 @@ export type ViewControlsOptions = {
   storage: OrbitsStorage | null;
   onZoom: (factor: number) => void;
   onOrbitsChange: (visible: boolean) => void;
+  /** `null` = automatic. */
+  onQualityChange: (level: QualityLevel | null) => void;
+  /** The saved manual level; `null` = automatic. */
+  qualityValue: QualityLevel | null;
+  /** `?quality=` in the address fixes the level, so the select is off. */
+  qualityLocked: boolean;
   before?: Node;
 };
 
@@ -39,10 +46,12 @@ export function createViewControls(
   options: ViewControlsOptions,
 ): ViewControls {
   const { i18n, selection, storage, onZoom, onOrbitsChange } = options;
+  const { onQualityChange } = options;
   let visible = loadOrbitsVisible(storage);
   let disposed = false;
   let atMin = false;
   let atMax = false;
+  let panelOpen = false;
 
   const element = document.createElement('div');
   element.setAttribute('id', 'view-controls');
@@ -74,15 +83,90 @@ export function createViewControls(
   zoomIn.classList.add('view-zoom');
   zoomIn.setAttribute('aria-label', i18n.t('view.zoomIn.ariaLabel'));
   zoomIn.append(createIcon('plus'));
-  element.append(reset, orbits, zoomOut, zoomIn);
+  const settings = button('view-settings');
+  settings.classList.add('view-settings');
+  settings.setAttribute('aria-label', i18n.t('view.settings.ariaLabel'));
+  settings.setAttribute('aria-expanded', 'false');
+  settings.setAttribute('aria-controls', 'view-settings-panel');
+  settings.append(createIcon('settings'));
+
+  const panel = document.createElement('div');
+  panel.id = 'view-settings-panel';
+  panel.className = 'o-glass view-settings-panel';
+  panel.setAttribute('data-testid', 'view-settings-panel');
+  panel.hidden = true;
+  const select = document.createElement('select');
+  select.id = 'view-quality';
+  select.className = 'view-quality';
+  select.setAttribute('data-testid', 'view-quality');
+  const selectLabel = document.createElement('label');
+  selectLabel.htmlFor = select.id;
+  selectLabel.textContent = i18n.t('view.quality.label');
+  for (const value of ['auto', 'high', 'medium', 'low'] as const) {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = i18n.t(`view.quality.${value}`);
+    select.append(option);
+  }
+  select.value = options.qualityValue ?? 'auto';
+  panel.append(selectLabel, select);
+  if (options.qualityLocked) {
+    const hint = document.createElement('p');
+    hint.id = 'view-quality-hint';
+    hint.className = 'view-quality-hint';
+    hint.textContent = i18n.t('view.quality.lockedHint');
+    select.disabled = true;
+    select.setAttribute('aria-describedby', hint.id);
+    panel.append(hint);
+  }
+  element.append(reset, orbits, zoomOut, zoomIn, settings, panel);
 
   element.addEventListener('click', onClick);
+  element.addEventListener('keydown', onKeyDown);
+  select.addEventListener('change', onSelectChange);
   if (options.before === undefined) {
     parent.append(element);
   } else {
     parent.insertBefore(element, options.before);
   }
   onOrbitsChange(visible);
+
+  function setPanelOpen(open: boolean, restoreFocus: boolean): void {
+    if (panelOpen === open) {
+      return;
+    }
+    panelOpen = open;
+    panel.hidden = !open;
+    settings.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) {
+      document.addEventListener('pointerdown', onOutsidePointer, true);
+    } else {
+      document.removeEventListener('pointerdown', onOutsidePointer, true);
+      if (restoreFocus) {
+        settings.focus();
+      }
+    }
+  }
+
+  function onOutsidePointer(event: Event): void {
+    if (event.target instanceof Node && !element.contains(event.target)) {
+      setPanelOpen(false, false);
+    }
+  }
+
+  function onKeyDown(event: KeyboardEvent): void {
+    if (disposed || event.key !== 'Escape' || !panelOpen) {
+      return;
+    }
+    // Esc closes the panel only; the card and the lists keep their state.
+    event.stopPropagation();
+    setPanelOpen(false, true);
+  }
+
+  function onSelectChange(): void {
+    // 'auto' is not a level, so the parse gives null: automatic.
+    onQualityChange(parseQualityLevel(select.value));
+  }
 
   function onClick(event: Event): void {
     if (disposed) {
@@ -101,6 +185,10 @@ export function createViewControls(
       return;
     }
     const testId = control.getAttribute('data-testid');
+    if (testId === 'view-settings') {
+      setPanelOpen(!panelOpen, false);
+      return;
+    }
     if (testId === 'view-reset') {
       selection.showSystem();
       return;
@@ -145,7 +233,10 @@ export function createViewControls(
         return;
       }
       disposed = true;
+      document.removeEventListener('pointerdown', onOutsidePointer, true);
       element.removeEventListener('click', onClick);
+      element.removeEventListener('keydown', onKeyDown);
+      select.removeEventListener('change', onSelectChange);
       element.remove();
     },
   };

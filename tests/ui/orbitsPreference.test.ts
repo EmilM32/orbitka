@@ -43,6 +43,9 @@ function mount(storage: OrbitsStorage | null = null) {
     storage,
     onZoom: vi.fn<(factor: number) => void>(),
     onOrbitsChange,
+    onQualityChange: vi.fn(),
+    qualityValue: null,
+    qualityLocked: false,
   });
   return { controls, onOrbitsChange };
 }
@@ -195,6 +198,7 @@ test('tab order inside group', () => {
     'view-orbits',
     'view-zoom-out',
     'view-zoom-in',
+    'view-settings',
   ]);
   controls.dispose();
 });
@@ -209,6 +213,9 @@ test('dispose cleans up', () => {
     storage: null,
     onZoom,
     onOrbitsChange,
+    onQualityChange: vi.fn(),
+    qualityValue: null,
+    qualityLocked: false,
   });
   const orbits = button('view-orbits');
   const zoomIn = button('view-zoom-in');

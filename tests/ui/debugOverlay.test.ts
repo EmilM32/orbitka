@@ -131,3 +131,47 @@ test('debugOverlay › dispose', () => {
   expect(document.querySelector('#debug-overlay')).toBeNull();
   parent.remove();
 });
+
+test('debugOverlay › quality lines', () => {
+  const parent = document.createElement('div');
+  const overlay = createDebugOverlay(parent);
+  const stats = {
+    fps: 60,
+    drawCalls: 1,
+    postFxDrawCalls: 0,
+    triangles: 1,
+    textureMiB: 0,
+  };
+
+  overlay.update({
+    ...stats,
+    quality: {
+      level: 'low',
+      source: 'param',
+      locked: true,
+      medianFps: null,
+      p90FrameMs: null,
+    },
+  });
+  expect(line(parent, 'quality').textContent).toBe(
+    'Quality: low (param, locked)',
+  );
+  expect(line(parent, 'measure').textContent).toBe('Median FPS: —, p90: —');
+
+  overlay.update({
+    ...stats,
+    quality: {
+      level: 'medium',
+      source: 'auto',
+      locked: false,
+      medianFps: 47.8,
+      p90FrameMs: 27.04,
+    },
+  });
+  expect(line(parent, 'quality').textContent).toBe('Quality: medium (auto)');
+  expect(line(parent, 'measure').textContent).toBe(
+    'Median FPS: 47, p90: 27.0 ms',
+  );
+
+  overlay.dispose();
+});

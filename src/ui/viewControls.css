@@ -58,3 +58,44 @@
 #view-controls .view-orbits[aria-pressed='true']:hover {
   background: var(--c-surface-hover);
 }
+
+#view-controls .view-settings {
+  padding: 0;
+}
+
+/* The panel hangs under the group, right-aligned with it. */
+#view-controls .view-settings-panel {
+  position: absolute;
+  top: calc(100% + var(--s-1));
+  right: 0;
+  flex-direction: column;
+  gap: var(--s-1);
+  min-width: 14rem;
+  padding: var(--s-3);
+  font-size: var(--fs-sm);
+  border-radius: var(--radius-panel);
+}
+
+/* The hidden attribute keeps the panel closed. */
+#view-controls .view-settings-panel:not([hidden]) {
+  display: flex;
+}
+
+#view-controls .view-quality {
+  min-height: 2.75rem;
+  padding: 0 var(--s-2);
+  color: var(--c-text);
+  font: inherit;
+  background: var(--c-surface-strong);
+  border: var(--border);
+  border-radius: var(--radius-control);
+}
+
+#view-controls .view-quality:disabled {
+  color: var(--c-text-disabled);
+}
+
+#view-controls .view-quality-hint {
+  margin: 0;
+  color: var(--c-text-2);
+}

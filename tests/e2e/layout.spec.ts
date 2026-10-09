@@ -262,6 +262,41 @@ test('drawer at tablet sizes', async ({ page }) => {
   }
 });
 
+// EMI-227: the open drawer is the top layer, so its Esc closes only the drawer.
+test('Esc in the tablet drawer keeps the card', async ({ page }) => {
+  test.setTimeout(120_000);
+  await openAt(page, TABLET_PORTRAIT, '/?debug=1&paused=1');
+
+  // Without a selection: the drawer closes, focus returns to "Planety".
+  const planets = page.getByRole('button', { name: 'Planety' });
+  await planets.click();
+  await expect(page.getByTestId('body-item-sun')).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('bodies-drawer')).toBeHidden();
+  await expect(planets).toBeFocused();
+
+  // With a card: the first Esc closes the drawer, the card and selection stay.
+  await selectBody(page, 'saturn');
+  await planets.click();
+  await expect(page.getByTestId('body-item-saturn')).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('bodies-drawer')).toBeHidden();
+  await expect(planets).toBeFocused();
+  await expect(page.getByTestId('body-card')).toBeVisible();
+  expect(await page.evaluate(() => window.__orbitka?.getSelectedId())).toBe(
+    'saturn',
+  );
+});
+
+test('Esc in the desktop list still leaves the card', async ({ page }) => {
+  test.setTimeout(120_000);
+  await openAt(page, DESKTOP_WIDE, '/?debug=1&paused=1');
+  await selectBody(page, 'saturn');
+  await page.getByTestId('body-item-saturn').focus();
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => window.__orbitka?.getSelectedId() === null);
+});
+
 test('drawer stays open when the tablet turns', async ({ page }) => {
   await page.setViewportSize(TABLET_PORTRAIT);
   await page.goto('/');
@@ -1067,8 +1102,46 @@ test.describe('M4 states', () => {
         .isVisible();
       await quiet(page);
       await expectNoCollisions(page, size, 'start', [...base, 'coach']);
-      // The issue checks the training in the start state only. On the
-      // tablet it overlaps the open drawer (reported on EMI-224 as a fix).
+      if (tablet) {
+        // The open drawer is the top layer: the training steps aside and every
+        // body in the list stays clickable (EMI-226).
+        await page.getByRole('button', { name: 'Planety' }).click();
+        await expect(page.getByTestId('bodies-drawer')).toBeVisible();
+        await quiet(page);
+        await expectNoCollisions(page, size, 'drawer open with training', [
+          ...base,
+          'drawer',
+        ]);
+        await expect(page.getByTestId('coach')).toBeVisible();
+        await expect(
+          page.getByRole('region', { name: 'Trening pilota' }),
+        ).toBeHidden();
+        const ids = await page
+          .locator('[data-testid^="body-item-"]')
+          .evaluateAll((items) =>
+            items.map((item) => item.getAttribute('data-testid') ?? ''),
+          );
+        expect(ids.length).toBeGreaterThan(8);
+        for (const id of ids) {
+          const hit = await page.getByTestId(id).evaluate((el) => {
+            el.scrollIntoView({ block: 'nearest' });
+            const rect = el.getBoundingClientRect();
+            const top = document.elementFromPoint(
+              rect.x + rect.width / 2,
+              rect.y + rect.height / 2,
+            );
+            return el.contains(top);
+          });
+          expect(hit, `${size.width}x${size.height}: ${id} is covered`).toBe(
+            true,
+          );
+        }
+        await page.getByRole('button', { name: 'Zamknij listę ciał' }).click();
+        await expect(page.getByTestId('bodies-drawer')).toBeHidden();
+        await expect(
+          page.getByRole('region', { name: 'Trening pilota' }),
+        ).toBeVisible();
+      }
       await page.getByRole('button', { name: 'Pomiń' }).click();
       await expect(
         page.getByRole('region', { name: 'Trening pilota' }),

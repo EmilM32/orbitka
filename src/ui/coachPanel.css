@@ -30,6 +30,14 @@
   transform: none;
 }
 
+/*
+ * Tablet: the open drawer is the top layer (SPEC §4), so the training steps
+ * aside until it closes. Hidden, not removed: no hit testing, no Tab stop.
+ */
+body:has(#bodies-drawer:not([hidden])) #coach.is-tablet .coach {
+  visibility: hidden;
+}
+
 .coach {
   display: flex;
   flex-direction: column;

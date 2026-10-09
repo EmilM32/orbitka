@@ -65,6 +65,8 @@ Kolejność od dołu:
 
 Panel czasu leży nad kartą, bo karta kończy się 16 px nad nim. Na tablecie arkusz jest nad sceną, ale pod szufladą.
 
+Na tablecie szuflada „Planety” jest najwyższą warstwą (z 50 nad treningiem z 60 tylko do czasu jej zamknięcia): na czas otwartej szuflady panel treningu jest ukryty (`visibility: hidden`), a po jej zamknięciu wraca z zachowanym postępem. Esc w otwartej szufladzie zamyka tylko szufladę; karta i wybór zostają, fokus wraca na „Planety”.
+
 ## 5. Komponenty i stany
 
 Każdy komponent interaktywny ma stany: domyślny, hover, fokus, aktywny (wciśnięty) i wyłączony. Wszystkie są pokazane na `components.png`.

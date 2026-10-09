@@ -75,7 +75,9 @@ export function createBodiesDrawer(
   openButton.addEventListener('click', onOpenClick);
   openButton.addEventListener('keydown', onEscape);
   closeButton.addEventListener('click', onCloseClick);
-  drawer.addEventListener('keydown', onEscape);
+  // Capture: the open drawer is the top layer (SPEC §4), so its Esc runs
+  // before the list's own Esc, which would close the card instead.
+  drawer.addEventListener('keydown', onEscape, true);
   const unsubscribe = selection.subscribe(onSelection);
 
   return {
@@ -126,7 +128,7 @@ export function createBodiesDrawer(
     openButton.removeEventListener('click', onOpenClick);
     openButton.removeEventListener('keydown', onEscape);
     closeButton.removeEventListener('click', onCloseClick);
-    drawer.removeEventListener('keydown', onEscape);
+    drawer.removeEventListener('keydown', onEscape, true);
     document.removeEventListener('pointerdown', onOutsidePointerDown, true);
     unsubscribe();
     openButton.remove();
@@ -161,6 +163,7 @@ export function createBodiesDrawer(
     }
 
     event.preventDefault();
+    event.stopPropagation();
     finishClose(true);
   }
 

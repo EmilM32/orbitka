@@ -11,6 +11,7 @@ import {
 import { createCamera } from './camera.ts';
 import { resolvePixelRatio } from './pixelRatio.ts';
 import { watchDevicePixelRatio } from './watchDevicePixelRatio.ts';
+import { WebGLUnavailableError } from './webglSupport.ts';
 
 const CLEAR_COLOR = 0x000000;
 
@@ -30,8 +31,17 @@ export type SceneView = {
   dispose: () => void;
 };
 
+function createWebGLRenderer(canvas: HTMLCanvasElement): WebGLRenderer {
+  try {
+    return new WebGLRenderer({ canvas, antialias: true });
+  } catch (error) {
+    throw new WebGLUnavailableError(error);
+  }
+}
+
+/** Throws WebGLUnavailableError when the browser has no WebGL context. */
 export function createRenderer(canvas: HTMLCanvasElement): SceneView {
-  const renderer = new WebGLRenderer({ canvas, antialias: true });
+  const renderer = createWebGLRenderer(canvas);
   renderer.setClearColor(CLEAR_COLOR, 1);
   // ADR-010 point 5: ACES already in stage 1; bloom comes in stage 2.
   renderer.toneMapping = ACESFilmicToneMapping;

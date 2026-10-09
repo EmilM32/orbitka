@@ -106,6 +106,11 @@ body {
   touch-action: none;
 }
 
+/* No WebGL: main.ts hides the canvas and shows a notice. */
+#viewport[hidden] {
+  display: none;
+}
+
 #viewport:focus-visible {
   outline: 2px solid var(--c-focus);
   outline-offset: -2px;

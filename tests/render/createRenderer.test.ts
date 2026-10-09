@@ -2,6 +2,8 @@
 
 import { expect, test, vi } from 'vitest';
 
+const rendererFailure = vi.hoisted(() => ({ next: false }));
+
 vi.mock('three', async () => {
   const actual = await vi.importActual<typeof import('three')>('three');
 
@@ -9,6 +11,10 @@ vi.mock('three', async () => {
     domElement: HTMLCanvasElement;
 
     constructor(options: { canvas: HTMLCanvasElement }) {
+      if (rendererFailure.next) {
+        rendererFailure.next = false;
+        throw new Error('Error creating WebGL context.');
+      }
       this.domElement = options.canvas;
     }
 
@@ -146,4 +152,25 @@ test('createRenderer › uses ACES tone mapping', async () => {
   expect(view.renderer.toneMapping).toBe(ACESFilmicToneMapping);
   expect(view.renderer.toneMappingExposure).toBe(1);
   view.dispose();
+});
+
+test('createRenderer › no WebGL context throws WebGLUnavailableError', async () => {
+  vi.stubGlobal('ResizeObserver', RecordingResizeObserver);
+  setBodySize(1280, 720);
+  const { createRenderer } = await import('@render/createRenderer.ts');
+  const { isWebGLUnavailable } = await import('@render/webglSupport.ts');
+  const canvas = document.createElement('canvas');
+  document.body.append(canvas);
+  rendererFailure.next = true;
+
+  let caught: unknown = null;
+  try {
+    createRenderer(canvas);
+  } catch (error) {
+    caught = error;
+  }
+
+  expect(isWebGLUnavailable(caught)).toBe(true);
+  expect((caught as Error).cause).toBeInstanceOf(Error);
+  expect(isWebGLUnavailable(new Error('other'))).toBe(false);
 });

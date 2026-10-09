@@ -46,6 +46,7 @@ import { createCameraPointerInput } from '@render/cameraPointerInput.ts';
 import { createCanvasKeyboard } from '@render/canvasKeyboard.ts';
 import { createFrameRenderer } from '@render/frameRenderer.ts';
 import { createRenderer } from '@render/createRenderer.ts';
+import { isWebGLUnavailable } from '@render/webglSupport.ts';
 import { createRotationAnimator } from '@render/rotateBodies.ts';
 import { createStarfield } from '@render/starfield.ts';
 import { createSunGlow } from '@render/sunGlow.ts';
@@ -68,6 +69,7 @@ import { loadCoachDone, type CoachStorages } from '@ui/coachPreference.ts';
 import { createBodyLabels } from '@ui/bodyLabels.ts';
 import { createDebugSession } from '@ui/debugSession.ts';
 import { createI18n } from '@ui/i18n.ts';
+import { showSceneUnavailable } from '@ui/sceneUnavailable.ts';
 import { createLayoutObserver } from '@ui/layoutObserver.ts';
 import { createPageHeader } from '@ui/pageHeader.ts';
 import { createScaleNotice } from '@ui/scaleNotice.ts';
@@ -332,6 +334,12 @@ function mount(canvas: HTMLCanvasElement): App {
     };
   };
   const i18n = createI18n(pl, 'pl-PL');
+  // three stops the loop on context loss; the student gets a way out.
+  const onContextLost = (): void => {
+    console.error('WebGL context lost; the scene stopped rendering.');
+    showSceneUnavailable(document.body, i18n, 'lost');
+  };
+  canvas.addEventListener('webglcontextlost', onContextLost);
   // Validated at startup so a broken content file fails fast.
   const bodyContent = parseBodyContentCatalog(
     bodyContentRaw,
@@ -777,6 +785,8 @@ function mount(canvas: HTMLCanvasElement): App {
       debugSession?.dispose();
       unsubscribeClock?.();
       unsubscribeClock = null;
+      // dispose() forces a context loss itself, so stop listening first.
+      canvas.removeEventListener('webglcontextlost', onContextLost);
       delete window.__orbitka;
       debugDraws?.dispose();
       debugAxes?.dispose();
@@ -799,7 +809,25 @@ function mount(canvas: HTMLCanvasElement): App {
 
 // Vite keeps every replaced version of this module alive, so after HMR the
 // module scope must not hold the renderer, the scene, or the old canvas.
-let app: App | null = mount(findCanvas());
+function start(): App | null {
+  const canvas = findCanvas();
+  try {
+    return mount(canvas);
+  } catch (error) {
+    if (!isWebGLUnavailable(error)) {
+      throw error;
+    }
+    console.error(
+      'WebGL is unavailable; showing a notice instead of the scene.',
+      error.cause,
+    );
+    canvas.hidden = true;
+    showSceneUnavailable(document.body, createI18n(pl, 'pl-PL'), 'unsupported');
+    return null;
+  }
+}
+
+let app: App | null = start();
 
 const dispose = (): void => {
   app?.dispose();

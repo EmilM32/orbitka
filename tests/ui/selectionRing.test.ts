@@ -19,6 +19,7 @@ function placeEarth(
   frame.y[1] = y;
   frame.depth[1] = 10;
   frame.radiusPx[1] = radiusPx;
+  frame.outlineRadiusPx[1] = radiusPx;
   frame.visible[1] = visible;
 }
 
@@ -280,6 +281,19 @@ test('update does not allocate', () => {
     expect(mapSetCalls).toBe(0);
   }
 
+  ring.dispose();
+  selection.dispose();
+});
+
+test('ring follows the outline radius (Saturn and its rings), not the sphere', () => {
+  const { selection, frame, ring } = mount();
+  placeEarth(frame, 400, 300, 20);
+  frame.outlineRadiusPx[1] = 45;
+  selection.select('earth');
+  ring.update(0.1);
+
+  // Outline radius + 8 px (SPEC §5.5), not the sphere's 20 px.
+  expect(ring.element.style.width).toBe('106px');
   ring.dispose();
   selection.dispose();
 });

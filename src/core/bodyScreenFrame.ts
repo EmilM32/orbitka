@@ -6,6 +6,8 @@ export type BodyScreenFrame = {
   y: Float64Array;
   depth: Float64Array;
   radiusPx: Float64Array;
+  /** Radius of everything drawn with the body (Saturn: its rings), CSS px. */
+  outlineRadiusPx: Float64Array;
   visible: Uint8Array;
 };
 
@@ -23,6 +25,7 @@ export function createBodyScreenFrame(ids: readonly string[]): BodyScreenFrame {
     y: new Float64Array(count),
     depth: new Float64Array(count),
     radiusPx: new Float64Array(count),
+    outlineRadiusPx: new Float64Array(count),
     visible: new Uint8Array(count),
   };
 }

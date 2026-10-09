@@ -289,3 +289,25 @@ test('radius covers the drawn sphere close up and off axis', () => {
     projector.dispose();
   }
 });
+
+test('outline radius covers framingRadius; radiusPx keeps the sphere', () => {
+  const camera = createCamera(WIDTH / HEIGHT);
+  const entries: ProjectorEntry[] = [
+    {
+      id: 'saturn',
+      position: { x: 0, y: 0, z: 0 },
+      displayRadius: 2,
+      framingRadius: 4.5,
+    },
+    { id: 'jupiter', position: { x: 10, y: 0, z: 0 }, displayRadius: 2 },
+  ];
+  const projector = createBodyProjector(entries, resizeView());
+  projector.update(camera, WIDTH, HEIGHT);
+
+  const sphere = projector.frame.radiusPx[0] ?? 0;
+  const outline = projector.frame.outlineRadiusPx[0] ?? 0;
+  expect(sphere).toBeGreaterThan(0);
+  expect(outline).toBeGreaterThan(sphere * 2);
+  expect(projector.frame.outlineRadiusPx[1]).toBe(projector.frame.radiusPx[1]);
+  projector.dispose();
+});

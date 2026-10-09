@@ -8,11 +8,16 @@ import {
 
 import type { ResizeListener, SceneView } from './createRenderer.ts';
 
-/** Live scene position and the rendered sphere radius. */
+/**
+ * Live scene position and the rendered sphere radius. `framingRadius` covers
+ * what is drawn around the sphere (Saturn's rings); hit testing keeps the
+ * sphere, the selection ring uses the outline.
+ */
 export type ProjectorEntry = {
   id: string;
   position: { x: number; y: number; z: number };
   displayRadius: number;
+  framingRadius?: number;
 };
 
 export type BodyProjector = {
@@ -89,6 +94,7 @@ export function createBodyProjector(
           frame.y[index] = 0;
           frame.depth[index] = 0;
           frame.radiusPx[index] = 0;
+          frame.outlineRadiusPx[index] = 0;
           frame.visible[index] = 0;
           continue;
         }
@@ -103,6 +109,16 @@ export function createBodyProjector(
           focalPx,
           fallbackPx,
         );
+        frame.outlineRadiusPx[index] =
+          entry.framingRadius === undefined
+            ? frame.radiusPx[index]
+            : sphereScreenRadiusPx(
+                entry.framingRadius,
+                lateral,
+                depth,
+                focalPx,
+                fallbackPx,
+              );
         const onScreen = x >= 0 && y >= 0 && x <= width && y <= height;
         frame.visible[index] = depth > 0 && ndc.z <= 1 && onScreen ? 1 : 0;
       }

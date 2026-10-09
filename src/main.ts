@@ -209,16 +209,18 @@ function mount(canvas: HTMLCanvasElement): App {
       continue;
     }
     const displayRadius = radiusToScene(body.radiusKm);
+    const framingRadius = bodyView.rings.get(body.id)?.framingRadius;
     projectorEntries.push({
       id: body.id,
       position: mesh.position,
       displayRadius,
+      framingRadius,
     });
     directorBodies.push({
       id: body.id,
       object: mesh,
       displayRadius,
-      framingRadius: bodyView.rings.get(body.id)?.framingRadius,
+      framingRadius,
       isSun: body.type === 'star',
     });
   }
@@ -263,10 +265,11 @@ function mount(canvas: HTMLCanvasElement): App {
     if (mesh === undefined || radius === undefined) {
       continue;
     }
+    // A label sits outside Saturn's rings, not on them.
     labelEntries.push({
       id: body.id,
       position: mesh.position,
-      displayRadius: radius,
+      displayRadius: bodyView.rings.get(body.id)?.framingRadius ?? radius,
     });
     labelBodies.push({
       id: body.id,

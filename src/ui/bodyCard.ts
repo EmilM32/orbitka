@@ -199,7 +199,12 @@ export function createBodyCard(
 
     let gauge = gauges.get(body.id);
     if (gauge === undefined) {
-      gauge = createDiameterGauge(bodyFacts.diameterVsEarth, body, i18n);
+      gauge = createDiameterGauge(
+        bodyFacts.diameterVsEarth,
+        body,
+        i18n,
+        bodyFacts.isReference,
+      );
       gauges.set(body.id, gauge);
     }
     gaugeSlot.replaceChildren(gauge);

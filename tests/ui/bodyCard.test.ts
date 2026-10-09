@@ -151,9 +151,9 @@ describe('variants', () => {
     ],
     [
       'earth',
-      ['1 × Ziemia', 'Ziemia jest punktem odniesienia dla pozostałych planet.'],
+      ['Ziemia jest punktem odniesienia dla pozostałych planet.'],
       { 'Rok trwa': '1 rok', 'Obrót wokół osi': '23 h 56 min' },
-      true,
+      false,
     ],
     [
       'moon',
@@ -171,6 +171,9 @@ describe('variants', () => {
     const values = factValues(card);
     for (const [key, value] of Object.entries(facts)) {
       expect(values[key]).toBe(value);
+    }
+    if (id === 'earth') {
+      expect(card.element.textContent).not.toContain('1 × Ziemia');
     }
     if (id === 'sun' || id === 'moon') {
       expect(values['Rok trwa']).toBeUndefined();

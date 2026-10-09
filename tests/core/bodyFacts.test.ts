@@ -49,6 +49,7 @@ describe('bodyFacts', () => {
       expect(facts.yearEarthYears).toBeCloseTo(year, 3);
     }
     expect(facts.dayHours).toBeCloseTo(day, 3);
+    expect(facts.isReference).toBe(id === 'earth');
   });
 
   test('diameterGauge', () => {

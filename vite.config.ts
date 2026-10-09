@@ -1,7 +1,9 @@
 import { defineConfig } from 'vite';
 import { layerAliases } from './aliases.ts';
+import { htmlCopy } from './htmlCopy.ts';
 
 export default defineConfig({
+  plugins: [htmlCopy()],
   resolve: {
     alias: layerAliases,
   },

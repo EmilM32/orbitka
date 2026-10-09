@@ -25,6 +25,7 @@
   "bodies.neptune.nameGenitive": "Neptuna",
   "app.title": "Orbitka: Układ Słoneczny",
   "app.brand": "Orbitka",
+  "app.description": "Interaktywny model Układu Słonecznego dla uczniów od 12 lat: planety, ich orbity i ruch w czasie.",
   "sceneUnavailable.unsupported.title": "Ta przeglądarka nie pokaże sceny 3D",
   "sceneUnavailable.unsupported.body": "Orbitka potrzebuje grafiki WebGL. Otwórz ją w aktualnym Chrome, Edge, Firefoksie lub Safari albo włącz w ustawieniach przeglądarki akcelerację sprzętową.",
   "sceneUnavailable.lost.title": "Scena 3D przestała działać",

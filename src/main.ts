@@ -46,6 +46,7 @@ import { createCameraPointerInput } from '@render/cameraPointerInput.ts';
 import { createCanvasKeyboard } from '@render/canvasKeyboard.ts';
 import { createFrameRenderer } from '@render/frameRenderer.ts';
 import { createRenderer } from '@render/createRenderer.ts';
+import { isWebGLUnavailable } from '@render/webglSupport.ts';
 import { createRotationAnimator } from '@render/rotateBodies.ts';
 import { createStarfield } from '@render/starfield.ts';
 import { createSunGlow } from '@render/sunGlow.ts';
@@ -66,8 +67,10 @@ import { createBodyCard } from '@ui/bodyCard.ts';
 import { createCoachPanel, type CoachPanel } from '@ui/coachPanel.ts';
 import { loadCoachDone, type CoachStorages } from '@ui/coachPreference.ts';
 import { createBodyLabels } from '@ui/bodyLabels.ts';
+import { createLabelObstacles } from '@ui/labelObstacles.ts';
 import { createDebugSession } from '@ui/debugSession.ts';
 import { createI18n } from '@ui/i18n.ts';
+import { showSceneUnavailable } from '@ui/sceneUnavailable.ts';
 import { createLayoutObserver } from '@ui/layoutObserver.ts';
 import { createPageHeader } from '@ui/pageHeader.ts';
 import { createScaleNotice } from '@ui/scaleNotice.ts';
@@ -207,16 +210,18 @@ function mount(canvas: HTMLCanvasElement): App {
       continue;
     }
     const displayRadius = radiusToScene(body.radiusKm);
+    const framingRadius = bodyView.rings.get(body.id)?.framingRadius;
     projectorEntries.push({
       id: body.id,
       position: mesh.position,
       displayRadius,
+      framingRadius,
     });
     directorBodies.push({
       id: body.id,
       object: mesh,
       displayRadius,
-      framingRadius: bodyView.rings.get(body.id)?.framingRadius,
+      framingRadius,
       isSun: body.type === 'star',
     });
   }
@@ -332,6 +337,12 @@ function mount(canvas: HTMLCanvasElement): App {
     };
   };
   const i18n = createI18n(pl, 'pl-PL');
+  // three stops the loop on context loss; the student gets a way out.
+  const onContextLost = (): void => {
+    console.error('WebGL context lost; the scene stopped rendering.');
+    showSceneUnavailable(document.body, i18n, 'lost');
+  };
+  canvas.addEventListener('webglcontextlost', onContextLost);
   // Validated at startup so a broken content file fails fast.
   const bodyContent = parseBodyContentCatalog(
     bodyContentRaw,
@@ -480,11 +491,27 @@ function mount(canvas: HTMLCanvasElement): App {
     root: document.documentElement,
   });
   const announcer = createAnnouncer(document.body, selection, i18n);
+  // Scene labels stay off the panels (EMI-234).
+  const labelObstacles = createLabelObstacles({
+    root: document.body,
+    elements: () => [
+      pageHeader,
+      // On a tablet the chip wraps to a second row outside the header box.
+      document.getElementById('scale-notice'),
+      bodiesDrawer?.openButton,
+      bodiesPanel.element,
+      viewControls.element,
+      bodyCard.element,
+      timePanel,
+      coachPanel?.element,
+    ],
+  });
   const labels = createBodyLabels(document.body, {
     bodies: labelBodies,
     selection,
     i18n,
     frame: labelProjector.frame,
+    obstacles: labelObstacles,
   });
   const debugSession = createDebugSession(search, document.body);
   let lastUiMs = Number.NEGATIVE_INFINITY;
@@ -759,6 +786,7 @@ function mount(canvas: HTMLCanvasElement): App {
       unsubscribeCoachInput?.();
       unsubscribeCoachSelection?.();
       labels.dispose();
+      labelObstacles.dispose();
       pageHeader.remove();
       director.dispose();
       unsubscribeOffsetResize();
@@ -777,6 +805,8 @@ function mount(canvas: HTMLCanvasElement): App {
       debugSession?.dispose();
       unsubscribeClock?.();
       unsubscribeClock = null;
+      // dispose() forces a context loss itself, so stop listening first.
+      canvas.removeEventListener('webglcontextlost', onContextLost);
       delete window.__orbitka;
       debugDraws?.dispose();
       debugAxes?.dispose();
@@ -799,7 +829,25 @@ function mount(canvas: HTMLCanvasElement): App {
 
 // Vite keeps every replaced version of this module alive, so after HMR the
 // module scope must not hold the renderer, the scene, or the old canvas.
-let app: App | null = mount(findCanvas());
+function start(): App | null {
+  const canvas = findCanvas();
+  try {
+    return mount(canvas);
+  } catch (error) {
+    if (!isWebGLUnavailable(error)) {
+      throw error;
+    }
+    console.error(
+      'WebGL is unavailable; showing a notice instead of the scene.',
+      error.cause,
+    );
+    canvas.hidden = true;
+    showSceneUnavailable(document.body, createI18n(pl, 'pl-PL'), 'unsupported');
+    return null;
+  }
+}
+
+let app: App | null = start();
 
 const dispose = (): void => {
   app?.dispose();

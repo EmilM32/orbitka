@@ -36,7 +36,7 @@ The authors note that unmapped areas of the surfaces are filled with fictional t
 
 ## Icons
 
-The icons in `src/ui/icons.ts` are path data from [Lucide](https://lucide.dev) (`lucide-static` 1.53.0), ISC License:
+The icons in `src/ui/icons.ts` are path data from [Lucide](https://lucide.dev) (`lucide-static` 1.53.0), ISC License. The site icons `public/favicon.svg` and `public/apple-touch-icon.png` reuse the `orbit` icon on the app background:
 
 ```text
 ISC License

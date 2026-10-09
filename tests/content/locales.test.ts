@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 
 import pl from '@content/locales/pl.json' with { type: 'json' };
+import bodyContent from '@content/pl/bodies.json' with { type: 'json' };
 import { bodies } from '@data/bodies.ts';
 
 const messages: Record<string, unknown> = pl;
@@ -133,4 +134,32 @@ test('locales › bodies list texts', () => {
   expect(messages['bodies.au.value']).toBe('{value} j.a.');
   expect(messages['bodies.panel.collapse']).toBe('Zwiń listę do paska');
   expect(messages['bodies.drawer.open']).toBe('Planety');
+});
+
+// Draft markers left by a writer must never reach the student.
+const PLACEHOLDER = /^\s*\[|\[Treści:|\bTODO\b|\bTBD\b|\bFIXME\b|\bLorem\b/i;
+
+function collectStrings(
+  value: unknown,
+  path: string,
+  out: [string, string][],
+): void {
+  if (typeof value === 'string') {
+    out.push([path, value]);
+    return;
+  }
+  if (value !== null && typeof value === 'object') {
+    for (const [key, child] of Object.entries(value)) {
+      collectStrings(child, path === '' ? key : `${path}.${key}`, out);
+    }
+  }
+}
+
+test('locales › no placeholder copy', () => {
+  const strings: [string, string][] = [];
+  collectStrings(messages, '', strings);
+  collectStrings(bodyContent, 'bodies', strings);
+
+  const offenders = strings.filter(([, text]) => PLACEHOLDER.test(text));
+  expect(offenders).toEqual([]);
 });

@@ -18,6 +18,8 @@ export type FactsBody = {
 
 export type BodyFacts = {
   diameterVsEarth: number;
+  /** The body is the reference itself (Earth): nothing to compare. */
+  isReference: boolean;
   yearEarthYears: number | null;
   dayHours: number;
 };
@@ -101,6 +103,7 @@ export function computeBodyFacts(body: FactsBody, earth: FactsBody): BodyFacts {
 
   return {
     diameterVsEarth: radiusKm / earthRadiusKm,
+    isReference: body === earth,
     yearEarthYears,
     dayHours,
   };

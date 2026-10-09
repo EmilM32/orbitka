@@ -45,7 +45,12 @@ test('formatFacts › plural forms of days', () => {
 });
 
 test('formatFacts › year below one Earth year needs the period', () => {
-  const facts = { diameterVsEarth: 1, yearEarthYears: 0.5, dayHours: 10 };
+  const facts = {
+    diameterVsEarth: 1,
+    isReference: false,
+    yearEarthYears: 0.5,
+    dayHours: 10,
+  };
   expect(formatYear(facts, 182.6, i18n)).toBe('183 dni');
   expect(() => formatYear(facts, null, i18n)).toThrow(
     new RangeError(

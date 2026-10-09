@@ -18,7 +18,10 @@ const TOKENS = readFileSync('src/ui/tokens.css', 'utf8');
 function gauge(id: string): { element: HTMLElement; k: number } {
   const body = getBody(id);
   const k = body.radiusKm / EARTH_KM;
-  return { element: createDiameterGauge(k, body, i18n), k };
+  return {
+    element: createDiameterGauge(k, body, i18n, id === 'earth'),
+    k,
+  };
 }
 
 function bar(element: HTMLElement, modifier: 'body' | 'earth'): HTMLElement {
@@ -105,10 +108,17 @@ test('Mercury: the variant below 1', () => {
 });
 
 test('Earth, Moon and Sun', () => {
+  // Earth is the reference: a sentence and the km, no bars, no "1 × Ziemia".
   const earth = gauge('earth').element;
-  expect(earth.querySelector('.gauge-value')?.textContent).toBe('1 × Ziemia');
+  expect(earth.classList.contains('gauge--text')).toBe(true);
+  expect(earth.getAttribute('role')).toBeNull();
+  expect(earth.querySelector('.gauge-bar')).toBeNull();
+  expect(earth.querySelector('.gauge-value')).toBeNull();
   expect(earth.querySelector('.gauge-caption')?.textContent).toBe(
     'Ziemia jest punktem odniesienia dla pozostałych planet.',
+  );
+  expect(earth.querySelector('.gauge-km')?.textContent).toBe(
+    'Średnica: 12\u00a0700 km',
   );
 
   const moon = gauge('moon').element;

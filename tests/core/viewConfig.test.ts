@@ -27,6 +27,7 @@ const UI_KEYS = [
   'labelGapPx',
   'labelOffsetPx',
   'labelLayoutHz',
+  'labelSideHysteresisPx',
   'orbitsStorageKey',
   'tabletMaxWidthPx',
   'tabletMinWidthPx',
@@ -45,6 +46,9 @@ test('holds the brief values', () => {
   expect(VIEW_CONFIG.labelGapPx).toBe(4);
   expect(VIEW_CONFIG.labelOffsetPx).toBe(6);
   expect(VIEW_CONFIG.labelLayoutHz).toBe(10);
+  expect(VIEW_CONFIG.labelSideHysteresisPx).toBe(8);
+  expect(VIEW_CONFIG.labelSideHoldLayouts).toBe(30);
+  expect(VIEW_CONFIG.labelKeepMaxMovePx).toBe(24);
   expect(VIEW_CONFIG.orbitsStorageKey).toBe('orbitka.orbits');
   expect(VIEW_CONFIG.tabletMaxWidthPx).toBe(1024);
   expect(VIEW_CONFIG.tabletMinWidthPx).toBe(768);
@@ -63,6 +67,9 @@ test('holds the brief values', () => {
     'labelGapPx',
     'labelOffsetPx',
     'labelLayoutHz',
+    'labelSideHysteresisPx',
+    'labelSideHoldLayouts',
+    'labelKeepMaxMovePx',
     'orbitsStorageKey',
     'tabletMaxWidthPx',
     'tabletMinWidthPx',

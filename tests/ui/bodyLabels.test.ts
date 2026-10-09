@@ -210,6 +210,41 @@ test('label sliding onto another disc hides until the next layout', () => {
   selection.dispose();
 });
 
+test('labels stay off UI panels', () => {
+  reset();
+  const bodies = [body('sun', 695700), body('uranus', 25362)];
+  const rects = new Float64Array(4);
+  let count = 0;
+  const { labels, frame, selection } = mount(bodies, {
+    measure: () => 50,
+    obstacles: { rects, count: () => count },
+  });
+  place(frame, 'sun', 400, 400, 20);
+  place(frame, 'uranus', 300, 80, 6);
+  labels.update(800, 600, 0.1);
+  expect(labelFor('uranus').classList.contains('is-hidden')).toBe(false);
+
+  // A panel covers the whole top strip: Uranus' label hides, not under it.
+  rects.set([0, 0, 800, 200]);
+  count = 1;
+  labels.update(800, 600, 0.1);
+  expect(labelFor('uranus').classList.contains('is-hidden')).toBe(true);
+  expect(labelFor('sun').classList.contains('is-hidden')).toBe(false);
+
+  count = 0;
+  labels.update(800, 600, 0.1);
+  expect(labelFor('uranus').classList.contains('is-hidden')).toBe(false);
+
+  // Between layouts a label sliding under a panel hides at once.
+  count = 1;
+  place(frame, 'uranus', 300, 90, 6);
+  labels.update(800, 600, 1 / 60);
+  expect(labelFor('uranus').classList.contains('is-hidden')).toBe(true);
+
+  labels.dispose();
+  selection.dispose();
+});
+
 test('layout runs at most ten times per second', () => {
   reset();
   expect(SOURCE.includes('setTimeout')).toBe(false);
@@ -561,7 +596,10 @@ function planets(): LabelBody[] {
 
 function mount(
   bodies: readonly LabelBody[],
-  options: { measure?: (element: HTMLElement) => number } = {},
+  options: {
+    measure?: (element: HTMLElement) => number;
+    obstacles?: { rects: Float64Array; count(): number };
+  } = {},
 ): { labels: BodyLabels; selection: Selection; frame: BodyScreenFrame } {
   // Moons have labels but are not selectable.
   const selection = createSelection(
@@ -576,6 +614,9 @@ function mount(
     i18n,
     frame,
     measure: options.measure ?? (() => 48),
+    ...(options.obstacles === undefined
+      ? {}
+      : { obstacles: options.obstacles }),
   });
   return { labels, selection, frame };
 }

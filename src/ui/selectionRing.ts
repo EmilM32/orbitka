@@ -56,7 +56,7 @@ export function createSelectionRing(
         writeBox(
           frame.x[index] ?? 0,
           frame.y[index] ?? 0,
-          frame.radiusPx[index] ?? 0,
+          frame.outlineRadiusPx[index] ?? 0,
         );
       }
 

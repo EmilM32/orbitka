@@ -29,6 +29,7 @@
   },
   "include": [
     "aliases.ts",
+    "htmlCopy.ts",
     "vite.config.ts",
     "vitest.config.ts",
     "playwright.config.ts"

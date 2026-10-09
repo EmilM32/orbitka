@@ -69,11 +69,14 @@ function barRow(
 /**
  * Diameter of a body next to Earth's on one shared scale (SPEC §5.7), with
  * `k = radiusKm / earthRadiusKm`. The Sun gets the ratio as text, no bars.
+ * The reference body (Earth, `reference: true`) gets only a sentence: two
+ * equal bars and "1 × Ziemia" would compare it with itself.
  */
 export function createDiameterGauge(
   k: number,
   body: GaugeBody,
   i18n: AppI18n,
+  reference = false,
 ): HTMLElement {
   const ratio = roundRatio(k);
   const fractions = diameterGauge(k);
@@ -81,13 +84,6 @@ export function createDiameterGauge(
   const nameGen = i18n.t(`bodies.${body.id}.nameGenitive`);
   const valueText = ratioText(ratio, i18n);
   const gauge = element('div', 'gauge');
-
-  const head = element('p', 'gauge-value');
-  head.textContent = ratio.approximate
-    ? i18n.t('card.gauge.valueApprox', { value: valueText })
-    : i18n.t('card.gauge.value', { value: valueText });
-  gauge.append(head);
-
   const km = element(
     'p',
     'gauge-km',
@@ -95,6 +91,18 @@ export function createDiameterGauge(
       km: i18n.formatNumber(roundKm(2 * body.radiusKm), 0),
     }),
   );
+
+  if (reference) {
+    gauge.classList.add('gauge--text');
+    gauge.append(element('p', 'gauge-caption', i18n.t('card.gauge.earth')), km);
+    return gauge;
+  }
+
+  const head = element('p', 'gauge-value');
+  head.textContent = ratio.approximate
+    ? i18n.t('card.gauge.valueApprox', { value: valueText })
+    : i18n.t('card.gauge.value', { value: valueText });
+  gauge.append(head);
 
   if (body.type === 'star') {
     gauge.classList.add('gauge--text');
@@ -135,9 +143,7 @@ export function createDiameterGauge(
   gauge.append(rows);
 
   let caption: string | null = null;
-  if (body.id === 'earth') {
-    caption = i18n.t('card.gauge.earth');
-  } else if (k >= FITS_FROM) {
+  if (k >= FITS_FROM) {
     caption = i18n.plural('card.gauge.fits', Math.round(k), { nameGen });
   } else if (ratio.inverse !== null) {
     caption = i18n.t('card.gauge.wider', {

@@ -1,0 +1,45 @@
+/* Shown instead of the scene when WebGL is missing or its context is lost. */
+.scene-unavailable {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-dialog);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  align-items: center;
+  justify-content: center;
+  padding: var(--s-6) var(--edge);
+  color: var(--c-text);
+  font-family: var(--font-ui);
+  text-align: center;
+  background: var(--c-space);
+}
+
+.scene-unavailable-brand {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+  margin: 0;
+  font: var(--fw-display) var(--fs-lg) / var(--lh-tight) var(--font-display);
+  color: var(--c-accent);
+}
+
+.scene-unavailable-brand .icon {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.scene-unavailable h1 {
+  max-width: 32rem;
+  margin: 0;
+  font: var(--fw-display) var(--fs-xl) / var(--lh-tight) var(--font-display);
+}
+
+.scene-unavailable-body {
+  max-width: 32rem;
+  margin: 0;
+  color: var(--c-text-2);
+  font-size: var(--fs-md);
+  line-height: var(--lh);
+}

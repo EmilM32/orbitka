@@ -4,6 +4,7 @@ const layer = (name: string): string =>
   fileURLToPath(new URL(`./src/${name}`, import.meta.url));
 
 export const layerAliases = {
+  '@app': layer('app'),
   '@core': layer('core'),
   '@data': layer('data'),
   '@sim': layer('sim'),

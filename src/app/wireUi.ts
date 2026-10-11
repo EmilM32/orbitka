@@ -1,0 +1,185 @@
+import type { BodyContentCatalog } from '@content/bodyContent.ts';
+import { shouldShowRail } from '@core/bodiesRail.ts';
+import { VIEW_CONFIG } from '@core/viewConfig.ts';
+import { bodies } from '@data/bodies.ts';
+import { TEXTURE_SOURCE } from '@render/textureStore.ts';
+import { createBodiesDrawer, type BodiesDrawer } from '@ui/bodiesDrawer.ts';
+import { createBodiesPanel } from '@ui/bodiesPanel.ts';
+import { createBodyCard } from '@ui/bodyCard.ts';
+import { createPageHeader } from '@ui/pageHeader.ts';
+import { createScaleNotice } from '@ui/scaleNotice.ts';
+import { createTimeControls } from '@ui/timeControls.ts';
+import { createViewControls } from '@ui/viewControls.ts';
+
+import { createDisposables } from './disposables.ts';
+import type { AppI18n } from './types.ts';
+import type { SceneRig } from './wireScene.ts';
+import type { SelectionRig } from './wireSelection.ts';
+import type { TimeRig } from './wireTime.ts';
+import type { ViewRig } from './wireView.ts';
+
+export type UiInputs = {
+  canvas: HTMLCanvasElement;
+  i18n: AppI18n;
+  storage: Storage | null;
+  bodyContent: BodyContentCatalog;
+  viewRig: ViewRig;
+  sceneRig: SceneRig;
+  selectionRig: SelectionRig;
+  timeRig: TimeRig;
+};
+
+/**
+ * The DOM panels. The creation order is the Tab order: header, body list,
+ * view controls, body card, time controls.
+ */
+export function wireUi({
+  canvas,
+  i18n,
+  storage,
+  bodyContent,
+  viewRig,
+  sceneRig,
+  selectionRig,
+  timeRig,
+}: UiInputs) {
+  const { cameraController, reducedMotion } = viewRig;
+  const { selection, selectable, viewInsets } = selectionRig;
+  const stack = createDisposables();
+  const pageHeader = createPageHeader(document.body, i18n, canvas);
+  stack.add(() => {
+    pageHeader.remove();
+  });
+  const scaleNotice = createScaleNotice(pageHeader, i18n, {
+    textures: TEXTURE_SOURCE,
+  });
+  stack.add(() => {
+    scaleNotice.dispose();
+  });
+  let bodiesDrawer: BodiesDrawer | null = null;
+  const bodyById = new Map(bodies.map((body) => [body.id, body]));
+  const bodiesPanel = createBodiesPanel(document.body, {
+    bodies: selectable.map((body) => {
+      const def = bodyById.get(body.id);
+      return {
+        id: body.id,
+        color: def?.visual.color ?? '#ffffff',
+        axisAu:
+          def?.type === 'planet' ? (def.orbit?.semiMajorAxisAu ?? null) : null,
+      };
+    }),
+    selection,
+    i18n,
+    before: canvas,
+    getFocusFallback: () => bodiesDrawer?.getFocusFallback() ?? null,
+    onUserCollapsedChange: () => {
+      updateListMode();
+    },
+  });
+  stack.add(() => {
+    bodiesPanel.dispose();
+  });
+  bodiesDrawer = createBodiesDrawer(document.body, {
+    panel: bodiesPanel,
+    selection,
+    i18n,
+    matchMedia: window.matchMedia.bind(window),
+    before: canvas,
+  });
+  const drawer = bodiesDrawer;
+  stack.add(() => {
+    drawer.dispose();
+  });
+  // The list folds into the rail beside an open card up to 1440 px; the
+  // tablet drawer has no rail (SPEC §5.4).
+  const tabletListQuery = window.matchMedia(
+    `(max-width: ${VIEW_CONFIG.tabletMaxWidthPx}px)`,
+  );
+  const railWidthQuery = window.matchMedia(
+    `(max-width: ${VIEW_CONFIG.railMaxWidthPx}px)`,
+  );
+  const updateListMode = (): void => {
+    const rail =
+      !tabletListQuery.matches &&
+      shouldShowRail({
+        viewportWidthPx: window.innerWidth,
+        hasSelection: selection.getSelectedId() !== null,
+        userCollapsed: bodiesPanel.isUserCollapsed(),
+      });
+    bodiesPanel.setMode(rail ? 'rail' : 'list');
+  };
+  stack.add(
+    selection.subscribe((event) => {
+      if (event.kind !== 'hover') {
+        updateListMode();
+      }
+    }),
+  );
+  tabletListQuery.addEventListener('change', updateListMode);
+  railWidthQuery.addEventListener('change', updateListMode);
+  stack.add(() => {
+    tabletListQuery.removeEventListener('change', updateListMode);
+    railWidthQuery.removeEventListener('change', updateListMode);
+  });
+  const { quality, orbitLines } = sceneRig;
+  const viewControls = createViewControls(document.body, {
+    i18n,
+    selection,
+    storage,
+    onZoom: (factor) => {
+      cameraController.zoomBy(factor, false);
+    },
+    onOrbitsChange: (visible) => {
+      orbitLines.setOrbitLinesVisible(visible);
+    },
+    onQualityChange: (level) => {
+      quality.setOverride(level);
+    },
+    qualityValue: quality.getSource() === 'override' ? quality.get() : null,
+    qualityLocked: quality.getSource() === 'param',
+    before: canvas.nextSibling ?? undefined,
+  });
+  stack.add(() => {
+    viewControls.dispose();
+  });
+  const tabletQuery = window.matchMedia(
+    `(min-width: ${VIEW_CONFIG.tabletMinWidthPx}px) and (max-width: ${VIEW_CONFIG.tabletMaxWidthPx}px)`,
+  );
+  // After the canvas and before the view group in the Tab order (SPEC §8).
+  const bodyCard = createBodyCard(document.body, {
+    bodies,
+    content: bodyContent,
+    selection,
+    insets: viewInsets,
+    i18n,
+    isTablet: () => tabletQuery.matches,
+    before: viewControls.element,
+    reducedMotion,
+    focusOnClose: canvas,
+  });
+  stack.add(() => {
+    bodyCard.dispose();
+  });
+  const timeControls = createTimeControls(
+    document.body,
+    timeRig.clock,
+    i18n,
+    viewControls.element.nextSibling,
+  );
+  stack.add(() => {
+    timeControls.dispose();
+  });
+
+  return {
+    pageHeader,
+    bodiesPanel,
+    bodiesDrawer: drawer,
+    viewControls,
+    bodyCard,
+    timeControls,
+    tabletQuery,
+    dispose: stack.disposeAll,
+  };
+}
+
+export type UiRig = ReturnType<typeof wireUi>;

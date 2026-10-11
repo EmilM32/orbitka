@@ -15,6 +15,8 @@ const allowedLayers = {
   content: ['data'],
   render: ['core', 'sim', 'data'],
   ui: ['core', 'data', 'content'],
+  // The wiring layer (EMI-243): imports every layer, nothing imports it.
+  app: ['core', 'data', 'sim', 'content', 'render', 'ui'],
 };
 
 const layers = Object.keys(allowedLayers);

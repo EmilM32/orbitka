@@ -40,10 +40,11 @@ A new decision that affects the whole project gets its own ADR in Linear. This f
 | `src/render`    | Scene, materials, camera, orbit lines, labels                                            |
 | `src/ui`        | DOM panels: time, body card, scale notice                                                |
 | `src/content`   | Polish UI copy (`locales/pl.json`) and educational content, keyed by body `id`. No logic |
+| `src/app`       | Wiring: `mount` and the `wire*` modules that join the layers (ADR-002 addendum, EMI-243) |
 | `public/assets` | Textures and sounds, local files only                                                    |
 | `tests/`        | Mirrors `src/` (`tests/sim/scale.test.ts`)                                               |
 
-Allowed imports between layers (ADR-002, enforced by `npm run lint`): `data` imports nothing, `sim` only `data`, `core` only `data` and `sim`, `content` only `data`, `render` only `core`, `sim`, and `data`, `ui` only `core`, `data`, and `content`. `three` is allowed only in `src/render` and `tests/render`. Cross-layer imports use aliases; relative imports stay inside one layer.
+Allowed imports between layers (ADR-002, enforced by `npm run lint`): `data` imports nothing, `sim` only `data`, `core` only `data` and `sim`, `content` only `data`, `render` only `core`, `sim`, and `data`, `ui` only `core`, `data`, and `content`, `app` every layer above, and nothing imports `app` except `src/main.ts`. `three` is allowed only in `src/render` and `tests/render`. Cross-layer imports use aliases; relative imports stay inside one layer.
 
 `sim` returns positions in physical units (AU, km). Only `render` converts those to scene units.
 
@@ -54,7 +55,7 @@ ADR-008: code in English, everything the student sees in Polish.
 - English: identifiers, comments, tests, docs, data in `src/data`, commit messages, and pull requests. Developer-facing messages too: `throw` and `RangeError` messages, `console.*`, validator messages, and the debug overlay.
 - Polish: everything the end user sees, including labels, buttons, `aria-label`, `aria-live` announcements, dates, numbers, body names, and educational content. The page language is `<html lang="pl">`.
 - Never hardcode Polish in `.ts` files or in `src/data`. UI copy lives in `src/content/locales/pl.json`: a flat object with dotted English keys (`time.presets.day`, `bodies.uranus.name`). A value is a string with `{name}` placeholders or an object of plural forms `{ "one", "few", "many", "other" }`.
-- UI text goes through `createI18n(dictionary, locale)` in `src/ui/i18n.ts` (`t`, `plural`, `formatNumber`), built on `Intl.PluralRules` and `Intl.NumberFormat`. No i18n library. `main.ts` builds it from `pl.json` and passes it to UI modules as a parameter. `render` does not import `content`; it gets ready strings from `main.ts`.
+- UI text goes through `createI18n(dictionary, locale)` in `src/ui/i18n.ts` (`t`, `plural`, `formatNumber`), built on `Intl.PluralRules` and `Intl.NumberFormat`. No i18n library. `main.ts` builds it from `pl.json` and `src/app` passes it to UI modules as a parameter. `render` does not import `content`; it gets ready strings from `src/app`.
 - `name` in `bodies.json` stays English. The name a student sees is `bodies.<id>.name` in `pl.json`.
 - Tests may contain Polish expected strings, because they check what the student sees.
 - Copy is straightforward, for age 12+, with no unexplained jargon.

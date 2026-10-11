@@ -21,6 +21,7 @@ const allowedLayers: Record<string, readonly string[]> = {
   content: ['data'],
   render: ['core', 'sim', 'data'],
   ui: ['core', 'data', 'content'],
+  app: ['core', 'data', 'sim', 'content', 'render', 'ui'],
 };
 
 const layers = Object.keys(allowedLayers);
@@ -310,6 +311,11 @@ test.each([
     'the entry module',
     'src/main.ts',
     `import '@core/loop.ts';\nimport '@render/createRenderer.ts';\n`,
+  ],
+  [
+    'the entry module importing the app layer',
+    'src/main.ts',
+    `import '@app/mount.ts';\n`,
   ],
   [
     'a render test',

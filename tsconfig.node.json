@@ -7,6 +7,7 @@
     "skipLibCheck": true,
 
     "paths": {
+      "@app/*": ["./src/app/*"],
       "@core/*": ["./src/core/*"],
       "@data/*": ["./src/data/*"],
       "@sim/*": ["./src/sim/*"],

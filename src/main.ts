@@ -5,6 +5,7 @@ import { mount } from '@app/mount.ts';
 import type { App } from '@app/types.ts';
 import pl from '@content/locales/pl.json' with { type: 'json' };
 import bodyContentRaw from '@content/pl/bodies.json' with { type: 'json' };
+import interiorContentRaw from '@content/pl/interiors.json' with { type: 'json' };
 import { isWebGLUnavailable } from '@render/webglSupport.ts';
 import { createI18n } from '@ui/i18n.ts';
 import { showSceneUnavailable } from '@ui/sceneUnavailable.ts';
@@ -26,7 +27,7 @@ function start(): App | null {
   const canvas = findCanvas();
   const i18n = createI18n(pl, 'pl-PL');
   try {
-    return mount(canvas, { i18n, bodyContentRaw });
+    return mount(canvas, { i18n, bodyContentRaw, interiorContentRaw });
   } catch (error) {
     if (!isWebGLUnavailable(error)) {
       throw error;

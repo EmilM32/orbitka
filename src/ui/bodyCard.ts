@@ -25,6 +25,28 @@ export type BodyCardBody = {
   orbit?: { periodDays: number };
 };
 
+export type BodyCardInteriorLayer = {
+  id: string;
+  name: string;
+  text: string;
+  measure: 'thickness' | 'radius';
+  km: number;
+  color: string;
+};
+
+export type BodyCardInterior = {
+  atmosphere: boolean;
+  sourceName: string;
+  sourceUrl: string;
+  layers: readonly BodyCardInteriorLayer[];
+};
+
+export type BodyCardCutawayState = {
+  active: boolean;
+  bodyId: string | null;
+  layerId: string | null;
+};
+
 export type BodyCardOptions = {
   bodies: readonly BodyCardBody[];
   content: BodyContentCatalog;
@@ -37,12 +59,18 @@ export type BodyCardOptions = {
   reducedMotion?: { readonly matches: boolean };
   /** Gets focus when the card is closed from inside it (the canvas). */
   focusOnClose?: HTMLElement | null;
+  /** Bodies that have a cutaway. Missing ids show the "not yet" line. */
+  interiors?: Readonly<Record<string, BodyCardInterior>>;
+  /** Open the cutaway as soon as a body is shown (a shared link). */
+  initialCutaway?: boolean;
+  onCutaway?(state: BodyCardCutawayState): void;
 };
 
 export type BodyCard = {
   readonly element: HTMLElement;
   show(id: string): void;
   hide(): void;
+  isCutawayOpen(): boolean;
   dispose(): void;
 };
 
@@ -123,12 +151,51 @@ export function createBodyCard(
   source.target = '_blank';
   source.rel = 'noopener noreferrer';
   funFact.append(funText, source);
+  const interior = create('section', 'body-card-interior');
+  interior.hidden = true;
+  interior.setAttribute('data-testid', 'body-card-interior');
+  const interiorList = create('ul', 'body-card-interior-list');
+  interiorList.setAttribute('aria-label', i18n.t('interior.legend'));
+  const interiorThickness = create('p', 'body-card-interior-notice');
+  interiorThickness.textContent = i18n.t('interior.notice.thickness');
+  const interiorSurface = create('p', 'body-card-interior-notice');
+  interiorSurface.textContent = i18n.t('interior.notice.noSurface');
+  const interiorSource = create('a', 'body-card-source');
+  interiorSource.target = '_blank';
+  interiorSource.rel = 'noopener noreferrer';
+  interior.append(
+    interiorList,
+    interiorThickness,
+    interiorSurface,
+    interiorSource,
+  );
+  const interiorMissing = create('p', 'body-card-interior-missing');
+  interiorMissing.hidden = true;
+  interiorMissing.setAttribute('data-testid', 'body-card-interior-missing');
+  interiorMissing.textContent = i18n.t('interior.missing');
   const description = create('p', 'body-card-description');
   description.id = 'card-description';
   description.hidden = true;
-  scroll.append(gaugeSlot, facts, funFact, description);
+  scroll.append(
+    gaugeSlot,
+    facts,
+    interior,
+    interiorMissing,
+    funFact,
+    description,
+  );
 
   const actions = create('div', 'body-card-actions');
+  const cutawayButton = create(
+    'button',
+    'o-btn o-btn--outline o-toggle body-card-cutaway',
+  );
+  cutawayButton.type = 'button';
+  cutawayButton.hidden = true;
+  cutawayButton.setAttribute('aria-pressed', 'false');
+  cutawayButton.setAttribute('aria-label', i18n.t('interior.toggle.ariaLabel'));
+  cutawayButton.setAttribute('data-testid', 'body-card-cutaway');
+  cutawayButton.append(textSpan(i18n.t('interior.toggle')));
   const system = create('button', 'o-btn o-btn--outline body-card-system');
   system.type = 'button';
   system.setAttribute('data-testid', 'body-card-system');
@@ -140,12 +207,15 @@ export function createBodyCard(
   more.setAttribute('data-testid', 'body-card-more');
   const moreText = textSpan(i18n.t('card.more'));
   more.append(moreText);
-  actions.append(system, more);
+  actions.append(cutawayButton, system, more);
 
   element.append(handle, head, scroll, actions);
   parent.insertBefore(element, options.before ?? null);
 
   const gauges = new Map<string, HTMLElement>();
+  const interiors = options.interiors ?? {};
+  let cutaway = options.initialCutaway === true;
+  let highlighted: string | null = null;
   let shownId: string | null = null;
   let pendingId: string | null = null;
   let enterTimer: ReturnType<typeof setTimeout> | null = null;
@@ -167,6 +237,7 @@ export function createBodyCard(
   const unsubscribe = selection.subscribe(onSelection);
   window.addEventListener('resize', onWindowResize);
   close.addEventListener('click', onCloseClick);
+  cutawayButton.addEventListener('click', onCutawayClick);
   system.addEventListener('click', onCloseClick);
   more.addEventListener('click', onMoreClick);
   handle.addEventListener('click', onHandleClick);
@@ -174,11 +245,12 @@ export function createBodyCard(
   handle.addEventListener('pointerup', onHandleUp);
   handle.addEventListener('pointercancel', onHandleCancel);
   element.addEventListener('keydown', onKeyDown);
+  interiorList.addEventListener('click', onLayerClick);
   element.classList.toggle('is-sheet', sheet);
   handle.hidden = !sheet;
   setExpanded(false);
 
-  return { element, show, hide, dispose };
+  return { element, show, hide, isCutawayOpen, dispose };
 
   function show(id: string): void {
     if (disposed) {
@@ -240,8 +312,13 @@ export function createBodyCard(
     description.textContent = entry.description;
     setDescription(false);
 
+    if (shownId !== body.id) {
+      highlighted = null;
+    }
     shownId = body.id;
+    renderInterior();
     element.hidden = false;
+    publishCutaway();
     writeInsets();
     if (swapping) {
       fadeInContent();
@@ -271,7 +348,10 @@ export function createBodyCard(
     cancelEnter();
     pendingId = null;
     shownId = null;
+    highlighted = null;
+    renderInterior();
     element.hidden = true;
+    publishCutaway();
     setExpanded(false);
     insets.set({ right: 0, bottom: 0 });
   }
@@ -286,6 +366,8 @@ export function createBodyCard(
     unsubscribe();
     window.removeEventListener('resize', onWindowResize);
     close.removeEventListener('click', onCloseClick);
+    cutawayButton.removeEventListener('click', onCutawayClick);
+    interiorList.removeEventListener('click', onLayerClick);
     system.removeEventListener('click', onCloseClick);
     more.removeEventListener('click', onMoreClick);
     handle.removeEventListener('click', onHandleClick);
@@ -350,6 +432,134 @@ export function createBodyCard(
     if (!disposed) {
       closeToSystem();
     }
+  }
+
+  function isCutawayOpen(): boolean {
+    return cutaway;
+  }
+
+  function publishCutaway(): void {
+    options.onCutaway?.({
+      active: cutaway,
+      bodyId: shownId,
+      layerId: cutaway ? highlighted : null,
+    });
+  }
+
+  function renderInterior(): void {
+    const entry = shownId === null ? undefined : interiors[shownId];
+    const showButton = entry !== undefined || (cutaway && shownId !== null);
+    cutawayButton.hidden = !showButton;
+    cutawayButton.setAttribute('aria-pressed', cutaway ? 'true' : 'false');
+    const open = cutaway && shownId !== null && entry !== undefined;
+    interior.hidden = !open;
+    interiorMissing.hidden = !(
+      cutaway &&
+      shownId !== null &&
+      entry === undefined
+    );
+    if (!open || entry === undefined) {
+      interiorList.replaceChildren();
+      return;
+    }
+    if (cutaway && sheet) {
+      setExpanded(true);
+    }
+    interiorSurface.hidden = !entry.atmosphere;
+    interiorSource.href = entry.sourceUrl;
+    interiorSource.textContent = i18n.t('card.source', {
+      name: entry.sourceName,
+    });
+    // Keep the buttons when only the highlight changes, so the keyboard
+    // focus stays on the layer the student just pressed.
+    if (layerListMatches(entry.layers)) {
+      syncLayerPressed();
+      return;
+    }
+    interiorList.replaceChildren(
+      ...entry.layers.map((layer) => layerItem(layer)),
+    );
+  }
+
+  function layerListMatches(layers: readonly BodyCardInteriorLayer[]): boolean {
+    const buttons = interiorList.querySelectorAll('[data-layer]');
+    if (buttons.length !== layers.length) {
+      return false;
+    }
+    return layers.every(
+      (layer, index) => buttons[index]?.getAttribute('data-layer') === layer.id,
+    );
+  }
+
+  function syncLayerPressed(): void {
+    for (const button of interiorList.querySelectorAll<HTMLButtonElement>(
+      '[data-layer]',
+    )) {
+      button.setAttribute(
+        'aria-pressed',
+        button.dataset['layer'] === highlighted ? 'true' : 'false',
+      );
+    }
+  }
+
+  function layerItem(layer: BodyCardInteriorLayer): HTMLLIElement {
+    const item = create('li', 'body-card-interior-layer');
+    const button = create('button', 'body-card-interior-button');
+    button.type = 'button';
+    button.setAttribute('data-testid', `interior-layer-${layer.id}`);
+    button.setAttribute('data-layer', layer.id);
+    button.setAttribute(
+      'aria-pressed',
+      highlighted === layer.id ? 'true' : 'false',
+    );
+    const swatch = create('span', 'body-card-interior-swatch');
+    swatch.style.backgroundColor = layer.color;
+    swatch.setAttribute('aria-hidden', 'true');
+    const name = create('span', 'body-card-interior-name');
+    name.textContent = layer.name;
+    const measure = create('span', 'body-card-interior-measure');
+    const km = i18n.formatNumber(layer.km, 0);
+    measure.textContent = i18n.t(
+      layer.measure === 'radius'
+        ? 'interior.layer.radius'
+        : 'interior.layer.thickness',
+      { km },
+    );
+    button.append(swatch, name, measure);
+    const text = create('p', 'body-card-interior-text');
+    text.textContent = layer.text;
+    item.append(button, text);
+    return item;
+  }
+
+  function onCutawayClick(): void {
+    if (disposed) {
+      return;
+    }
+    cutaway = !cutaway;
+    if (!cutaway) {
+      highlighted = null;
+    }
+    renderInterior();
+    publishCutaway();
+  }
+
+  function onLayerClick(event: Event): void {
+    if (disposed) {
+      return;
+    }
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+    const button = target.closest<HTMLButtonElement>('[data-layer]');
+    const layerId = button?.dataset['layer'];
+    if (button === undefined || layerId === undefined) {
+      return;
+    }
+    highlighted = highlighted === layerId ? null : layerId;
+    renderInterior();
+    publishCutaway();
   }
 
   function onMoreClick(): void {

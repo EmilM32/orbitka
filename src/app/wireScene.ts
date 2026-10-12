@@ -7,8 +7,10 @@ import {
 import { STAR_COUNTS } from '@core/starfield.ts';
 import type { AppStorage } from '@core/storage.ts';
 import { bodies } from '@data/bodies.ts';
+import { interiors } from '@data/interiors.ts';
 import { applyQualityLevel } from '@render/applyQuality.ts';
 import { createBodies } from '@render/bodies.ts';
+import { createInteriorCutaway } from '@render/interiorCutaway.ts';
 import { createLights } from '@render/lights.ts';
 import { addOrbitLines } from '@render/orbitLines.ts';
 import { createStarfield } from '@render/starfield.ts';
@@ -74,6 +76,19 @@ export function wireScene({ viewRig, storage, search }: SceneInputs) {
   stack.add(() => {
     sunGlow.dispose();
   });
+  const cutaway = createInteriorCutaway({
+    scene: view.scene,
+    clipping: view.renderer,
+    catalog: interiors,
+    meshes: bodyView.meshes,
+    radii: bodyView.radii,
+    rings: bodyView.rings,
+    glow: sunGlow.sprite,
+    reducedMotion: viewRig.reducedMotion,
+  });
+  stack.add(() => {
+    cutaway.dispose();
+  });
   const qualityTargets = {
     spheres: bodyView.spheres,
     starfield,
@@ -98,6 +113,7 @@ export function wireScene({ viewRig, storage, search }: SceneInputs) {
     bodyView,
     textureStore,
     orbitLines,
+    cutaway,
     dispose: stack.disposeAll,
   };
 }

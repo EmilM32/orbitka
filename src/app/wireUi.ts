@@ -7,7 +7,11 @@ import { bodies } from '@data/bodies.ts';
 import { TEXTURE_SOURCE } from '@render/textureStore.ts';
 import { createBodiesDrawer, type BodiesDrawer } from '@ui/bodiesDrawer.ts';
 import { createBodiesPanel } from '@ui/bodiesPanel.ts';
-import { createBodyCard } from '@ui/bodyCard.ts';
+import {
+  createBodyCard,
+  type BodyCard,
+  type BodyCardInterior,
+} from '@ui/bodyCard.ts';
 import { createPageHeader } from '@ui/pageHeader.ts';
 import { createScaleNotice } from '@ui/scaleNotice.ts';
 import { createGlobalShortcuts } from '@ui/globalShortcuts.ts';
@@ -28,6 +32,8 @@ export type UiInputs = {
   i18n: AppI18n;
   storage: AppStorage | null;
   bodyContent: BodyContentCatalog;
+  interiors: Readonly<Record<string, BodyCardInterior>>;
+  initialCutaway: boolean;
   viewRig: ViewRig;
   sceneRig: SceneRig;
   selectionRig: SelectionRig;
@@ -43,6 +49,8 @@ export function wireUi({
   i18n,
   storage,
   bodyContent,
+  interiors,
+  initialCutaway,
   viewRig,
   sceneRig,
   selectionRig,
@@ -126,7 +134,8 @@ export function wireUi({
     tabletListQuery.removeEventListener('change', updateListMode);
     railWidthQuery.removeEventListener('change', updateListMode);
   });
-  const { quality, orbitLines } = sceneRig;
+  const { quality, orbitLines, cutaway } = sceneRig;
+  let bodyCard: BodyCard | null = null;
   const shortcutsDialog = createShortcutsDialog(document.body, i18n);
   stack.add(() => {
     shortcutsDialog.dispose();
@@ -149,11 +158,13 @@ export function wireUi({
     },
     onCopyLink: () => {
       const { clock } = timeRig;
+      const bodyId = selection.getSelectedId();
       const link = buildViewLink(window.location, {
-        bodyId: selection.getSelectedId(),
+        bodyId,
         days: clock.days,
         paused: clock.paused,
         presetId: presetIdForSpeed(clock.speed),
+        cutaway: bodyId !== null && (bodyCard?.isCutawayOpen() ?? false),
       });
       return copyText(navigator.clipboard, link);
     },
@@ -168,7 +179,7 @@ export function wireUi({
     `(min-width: ${VIEW_CONFIG.tabletMinWidthPx}px) and (max-width: ${VIEW_CONFIG.tabletMaxWidthPx}px)`,
   );
   // After the canvas and before the view group in the Tab order (SPEC §8).
-  const bodyCard = createBodyCard(document.body, {
+  const card = createBodyCard(document.body, {
     bodies,
     content: bodyContent,
     selection,
@@ -178,9 +189,17 @@ export function wireUi({
     before: viewControls.element,
     reducedMotion,
     focusOnClose: canvas,
+    interiors,
+    initialCutaway,
+    onCutaway: (state) => {
+      cutaway.setActive(state.active);
+      cutaway.setBody(state.active ? state.bodyId : null);
+      cutaway.setHighlight(state.layerId);
+    },
   });
+  bodyCard = card;
   stack.add(() => {
-    bodyCard.dispose();
+    card.dispose();
   });
   const timeControls = createTimeControls(
     document.body,
@@ -217,7 +236,7 @@ export function wireUi({
     bodiesPanel,
     bodiesDrawer: drawer,
     viewControls,
-    bodyCard,
+    bodyCard: card,
     timeControls,
     tabletQuery,
     dispose: stack.disposeAll,

@@ -1,6 +1,8 @@
-// The view a link can carry (EMI-246): a body, a date and a speed. A teacher
-// copies the link from the settings menu and sends it to the class. Pure: the
-// app reads `location.search`, passes the selectable ids and applies the result.
+// The view a link can carry (EMI-246, EMI-263): a body, a date, a speed, and
+// whether the interior cutaway is open. A teacher copies the link from the
+// settings menu and sends it to the class. Pure: the app reads
+// `location.search`, passes the selectable ids and the interior ids, and
+// applies the result.
 
 import {
   DAYS_LIMIT,
@@ -17,6 +19,8 @@ export type ViewParams = {
   /** A speed preset id (never `pause`), or null. */
   presetId: string | null;
   paused: boolean;
+  /** The interior cutaway is open for `bodyId`. */
+  cutaway: boolean;
   /** Names of the parameters that were present but not usable. */
   ignored: readonly string[];
 };
@@ -56,12 +60,15 @@ function parseDate(raw: string): number | null {
 }
 
 /**
- * Reads `body`, `date` (YYYY-MM-DD), `speed` (a preset id) and `paused=1`.
- * Anything that does not fit is left out and listed in `ignored`.
+ * Reads `body`, `date` (YYYY-MM-DD), `speed` (a preset id), `paused=1` and
+ * `cutaway=1`. `cutaway` counts only when the body is selectable and listed
+ * in `interiorIds`. Anything that does not fit is left out and listed in
+ * `ignored`.
  */
 export function parseViewParams(
   search: string,
   selectableIds: readonly string[],
+  interiorIds: readonly string[] = [],
 ): ViewParams {
   const params = query(search);
   const ignored: string[] = [];
@@ -104,7 +111,18 @@ export function parseViewParams(
     ignored.push('paused');
   }
 
-  return { bodyId, days, presetId, paused, ignored };
+  let cutaway = false;
+  const cutawayValue = params.get('cutaway');
+  if (cutawayValue !== null) {
+    const knownInterior = bodyId !== null && interiorIds.includes(bodyId);
+    if (cutawayValue === '1' && knownInterior) {
+      cutaway = true;
+    } else {
+      ignored.push('cutaway');
+    }
+  }
+
+  return { bodyId, days, presetId, paused, cutaway, ignored };
 }
 
 export type ViewState = {
@@ -113,6 +131,8 @@ export type ViewState = {
   paused: boolean;
   /** The active speed preset id, or null when the speed is custom. */
   presetId: string | null;
+  /** Open the interior cutaway. Omitted from the link when there is no body. */
+  cutaway: boolean;
 };
 
 // The date as YYYY-MM-DD, only for the years 1 through 9999 that the format
@@ -150,6 +170,9 @@ export function buildViewQuery(state: ViewState): string {
     )
   ) {
     params.set('speed', state.presetId);
+  }
+  if (state.cutaway && state.bodyId !== null) {
+    params.set('cutaway', '1');
   }
   return params.toString();
 }

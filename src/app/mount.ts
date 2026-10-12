@@ -1,6 +1,8 @@
 import { createDisposables } from './disposables.ts';
 import { parseViewParams } from '@core/viewParams.ts';
+import { interiors } from '@data/interiors.ts';
 import { loadBodyContent } from './contentCatalog.ts';
+import { interiorCardViews, loadInteriorContent } from './interiorViews.ts';
 import { localStore } from './storage.ts';
 import type { App, AppI18n } from './types.ts';
 import { wireCanvas } from './wireCanvas.ts';
@@ -19,6 +21,8 @@ export type MountOptions = {
   i18n: AppI18n;
   /** The raw body content JSON; `main.ts` is the only importer of it. */
   bodyContentRaw: unknown;
+  /** The raw interior copy JSON; `main.ts` is the only importer of it. */
+  interiorContentRaw: unknown;
 };
 
 /**
@@ -27,7 +31,7 @@ export type MountOptions = {
  */
 export function mount(
   canvas: HTMLCanvasElement,
-  { i18n, bodyContentRaw }: MountOptions,
+  { i18n, bodyContentRaw, interiorContentRaw }: MountOptions,
 ): App {
   const stack = createDisposables();
   try {
@@ -43,6 +47,7 @@ export function mount(
     const viewParams = parseViewParams(
       search,
       selectionRig.selectable.map((body) => body.id),
+      [...interiors.keys()],
     );
     if (import.meta.env.DEV && viewParams.ignored.length > 0) {
       console.warn(
@@ -57,6 +62,8 @@ export function mount(
       i18n,
       storage,
       bodyContent: loadBodyContent(bodyContentRaw),
+      interiors: interiorCardViews(loadInteriorContent(interiorContentRaw)),
+      initialCutaway: viewParams.cutaway,
       viewRig,
       sceneRig,
       selectionRig,

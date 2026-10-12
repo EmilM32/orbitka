@@ -12,6 +12,8 @@ import {
   CARD_ENTER_DELAY_MS,
   createBodyCard,
   type BodyCard,
+  type BodyCardCutawayState,
+  type BodyCardInterior,
 } from '@ui/bodyCard.ts';
 import { createI18n } from '@ui/i18n.ts';
 
@@ -46,7 +48,13 @@ type Setup = {
 const mounted: Setup[] = [];
 
 function setup(
-  options: { tablet?: boolean; reducedMotion?: boolean } = {},
+  options: {
+    tablet?: boolean;
+    reducedMotion?: boolean;
+    interiors?: Readonly<Record<string, BodyCardInterior>>;
+    initialCutaway?: boolean;
+    onCutaway?: (state: BodyCardCutawayState) => void;
+  } = {},
 ): Setup {
   document.body.replaceChildren();
   const canvas = document.createElement('canvas');
@@ -66,6 +74,9 @@ function setup(
     before: view,
     reducedMotion: { matches: options.reducedMotion ?? false },
     focusOnClose: canvas,
+    interiors: options.interiors,
+    initialCutaway: options.initialCutaway,
+    onCutaway: options.onCutaway,
   });
   const result = {
     card,
@@ -126,7 +137,8 @@ test('jupiter card content', () => {
     'Obrót wokół osi': '9 h 56 min',
   });
   expect(text(card, '.body-card-fun-text')).toBe(content.jupiter?.funFact.text);
-  const link = card.element.querySelector<HTMLAnchorElement>('a');
+  const link =
+    card.element.querySelector<HTMLAnchorElement>('.body-card-fun a');
   expect(link?.href).toMatch(/^https:\/\//u);
   expect(link?.target).toBe('_blank');
   expect(link?.rel).toBe('noopener noreferrer');
@@ -512,4 +524,185 @@ test('reduced motion shortens the swap fade to 150 ms', () => {
   } finally {
     proto.animate = original;
   }
+});
+
+const INTERIORS: Record<string, BodyCardInterior> = {
+  earth: {
+    atmosphere: false,
+    sourceName: 'USGS',
+    sourceUrl: 'https://example.test/earth',
+    layers: [
+      {
+        id: 'crust',
+        name: 'Skorupa',
+        text: 'Cienka skalista warstwa.',
+        measure: 'thickness',
+        km: 35,
+        color: '#C4A574',
+      },
+      {
+        id: 'inner-core',
+        name: 'Jądro wewnętrzne',
+        text: 'Stała kulka z żelaza.',
+        measure: 'radius',
+        km: 1221,
+        color: '#F2E24B',
+      },
+    ],
+  },
+  jupiter: {
+    atmosphere: true,
+    sourceName: 'NASA',
+    sourceUrl: 'https://example.test/jupiter',
+    layers: [
+      {
+        id: 'molecular',
+        name: 'Wodór gazowy',
+        text: 'Gruba warstwa gazu.',
+        measure: 'thickness',
+        km: 13982,
+        color: '#E3C07A',
+      },
+    ],
+  },
+};
+
+function cutawayButton(card: BodyCard): HTMLButtonElement {
+  const button = card.element.querySelector<HTMLButtonElement>(
+    '[data-testid="body-card-cutaway"]',
+  );
+  if (button === null) {
+    throw new Error('missing cutaway button');
+  }
+  return button;
+}
+
+test('cutaway button stays hidden when the body has no interior data', () => {
+  const { card } = setup();
+  card.show('earth');
+  expect(cutawayButton(card).hidden).toBe(true);
+  expect(
+    card.element.querySelector<HTMLElement>(
+      '[data-testid="body-card-interior"]',
+    )?.hidden,
+  ).toBe(true);
+});
+
+test('cutaway legend follows the body and highlights a layer', () => {
+  const states: BodyCardCutawayState[] = [];
+  const { card } = setup({
+    interiors: INTERIORS,
+    onCutaway: (state) => {
+      states.push(state);
+    },
+  });
+  card.show('earth');
+  const button = cutawayButton(card);
+  expect(button.hidden).toBe(false);
+  expect(button.getAttribute('aria-pressed')).toBe('false');
+  expect(button.getAttribute('aria-label')).toBe(
+    i18n.t('interior.toggle.ariaLabel'),
+  );
+  const legend = card.element.querySelector<HTMLElement>(
+    '[data-testid="body-card-interior"]',
+  );
+  expect(legend?.hidden).toBe(true);
+  expect(states.at(-1)).toEqual({
+    active: false,
+    bodyId: 'earth',
+    layerId: null,
+  });
+
+  button.click();
+  expect(button.getAttribute('aria-pressed')).toBe('true');
+  expect(card.isCutawayOpen()).toBe(true);
+  expect(legend?.hidden).toBe(false);
+  expect(legend?.textContent).toContain('Skorupa');
+  expect(legend?.textContent).toContain(
+    i18n.t('interior.layer.thickness', { km: i18n.formatNumber(35, 0) }),
+  );
+  expect(legend?.textContent).toContain(
+    i18n.t('interior.layer.radius', { km: i18n.formatNumber(1221, 0) }),
+  );
+  expect(legend?.textContent).toContain(i18n.t('interior.notice.thickness'));
+  const notices = [
+    ...card.element.querySelectorAll<HTMLElement>('.body-card-interior-notice'),
+  ];
+  expect(notices[1]?.hidden).toBe(true);
+  expect(states.at(-1)).toEqual({
+    active: true,
+    bodyId: 'earth',
+    layerId: null,
+  });
+
+  card.element
+    .querySelector<HTMLButtonElement>('[data-testid="interior-layer-crust"]')
+    ?.click();
+  expect(
+    card.element
+      .querySelector('[data-testid="interior-layer-crust"]')
+      ?.getAttribute('aria-pressed'),
+  ).toBe('true');
+  expect(states.at(-1)?.layerId).toBe('crust');
+  card.element
+    .querySelector<HTMLButtonElement>('[data-testid="interior-layer-crust"]')
+    ?.click();
+  expect(
+    card.element
+      .querySelector('[data-testid="interior-layer-crust"]')
+      ?.getAttribute('aria-pressed'),
+  ).toBe('false');
+  expect(states.at(-1)?.layerId).toBeNull();
+
+  card.show('jupiter');
+  expect(legend?.textContent).toContain('Wodór gazowy');
+  expect(legend?.textContent).not.toContain('Skorupa');
+  expect(notices[1]?.hidden).toBe(false);
+  expect(notices[1]?.textContent).toBe(i18n.t('interior.notice.noSurface'));
+  expect(states.at(-1)).toEqual({
+    active: true,
+    bodyId: 'jupiter',
+    layerId: null,
+  });
+
+  button.click();
+  expect(card.isCutawayOpen()).toBe(false);
+  expect(legend?.hidden).toBe(true);
+  expect(states.at(-1)?.active).toBe(false);
+});
+
+test('cutaway stays on for a body that has no layers yet', () => {
+  const { card } = setup({ interiors: INTERIORS });
+  card.show('earth');
+  cutawayButton(card).click();
+  card.show('moon');
+  const button = cutawayButton(card);
+  expect(button.hidden).toBe(false);
+  expect(button.getAttribute('aria-pressed')).toBe('true');
+  expect(
+    card.element.querySelector<HTMLElement>(
+      '[data-testid="body-card-interior"]',
+    )?.hidden,
+  ).toBe(true);
+  const missing = card.element.querySelector<HTMLElement>(
+    '[data-testid="body-card-interior-missing"]',
+  );
+  expect(missing?.hidden).toBe(false);
+  expect(missing?.textContent).toBe(i18n.t('interior.missing'));
+});
+
+test('a shared link opens the cutaway, and a tablet sheet expands', () => {
+  const { card } = setup({
+    tablet: true,
+    interiors: INTERIORS,
+    initialCutaway: true,
+  });
+  card.show('earth');
+  expect(cutawayButton(card).getAttribute('aria-pressed')).toBe('true');
+  expect(
+    card.element.querySelector<HTMLElement>(
+      '[data-testid="body-card-interior"]',
+    )?.hidden,
+  ).toBe(false);
+  expect(card.element.classList.contains('is-expanded')).toBe(true);
 });

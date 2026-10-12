@@ -155,6 +155,19 @@ export function createTimeControls(
     'top',
   );
 
+  // The "back to today" button is in the layout all the time (it fades, it does not appear), so
+  // the panel keeps its width.
+  const dateRow = document.createElement('div');
+  dateRow.className = 'time-date-row';
+
+  const todayButton = document.createElement('button');
+  todayButton.setAttribute('type', 'button');
+  todayButton.setAttribute('data-testid', 'time-today');
+  todayButton.className = 'o-btn o-btn--ghost time-today';
+  todayButton.textContent = i18n.t('time.today.text');
+  todayButton.setAttribute('aria-label', i18n.t('time.today.ariaLabel'));
+  todayButton.setAttribute('data-visible', 'false');
+
   const simDate = document.createElement('time');
   simDate.setAttribute('id', 'sim-date');
   simDate.setAttribute('data-testid', 'sim-date');
@@ -162,7 +175,8 @@ export function createTimeControls(
 
   const simSpeed = document.createElement('p');
   simSpeed.setAttribute('id', 'sim-speed');
-  readout.append(accuracy, simDate, simSpeed);
+  dateRow.append(simDate, todayButton);
+  readout.append(accuracy, dateRow, simSpeed);
 
   // 768–1023 px: the rest of the panel goes to a second row.
   const rowBreak = document.createElement('div');
@@ -232,6 +246,7 @@ export function createTimeControls(
     pauseButton,
     ...presetButtonList,
     reverseButton,
+    todayButton,
     slider,
   ];
   let ready = false;
@@ -289,6 +304,21 @@ export function createTimeControls(
     },
     { signal: abort.signal },
   );
+  todayButton.addEventListener(
+    'click',
+    () => {
+      if (!ready) {
+        return;
+      }
+      clock.setDays(todayDays());
+      live.textContent = i18n.t('time.today.announce');
+      // The button fades out after this click; keep keyboard focus on the panel.
+      if (document.activeElement === todayButton) {
+        pauseButton.focus();
+      }
+    },
+    { signal: abort.signal },
+  );
   reverseButton.addEventListener(
     'click',
     () => {
@@ -302,6 +332,7 @@ export function createTimeControls(
   let lastDateText = '';
   let lastDateTime: string | null = null;
   let lastApproximate: boolean | null = null;
+  let lastAwayFromToday: boolean | null = null;
   let lastState: ClockState | null = null;
   let lastStatusText = '';
   let lastPresetId: string | null | undefined;
@@ -433,13 +464,17 @@ export function createTimeControls(
   let distanceKey = '';
   let distanceText = '';
 
+  function todayDays(): number {
+    return (nowMs() - J2000_UTC_MS) / MS_PER_DAY;
+  }
+
   function distanceFromToday(state: ClockState): string {
     if (!inRange(state.days)) {
       return i18n.t('time.date.missing');
     }
 
     const simDay = Math.floor(state.days);
-    const today = Math.floor((nowMs() - J2000_UTC_MS) / MS_PER_DAY);
+    const today = Math.floor(todayDays());
     const key = `${simDay}:${today}`;
     if (key !== distanceKey) {
       const todayDate = new Date(nowMs());
@@ -551,6 +586,14 @@ export function createTimeControls(
     }
 
     lastStatusText = setText(simSpeed, statusText(state), lastStatusText);
+
+    // A whole day away from today or more; a jump of less is not worth a button.
+    const awayFromToday =
+      inRange(state.days) && Math.abs(state.days - todayDays()) >= 1;
+    if (awayFromToday !== lastAwayFromToday) {
+      todayButton.setAttribute('data-visible', String(awayFromToday));
+      lastAwayFromToday = awayFromToday;
+    }
 
     const valueText = formatSpeedSpoken(
       state.speed,

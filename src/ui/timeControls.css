@@ -47,19 +47,51 @@
 .time-readout {
   position: relative;
   flex: none;
-  width: 13.5rem;
+  width: 14rem;
+}
+
+/* The date and the "back to today" button share a row; the button fades but keeps its place. */
+.time-date-row {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+  justify-content: space-between;
+}
+
+#time-controls .time-today {
+  min-width: 0;
+  min-height: 1.75rem;
+  padding: 0 0.5rem;
+  font-size: 0.8125rem;
+  visibility: hidden;
+  opacity: 0;
+  transition:
+    opacity var(--dur) var(--ease-out),
+    visibility 0s linear var(--dur),
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+#time-controls .time-today[data-visible='true'] {
+  visibility: visible;
+  opacity: 1;
+  transition:
+    opacity var(--dur) var(--ease-out),
+    visibility 0s,
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
 }
 
 #sim-date {
   display: block;
-  min-width: 20ch;
+  min-width: 17ch;
   font: var(--fw-display) var(--fs-md) / 1.2 var(--font-display);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
 #sim-speed {
-  min-width: 26ch;
+  min-width: 24ch;
   margin: 0;
   color: var(--c-text-2);
   font-size: 0.8125rem;

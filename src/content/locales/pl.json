@@ -103,6 +103,9 @@
     "many": "{count} lat",
     "other": "{count} roku"
   },
+  "time.today.text": "Dziś",
+  "time.today.ariaLabel": "Dziś: wróć do dzisiejszej daty",
+  "time.today.announce": "Ustawiono dzisiejszą datę",
   "time.units.months": {
     "one": "{count} miesiąc",
     "few": "{count} miesiące",

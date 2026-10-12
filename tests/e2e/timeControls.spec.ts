@@ -550,3 +550,58 @@ for (const [width, height] of [
     expect((panel?.x ?? 0) + (panel?.width ?? 0)).toBeLessThanOrEqual(width);
   });
 }
+
+test('"Dziś" returns to today and keeps focus on the panel', async ({
+  page,
+}) => {
+  await openApp(page, '/?debug=1');
+  const today = page.getByTestId('time-today');
+  await expect(today).toBeHidden();
+
+  await page.getByTestId('time-preset-year').click();
+  await page.waitForFunction(
+    () => (window.__orbitka?.getClock().days ?? 0) > 365,
+    undefined,
+    { timeout: 30_000 },
+  );
+  await page.getByTestId('time-pause').click();
+  await expect(today).toBeVisible();
+
+  await today.focus();
+  await page.keyboard.press('Enter');
+  const expected = await page.evaluate(() =>
+    new Intl.DateTimeFormat('pl', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'UTC',
+    }).format(new Date()),
+  );
+  await expect(page.getByTestId('sim-date')).toHaveText(expected);
+  await expect(today).toBeHidden();
+  await expect(page.getByTestId('time-pause')).toBeFocused();
+  await expect(page.locator('#sim-speed')).toHaveText('dziś');
+  // Paused and in the forward direction before the click: both are unchanged.
+  const clock = await readClock(page);
+  expect(clock.paused).toBe(true);
+  expect(clock.reversed).toBe(false);
+});
+
+test('"Dziś" does not overlap the panel at 768×1024', async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await openApp(page, DEBUG_START);
+  const today = page.getByTestId('time-today');
+  await expect(today).toBeVisible();
+  const [todayBox, dateBox, panel] = await Promise.all([
+    today.boundingBox(),
+    page.getByTestId('sim-date').boundingBox(),
+    page.locator('#time-controls').boundingBox(),
+  ]);
+  if (todayBox === null || dateBox === null || panel === null) {
+    throw new Error('missing box');
+  }
+  expect(todayBox.x).toBeGreaterThanOrEqual(dateBox.x + dateBox.width - 1);
+  expect(todayBox.x + todayBox.width).toBeLessThanOrEqual(
+    panel.x + panel.width,
+  );
+});

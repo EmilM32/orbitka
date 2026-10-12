@@ -116,6 +116,7 @@ test('timeControls › structure', () => {
   expect(buttons.map((item) => item.getAttribute('data-testid'))).toEqual([
     'time-pause',
     'time-accuracy',
+    'time-today',
     ...BUTTON_IDS.slice(1),
   ]);
   expect(buttons.every((item) => item.getAttribute('type') === 'button')).toBe(
@@ -353,7 +354,7 @@ test('timeControls › approximate chip', () => {
   expect(chip.id).toBe('time-accuracy');
   expect(chip.textContent).toBe('\u2248Pozycje przybliżone');
   // Above the date, inside the date block.
-  expect(chip.nextElementSibling).toBe(date);
+  expect(chip.nextElementSibling).toBe(date?.parentElement);
   const tipId = chip.getAttribute('aria-describedby') ?? '';
   const tip = document.getElementById(tipId);
   expect(tip?.getAttribute('role')).toBe('tooltip');
@@ -882,5 +883,79 @@ test('timeControls › announces approximate once', async () => {
   clock.setDays(18_900);
   expect(liveRegion(parent).textContent).not.toBe(announce);
   again.dispose();
+  parent.remove();
+});
+
+function todayButton(parent: ParentNode): HTMLButtonElement {
+  return button(parent, 'time-today');
+}
+
+test('timeControls › "Dziś" shows only away from today', () => {
+  const view = setup();
+  const today = todayButton(view.parent);
+  expect(today.textContent).toBe('Dziś');
+  expect(today.getAttribute('aria-label')).toBe(
+    'Dziś: wróć do dzisiejszej daty',
+  );
+  expect(today.className).not.toContain('primary');
+  expect(today.getAttribute('data-visible')).toBe('false');
+
+  // Less than a whole day away: still hidden.
+  view.clock.setDays(TODAY_DAYS + 0.9);
+  expect(today.getAttribute('data-visible')).toBe('false');
+  view.clock.setDays(TODAY_DAYS + 1);
+  expect(today.getAttribute('data-visible')).toBe('true');
+  view.clock.setDays(TODAY_DAYS - 3652);
+  expect(today.getAttribute('data-visible')).toBe('true');
+  view.clock.setDays(TODAY_DAYS);
+  expect(today.getAttribute('data-visible')).toBe('false');
+
+  view.cleanup();
+});
+
+test('timeControls › "Dziś" sets today and keeps speed and direction', () => {
+  const view = setup();
+  const today = todayButton(view.parent);
+  button(view.parent, 'time-preset-year').click();
+  button(view.parent, 'time-reverse').click();
+  view.clock.setDays(TODAY_DAYS - 5000);
+  expect(today.getAttribute('data-visible')).toBe('true');
+
+  today.focus();
+  today.click();
+  expect(view.clock.days).toBe(TODAY_DAYS);
+  expect(view.clock.speed).toBe(365.25);
+  expect(view.clock.reversed).toBe(true);
+  expect(today.getAttribute('data-visible')).toBe('false');
+  expect(statusText(view.parent)).toBe('dziś');
+  expect(liveRegion(view.parent).textContent).toBe('Ustawiono dzisiejszą datę');
+  // Focus does not vanish with the button.
+  expect(document.activeElement).toBe(button(view.parent, 'time-pause'));
+
+  view.cleanup();
+});
+
+test('timeControls › "Dziś" does nothing before the scene is ready', () => {
+  const view = setup({ startDays: TODAY_DAYS - 100 }, false);
+  const today = todayButton(view.parent);
+  expect(today.getAttribute('aria-disabled')).toBe('true');
+  today.click();
+  expect(view.clock.days).toBe(TODAY_DAYS - 100);
+
+  view.cleanup();
+});
+
+test('timeControls › "Dziś" stays hidden for days out of range', () => {
+  const parent = document.createElement('div');
+  document.body.append(parent);
+  const controls = createTimeControls(
+    parent,
+    stubClock(Number.NaN),
+    i18n,
+    null,
+    () => TODAY_MS,
+  );
+  expect(todayButton(parent).getAttribute('data-visible')).toBe('false');
+  controls.dispose();
   parent.remove();
 });

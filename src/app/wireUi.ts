@@ -1,5 +1,6 @@
 import type { BodyContentCatalog } from '@content/bodyContent.ts';
 import { shouldShowRail } from '@core/bodiesRail.ts';
+import type { AppStorage } from '@core/storage.ts';
 import { VIEW_CONFIG } from '@core/viewConfig.ts';
 import { bodies } from '@data/bodies.ts';
 import { TEXTURE_SOURCE } from '@render/textureStore.ts';
@@ -21,7 +22,7 @@ import type { ViewRig } from './wireView.ts';
 export type UiInputs = {
   canvas: HTMLCanvasElement;
   i18n: AppI18n;
-  storage: Storage | null;
+  storage: AppStorage | null;
   bodyContent: BodyContentCatalog;
   viewRig: ViewRig;
   sceneRig: SceneRig;

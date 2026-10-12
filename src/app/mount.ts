@@ -53,6 +53,7 @@ export function mount(
     stack.add(uiRig.dispose);
     const overlayRig = wireOverlays({
       i18n,
+      storage,
       viewRig,
       sceneRig,
       selectionRig,

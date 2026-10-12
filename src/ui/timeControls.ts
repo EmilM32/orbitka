@@ -32,7 +32,7 @@ export type TimeControls = {
 };
 
 // The first move outside 1800–2050 is announced once per session (module
-// memory, not localStorage), however many panels come and go.
+// memory, not browser storage), however many panels come and go.
 let approximateAnnounced = false;
 
 const SPEED_PRESET_IDS = ['day', 'ten-days', 'month', 'year'] as const;

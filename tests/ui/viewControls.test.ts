@@ -23,7 +23,7 @@ function resetDocument(): void {
 function memoryStorage(value: string | null = null): OrbitsStorage {
   const data = new Map<string, string>();
   if (value !== null) {
-    data.set('orbitka.orbits', value);
+    data.set('orbits', value);
   }
   return {
     getItem(key: string): string | null {
@@ -138,10 +138,10 @@ test('orbits toggle has text and switch', () => {
 
   orbits.click();
   expect(orbits.getAttribute('aria-pressed')).toBe('false');
-  expect(storage.getItem('orbitka.orbits')).toBe('false');
+  expect(storage.getItem('orbits')).toBe('false');
   orbits.click();
   expect(orbits.getAttribute('aria-pressed')).toBe('true');
-  expect(storage.getItem('orbitka.orbits')).toBe('true');
+  expect(storage.getItem('orbits')).toBe('true');
 });
 
 test('zoom buttons reflect limits', () => {
@@ -280,7 +280,7 @@ test('orbits toggle persists', () => {
 
   expect(button('view-orbits').getAttribute('aria-pressed')).toBe('false');
   expect(onOrbitsChange).toHaveBeenLastCalledWith(false);
-  expect(setItem).toHaveBeenCalledWith('orbitka.orbits', 'false');
+  expect(setItem).toHaveBeenCalledWith('orbits', 'false');
   expect(selection.getSelectedId()).toBeNull();
   expect(events).toEqual([]);
 });

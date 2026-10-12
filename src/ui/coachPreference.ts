@@ -1,13 +1,13 @@
-// "Trening pilota" runs once (SPEC §5.10). The flag lives in localStorage;
-// when that throws (a private window) sessionStorage keeps it for the
+// "Trening pilota" runs once (SPEC §5.10). The flag lives in the persistent app
+// storage; when that throws (a private window) the session storage keeps it for the
 // session, and when both throw an in-memory flag keeps it for the page load.
 
-export const COACH_STORAGE_KEY = 'orbitka.coach.done';
+export const COACH_STORAGE_KEY = 'coach.done';
 const DONE = '1';
 
 export type CoachStorage = Pick<Storage, 'getItem' | 'setItem'>;
 
-/** Getters, because reading `window.localStorage` itself can throw. */
+/** Getters, because reading the browser storage itself can throw. */
 export type CoachStorages = {
   local(): CoachStorage;
   session(): CoachStorage;

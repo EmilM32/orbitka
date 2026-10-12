@@ -1,5 +1,5 @@
 // Quality levels (ADR-010 point 9, EMI-223). Pure logic: no three, no DOM.
-// main.ts reads matchMedia, location.search and localStorage and passes them
+// the app reads matchMedia, location.search and the storage and passes them
 // in; render and ui react to the level through `subscribe`.
 
 export type QualityLevel = 'high' | 'medium' | 'low';
@@ -14,8 +14,8 @@ export const QUALITY_CONFIG = {
   upMedianFps: 58,
   upP90FrameMs: 20,
   maxDowngradesPerSession: 2,
-  storageKeyAuto: 'orbitka.quality.auto',
-  storageKeyOverride: 'orbitka.quality.override',
+  storageKeyAuto: 'quality.auto',
+  storageKeyOverride: 'quality.override',
 } as const;
 
 export type FrameSummary = {

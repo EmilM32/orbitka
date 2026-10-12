@@ -77,6 +77,10 @@ ADR-008: code in English, everything the student sees in Polish.
 - Assets come from `public/assets`. No CDN and no third-party scripts. No analytics.
 - FPS overlay only behind a `debug` flag.
 
+## Storage
+
+Persistent state goes through `createAppStorage` in `src/core/storage.ts` only (EMI-245). Entries live under `orbitka.v1.<name>`, are validated on read, and the old unversioned `orbitka.*` keys migrate once. `src/app/storage.ts` is the only file that names `localStorage` or `sessionStorage` (`tests/repo/storage.test.ts`). A new entry is registered in `ENTRIES` with its validator. No personal data.
+
 ## Tests
 
 When a task introduces the tooling: Vitest in the `node` environment (jsdom only once a test needs the DOM), 90% line coverage only for `src/sim`. Playwright is a Chromium smoke test (swiftshader): startup with no `console.error`, canvas not empty. No WebGL screenshot regression.

@@ -89,8 +89,7 @@ test('storage errors are swallowed', () => {
 });
 
 test('storage key literal', () => {
-  expect(VIEW_CONFIG.orbitsStorageKey).toBe('orbitka.orbits');
-  expect(VIEW_CONFIG.orbitsStorageKey.startsWith('orbitka.')).toBe(true);
+  expect(VIEW_CONFIG.orbitsStorageKey).toBe('orbits');
 
   const keys: string[] = [];
   const storage: OrbitsStorage = {
@@ -107,7 +106,7 @@ test('storage key literal', () => {
   expect(loadOrbitsVisible(storage)).toBe(true);
   saveOrbitsVisible(storage, false);
 
-  expect(keys).toEqual(['orbitka.orbits', 'orbitka.orbits']);
+  expect(keys).toEqual(['orbits', 'orbits']);
   expect(cookie).not.toHaveBeenCalled();
   cookie.mockRestore();
 

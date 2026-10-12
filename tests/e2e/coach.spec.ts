@@ -130,7 +130,7 @@ test('skip and tab order', async ({ page }) => {
   await page.getByTestId('coach-skip').click();
   await expect(page.locator('#coach')).toHaveCount(0);
   expect(
-    await page.evaluate(() => localStorage.getItem('orbitka.coach.done')),
+    await page.evaluate(() => localStorage.getItem('orbitka.v1.coach.done')),
   ).toBe('1');
 });
 
@@ -151,4 +151,22 @@ test('touch hints on tablet', async ({ browser }) => {
     1,
   );
   await context.close();
+});
+
+// EMI-245: a user who finished the training before the keys were versioned
+// does not see it again, and the old key moves to orbitka.v1.*.
+test('legacy coach key migrates and hides the training', async ({ page }) => {
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('legacy-seeded') === null) {
+      sessionStorage.setItem('legacy-seeded', '1');
+      localStorage.setItem('orbitka.coach.done', '1');
+    }
+  });
+  await open(page);
+  await expect(page.locator('#coach')).toHaveCount(0);
+  const keys = await page.evaluate(() => ({
+    legacy: localStorage.getItem('orbitka.coach.done'),
+    current: localStorage.getItem('orbitka.v1.coach.done'),
+  }));
+  expect(keys).toEqual({ legacy: null, current: '1' });
 });

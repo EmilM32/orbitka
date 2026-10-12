@@ -119,7 +119,7 @@ test.describe('labels and panels', () => {
 
 test('labels do not flip sides while time runs', async ({ page }) => {
   await page.addInitScript(() => {
-    localStorage.setItem('orbitka.coach.done', '1');
+    localStorage.setItem('orbitka.v1.coach.done', '1');
   });
   await open(page, '/?debug=1&days=9778');
   // Label widths settle once the fonts are in.

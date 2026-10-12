@@ -17,7 +17,7 @@ export const VIEW_CONFIG = {
   // A body that moved further than this since the last layout (camera
   // flight, fast time) gets a fresh side instead of keeping the old one.
   labelKeepMaxMovePx: 24,
-  orbitsStorageKey: 'orbitka.orbits',
+  orbitsStorageKey: 'orbits',
   tabletMaxWidthPx: 1024,
   tabletMinWidthPx: 768,
   drawerWidthPx: 300,

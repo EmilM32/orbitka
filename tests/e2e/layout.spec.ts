@@ -7,7 +7,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 // Inline, because this spec imports nothing but Playwright and node.
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
-    localStorage.setItem('orbitka.coach.done', '1');
+    localStorage.setItem('orbitka.v1.coach.done', '1');
   });
 });
 
@@ -1076,7 +1076,7 @@ test.describe('M4 states', () => {
   // These states include "Trening pilota": undo the top-level beforeEach.
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
-      localStorage.removeItem('orbitka.coach.done');
+      localStorage.removeItem('orbitka.v1.coach.done');
     });
   });
 

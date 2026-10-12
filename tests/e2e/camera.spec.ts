@@ -820,7 +820,7 @@ test('orbit emphasis and toggle', async ({ page }) => {
   const hidden = await page.evaluate(() => window.__orbitka?.getOrbitState());
   expect(hidden?.visible).toBe(0);
   expect(
-    await page.evaluate(() => localStorage.getItem('orbitka.orbits')),
+    await page.evaluate(() => localStorage.getItem('orbitka.v1.orbits')),
   ).toBe('false');
 
   await page.reload();

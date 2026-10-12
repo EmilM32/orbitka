@@ -72,7 +72,7 @@ test('start 1280×720', async ({ page }) => {
 test('start with the training 1280×720', async ({ page }) => {
   // The other screens mark the training done (beforeEach); this one clears it.
   await page.addInitScript(() => {
-    localStorage.removeItem('orbitka.coach.done');
+    localStorage.removeItem('orbitka.v1.coach.done');
   });
   await openStable(page, DESKTOP);
   await expect(page.getByTestId('coach')).toBeVisible();

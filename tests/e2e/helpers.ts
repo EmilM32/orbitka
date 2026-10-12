@@ -291,7 +291,7 @@ export async function freeAreaCenter(
 export async function skipCoach(page: Page): Promise<void> {
   await page.addInitScript(() => {
     try {
-      localStorage.setItem('orbitka.coach.done', '1');
+      localStorage.setItem('orbitka.v1.coach.done', '1');
     } catch {
       // No storage: the training shows; the spec runs anyway.
     }

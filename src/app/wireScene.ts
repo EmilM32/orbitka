@@ -5,6 +5,7 @@ import {
   type QualityLevel,
 } from '@core/quality.ts';
 import { STAR_COUNTS } from '@core/starfield.ts';
+import type { AppStorage } from '@core/storage.ts';
 import { bodies } from '@data/bodies.ts';
 import { applyQualityLevel } from '@render/applyQuality.ts';
 import { createBodies } from '@render/bodies.ts';
@@ -22,7 +23,7 @@ import type { ViewRig } from './wireView.ts';
 
 export type SceneInputs = {
   viewRig: ViewRig;
-  storage: Storage | null;
+  storage: AppStorage | null;
   search: string;
 };
 

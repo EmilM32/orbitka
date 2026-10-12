@@ -1,5 +1,5 @@
-// The view a link can carry (EMI-246, EMI-263): a body, a date, a speed, and
-// whether the interior cutaway is open. A teacher copies the link from the
+// The view a link can carry (EMI-246, EMI-263, EMI-264): a body, a date, a
+// speed, whether the interior cutaway is open, and the gravity grid. A teacher copies the link from the
 // settings menu and sends it to the class. Pure: the app reads
 // `location.search`, passes the selectable ids and the interior ids, and
 // applies the result.
@@ -21,6 +21,8 @@ export type ViewParams = {
   paused: boolean;
   /** The interior cutaway is open for `bodyId`. */
   cutaway: boolean;
+  /** The gravity grid is on. */
+  gravity: boolean;
   /** Names of the parameters that were present but not usable. */
   ignored: readonly string[];
 };
@@ -61,7 +63,7 @@ function parseDate(raw: string): number | null {
 
 /**
  * Reads `body`, `date` (YYYY-MM-DD), `speed` (a preset id), `paused=1` and
- * `cutaway=1`. `cutaway` counts only when the body is selectable and listed
+ * `cutaway=1` and `gravity=1`. `cutaway` counts only when the body is selectable and listed
  * in `interiorIds`. Anything that does not fit is left out and listed in
  * `ignored`.
  */
@@ -122,7 +124,13 @@ export function parseViewParams(
     }
   }
 
-  return { bodyId, days, presetId, paused, cutaway, ignored };
+  const gravityValue = params.get('gravity');
+  const gravity = gravityValue === '1';
+  if (gravityValue !== null && !gravity) {
+    ignored.push('gravity');
+  }
+
+  return { bodyId, days, presetId, paused, cutaway, gravity, ignored };
 }
 
 export type ViewState = {
@@ -133,6 +141,8 @@ export type ViewState = {
   presetId: string | null;
   /** Open the interior cutaway. Omitted from the link when there is no body. */
   cutaway: boolean;
+  /** Show the gravity grid. */
+  gravity: boolean;
 };
 
 // The date as YYYY-MM-DD, only for the years 1 through 9999 that the format
@@ -173,6 +183,9 @@ export function buildViewQuery(state: ViewState): string {
   }
   if (state.cutaway && state.bodyId !== null) {
     params.set('cutaway', '1');
+  }
+  if (state.gravity) {
+    params.set('gravity', '1');
   }
   return params.toString();
 }

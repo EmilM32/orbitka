@@ -33,6 +33,10 @@ const ENTRIES: Readonly<Record<string, Entry>> = {
     legacyKey: 'orbitka.orbits',
     isValid: (value) => value === 'true' || value === 'false',
   },
+  // The gravity grid is shown (EMI-264). New in v1, so no legacy key.
+  gravity: {
+    isValid: (value) => value === 'true' || value === 'false',
+  },
   'quality.auto': {
     legacyKey: 'orbitka.quality.auto',
     isValid: (value) => parseQualityLevel(value) !== null,

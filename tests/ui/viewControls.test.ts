@@ -41,6 +41,8 @@ function mount(
     storage?: OrbitsStorage | null;
     onZoom?: (factor: number) => void;
     onOrbitsChange?: (visible: boolean) => void;
+    onGravityChange?: (visible: boolean) => void;
+    gravityFromLink?: boolean;
     onQualityChange?: (level: QualityLevel | null) => void;
     qualityValue?: QualityLevel | null;
     qualityLocked?: boolean;
@@ -52,6 +54,8 @@ function mount(
   const onZoom = options.onZoom ?? vi.fn<(factor: number) => void>();
   const onOrbitsChange =
     options.onOrbitsChange ?? vi.fn<(visible: boolean) => void>();
+  const onGravityChange =
+    options.onGravityChange ?? vi.fn<(visible: boolean) => void>();
   const onQualityChange =
     options.onQualityChange ?? vi.fn<(level: QualityLevel | null) => void>();
   const onCopyLink =
@@ -66,6 +70,10 @@ function mount(
     storage,
     onZoom,
     onOrbitsChange,
+    onGravityChange,
+    ...(options.gravityFromLink === undefined
+      ? {}
+      : { gravityFromLink: options.gravityFromLink }),
     onQualityChange,
     qualityValue: options.qualityValue ?? null,
     qualityLocked: options.qualityLocked ?? false,
@@ -77,6 +85,7 @@ function mount(
     selection,
     onZoom,
     onOrbitsChange,
+    onGravityChange,
     onQualityChange,
     onCopyLink,
     onShowShortcuts,
@@ -108,6 +117,7 @@ test('group structure', () => {
     [
       'view-reset',
       'view-orbits',
+      'view-gravity',
       'view-zoom-out',
       'view-zoom-in',
       'view-fullscreen',
@@ -124,7 +134,10 @@ test('group structure', () => {
 
   expect(button('view-reset').textContent).toBe('Cały układ');
   expect(button('view-reset').classList.contains('o-btn')).toBe(true);
+  // The text hides below 1180 px; the name stays.
+  expect(button('view-reset').getAttribute('aria-label')).toBe('Cały układ');
   expect(button('view-orbits').textContent).toBe('Orbity');
+  expect(button('view-gravity').textContent).toBe('Grawitacja');
   expect(button('view-zoom-in').textContent).toBe('');
   expect(button('view-zoom-in').getAttribute('aria-label')).toBe('Przybliż');
   expect(button('view-zoom-out').textContent).toBe('');
@@ -568,4 +581,40 @@ test('fullscreen: a refusal by the browser is not an error', async () => {
   expect(button('view-fullscreen').getAttribute('aria-pressed')).toBe('false');
   controls.dispose();
   restoreFullscreen();
+});
+
+test('gravity toggle: off by default, saved, and on from a link', () => {
+  resetDocument();
+  const first = mount();
+  const gravity = button('view-gravity');
+  expect(gravity.classList.contains('o-toggle')).toBe(true);
+  expect(gravity.getAttribute('title')).toBe(
+    'Pokaż lub ukryj siatkę grawitacji',
+  );
+  expect(gravity.getAttribute('aria-pressed')).toBe('false');
+  expect(gravity.querySelector('span.o-toggle__switch')).not.toBeNull();
+  expect(first.onGravityChange).toHaveBeenCalledExactlyOnceWith(false);
+  expect(first.controls.isGravityVisible()).toBe(false);
+
+  gravity.click();
+  expect(gravity.getAttribute('aria-pressed')).toBe('true');
+  expect(first.onGravityChange).toHaveBeenLastCalledWith(true);
+  expect(first.storage?.getItem('gravity')).toBe('true');
+  expect(first.controls.isGravityVisible()).toBe(true);
+  // The orbit switch is independent.
+  expect(button('view-orbits').getAttribute('aria-pressed')).toBe('true');
+  first.controls.dispose();
+
+  // Restored from the storage.
+  const restored = mount({ storage: first.storage });
+  expect(button('view-gravity').getAttribute('aria-pressed')).toBe('true');
+  expect(restored.onGravityChange).toHaveBeenCalledExactlyOnceWith(true);
+  restored.controls.dispose();
+
+  // A link turns it on without saving anything.
+  const fromLink = mount({ gravityFromLink: true });
+  expect(button('view-gravity').getAttribute('aria-pressed')).toBe('true');
+  expect(fromLink.onGravityChange).toHaveBeenCalledExactlyOnceWith(true);
+  expect(fromLink.storage?.getItem('gravity')).toBeNull();
+  fromLink.controls.dispose();
 });

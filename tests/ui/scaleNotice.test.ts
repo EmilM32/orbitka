@@ -97,7 +97,7 @@ test('scaleNotice › opens a modal dialog', () => {
     'Dlaczego skala jest uproszczona?',
   );
 
-  const points = view.dialog.querySelectorAll('ol > li');
+  const points = view.dialog.querySelectorAll('ol > li:not([hidden])');
   expect(points).toHaveLength(4);
   expect(points[0]?.querySelector('strong')?.textContent).toBe(
     'Prawdziwa skala nie zmieściłaby się na ekranie.',
@@ -304,4 +304,27 @@ test('scaleNotice › dispose', () => {
 test('scaleNotice › no innerHTML', () => {
   const source = readFileSync('src/ui/scaleNotice.ts', 'utf8');
   expect(source.includes('innerHTML')).toBe(false);
+});
+
+test('scaleNotice › the gravity grid adds a point to the dialog', () => {
+  const view = setup();
+  const badge = document.querySelector('#scale-badge');
+  const point = view.dialog.querySelector<HTMLElement>(
+    '[data-testid="scale-gravity-point"]',
+  );
+  expect(badge?.textContent).toBe('Skala uproszczona');
+  expect(point?.hidden).toBe(true);
+
+  view.notice.setGravity(true);
+  expect(badge?.textContent).toBe('Skala uproszczona');
+  expect(point?.hidden).toBe(false);
+  expect(point?.querySelector('strong')?.textContent).toBe(
+    'Siatka grawitacji to porównanie, nie zdjęcie.',
+  );
+
+  view.notice.setGravity(false);
+  expect(badge?.textContent).toBe('Skala uproszczona');
+  expect(point?.hidden).toBe(true);
+  view.notice.dispose();
+  expect(() => view.notice.setGravity(true)).not.toThrow();
 });

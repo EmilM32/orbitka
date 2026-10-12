@@ -1,7 +1,8 @@
 /*
  * The "Widok" group in the top bar (SPEC §5.2): one glass row on the right.
- * "Orbity" always shows its text and a switch (mint when on), the zoom
- * buttons grey out at the camera limits and stay in the Tab order.
+ * "Orbity" and "Grawitacja" always show their text and a switch (mint when
+ * on), the zoom buttons grey out at the camera limits and stay in the Tab
+ * order.
  */
 #view-controls {
   position: fixed;
@@ -34,7 +35,7 @@
   padding: 0;
 }
 
-/* A thin line between the orbit switch and the zoom buttons. */
+/* A thin line between the switches and the zoom buttons. */
 #view-controls .view-zoom:first-of-type {
   position: relative;
   margin-left: var(--s-2);
@@ -55,18 +56,36 @@
 }
 
 /* The pressed look of .o-toggle stays off here: the switch shows the state. */
-#view-controls .view-orbits[aria-pressed='true'] {
+#view-controls .view-orbits[aria-pressed='true'],
+#view-controls .view-gravity[aria-pressed='true'] {
   background: transparent;
   border-color: transparent;
 }
 
-#view-controls .view-orbits[aria-pressed='true']:hover {
+#view-controls .view-orbits[aria-pressed='true']:hover,
+#view-controls .view-gravity[aria-pressed='true']:hover {
   background: var(--c-surface-hover);
 }
 
 #view-controls .view-fullscreen,
 #view-controls .view-settings {
   padding: 0;
+}
+
+/*
+ * With "Orbity" and "Grawitacja" the row is too wide for the top bar on a
+ * tablet and beside the scale chip just above 1024 px, so the whole-system
+ * button keeps only its icon there (its aria-label names it). The switches
+ * keep their text.
+ */
+@media (max-width: 1180px) {
+  #view-controls .view-reset {
+    padding: 0;
+  }
+
+  #view-controls .view-reset > span {
+    display: none;
+  }
 }
 
 /* The panel hangs under the group, right-aligned with it. */

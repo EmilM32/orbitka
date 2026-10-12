@@ -29,6 +29,7 @@ const UI_KEYS = [
   'labelLayoutHz',
   'labelSideHysteresisPx',
   'orbitsStorageKey',
+  'gravityStorageKey',
   'tabletMaxWidthPx',
   'tabletMinWidthPx',
   'drawerWidthPx',
@@ -50,6 +51,7 @@ test('holds the brief values', () => {
   expect(VIEW_CONFIG.labelSideHoldLayouts).toBe(30);
   expect(VIEW_CONFIG.labelKeepMaxMovePx).toBe(24);
   expect(VIEW_CONFIG.orbitsStorageKey).toBe('orbits');
+  expect(VIEW_CONFIG.gravityStorageKey).toBe('gravity');
   expect(VIEW_CONFIG.tabletMaxWidthPx).toBe(1024);
   expect(VIEW_CONFIG.tabletMinWidthPx).toBe(768);
   expect(VIEW_CONFIG.drawerWidthPx).toBe(300);
@@ -71,6 +73,7 @@ test('holds the brief values', () => {
     'labelSideHoldLayouts',
     'labelKeepMaxMovePx',
     'orbitsStorageKey',
+    'gravityStorageKey',
     'tabletMaxWidthPx',
     'tabletMinWidthPx',
     'drawerWidthPx',

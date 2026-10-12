@@ -39,6 +39,7 @@ export function wireLoop({
 }: LoopInputs) {
   const { view, frameRenderer, cameraController, size } = viewRig;
   const { quality, starfield, orbitLines, textureStore, cutaway } = sceneRig;
+  const { gravityGrid } = sceneRig;
   const { director, viewOffset, projector, ring, gap } = selectionRig;
   const { announcer, labelProjector, labels } = overlayRig;
   let simDt = 0;
@@ -70,6 +71,8 @@ export function wireLoop({
         quality.sampleFrame(dtSeconds, !document.hidden);
       }
       timeRig.update(dtSeconds);
+      // After the planets moved: their funnels follow them.
+      gravityGrid.update();
       director.update(dtSeconds);
       cameraController.update(dtSeconds);
       cutaway.update(

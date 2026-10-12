@@ -126,6 +126,11 @@
   line-height: var(--lh);
 }
 
+/* The gravity point waits hidden until the grid is on. */
+.scale-points li[hidden] {
+  display: none;
+}
+
 .scale-points li::before {
   display: grid;
   place-items: center;

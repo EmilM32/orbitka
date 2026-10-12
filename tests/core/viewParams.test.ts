@@ -19,6 +19,7 @@ test('viewParams › nothing in the address', () => {
     presetId: null,
     paused: false,
     cutaway: false,
+    gravity: false,
     ignored: [],
   });
   expect(parseViewParams('?', IDS).ignored).toEqual([]);
@@ -33,6 +34,7 @@ test('viewParams › a full view', () => {
     presetId: 'month',
     paused: false,
     cutaway: false,
+    gravity: false,
     ignored: [],
   });
   const paused = parseViewParams('body=saturn&date=2030-01-01&paused=1', IDS);
@@ -92,6 +94,7 @@ test('viewParams › unrelated and debug parameters are left alone', () => {
     presetId: null,
     paused: false,
     cutaway: false,
+    gravity: false,
     ignored: [],
   });
 });
@@ -103,6 +106,7 @@ test('buildViewQuery › a link restores the same view', () => {
     paused: false,
     presetId: 'year',
     cutaway: false,
+    gravity: false,
   });
   expect(query).toBe('body=saturn&date=2030-01-01&speed=year');
   const parsed = parseViewParams(query, IDS);
@@ -120,6 +124,7 @@ test('buildViewQuery › paused wins over a speed; no body, no custom speed', ()
       paused: true,
       presetId: 'day',
       cutaway: false,
+      gravity: false,
     }),
   ).toBe('date=2026-10-14&paused=1');
   expect(
@@ -129,6 +134,7 @@ test('buildViewQuery › paused wins over a speed; no body, no custom speed', ()
       paused: false,
       presetId: null,
       cutaway: false,
+      gravity: false,
     }),
   ).toBe('date=2026-10-14');
   expect(
@@ -138,6 +144,7 @@ test('buildViewQuery › paused wins over a speed; no body, no custom speed', ()
       paused: false,
       presetId: 'pause',
       cutaway: false,
+      gravity: false,
     }),
   ).toBe('body=sun&date=2026-10-14');
 });
@@ -150,6 +157,7 @@ test('buildViewQuery › a date the format cannot carry is left out', () => {
       paused: true,
       presetId: null,
       cutaway: false,
+      gravity: false,
     }),
   ).toBe('paused=1');
   expect(
@@ -159,6 +167,7 @@ test('buildViewQuery › a date the format cannot carry is left out', () => {
       paused: true,
       presetId: null,
       cutaway: true,
+      gravity: false,
     }),
   ).toBe('paused=1');
   // Years before 1 CE cannot be written as YYYY-MM-DD here.
@@ -169,6 +178,7 @@ test('buildViewQuery › a date the format cannot carry is left out', () => {
       paused: false,
       presetId: null,
       cutaway: false,
+      gravity: false,
     }),
   ).toBe('');
 });
@@ -181,6 +191,7 @@ test('viewParams › cutaway opens only for a body that has an interior', () => 
   ).toMatchObject({
     bodyId: 'earth',
     cutaway: true,
+    gravity: false,
     ignored: [],
   });
   const missingCatalog = parseViewParams('?body=earth&cutaway=1', IDS);
@@ -213,6 +224,7 @@ test('buildViewQuery › cutaway is last and only with a body', () => {
     paused: true,
     presetId: 'day',
     cutaway: true,
+    gravity: false,
   });
   expect(query).toBe('body=earth&date=2000-01-01&paused=1&cutaway=1');
   const parsed = parseViewParams(query, IDS, WITH_INTERIOR);
@@ -226,6 +238,33 @@ test('buildViewQuery › cutaway is last and only with a body', () => {
       paused: false,
       presetId: null,
       cutaway: true,
+      gravity: false,
     }),
   ).toBe('date=2000-01-01');
+});
+
+test('viewParams › gravity=1 turns the grid on, other values are ignored', () => {
+  expect(parseViewParams('?gravity=1', IDS)).toMatchObject({
+    gravity: true,
+    ignored: [],
+  });
+  for (const value of ['0', 'true', '']) {
+    expect(parseViewParams(`?gravity=${value}`, IDS)).toMatchObject({
+      gravity: false,
+      ignored: ['gravity'],
+    });
+  }
+});
+
+test('buildViewQuery › the gravity grid is the last parameter', () => {
+  const query = buildViewQuery({
+    bodyId: null,
+    days: 0,
+    paused: true,
+    presetId: null,
+    cutaway: false,
+    gravity: true,
+  });
+  expect(query).toBe('date=2000-01-01&paused=1&gravity=1');
+  expect(parseViewParams(query, IDS).gravity).toBe(true);
 });

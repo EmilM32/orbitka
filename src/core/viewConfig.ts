@@ -18,6 +18,7 @@ export const VIEW_CONFIG = {
   // flight, fast time) gets a fresh side instead of keeping the old one.
   labelKeepMaxMovePx: 24,
   orbitsStorageKey: 'orbits',
+  gravityStorageKey: 'gravity',
   tabletMaxWidthPx: 1024,
   tabletMinWidthPx: 768,
   drawerWidthPx: 300,

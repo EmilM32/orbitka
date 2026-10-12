@@ -64,6 +64,7 @@ export function mount(
       bodyContent: loadBodyContent(bodyContentRaw),
       interiors: interiorCardViews(loadInteriorContent(interiorContentRaw)),
       initialCutaway: viewParams.cutaway,
+      initialGravity: viewParams.gravity,
       viewRig,
       sceneRig,
       selectionRig,

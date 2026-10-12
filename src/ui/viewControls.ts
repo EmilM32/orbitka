@@ -4,6 +4,7 @@ import { CAMERA_CONFIG } from '@core/cameraConfig.ts';
 import { parseQualityLevel, type QualityLevel } from '@core/quality.ts';
 import { type Selection } from '@core/selection.ts';
 
+import { loadGravityVisible, saveGravityVisible } from './gravityPreference.ts';
 import { type Dictionary, type I18n } from './i18n.ts';
 import { createIcon } from './icons.ts';
 import {
@@ -20,6 +21,7 @@ const COPY_STATUS_MS = 4000;
 export type ViewControls = {
   element: HTMLElement;
   isOrbitsVisible(): boolean;
+  isGravityVisible(): boolean;
   /** Full screen on or off, as the button does; nothing where the browser has none. */
   toggleFullscreen(): void;
   /**
@@ -37,6 +39,9 @@ export type ViewControlsOptions = {
   storage: OrbitsStorage | null;
   onZoom: (factor: number) => void;
   onOrbitsChange: (visible: boolean) => void;
+  onGravityChange: (visible: boolean) => void;
+  /** A link asked for the gravity grid: on at the start, not saved. */
+  gravityFromLink?: boolean;
   /** `null` = automatic. */
   onQualityChange: (level: QualityLevel | null) => void;
   /** The saved manual level; `null` = automatic. */
@@ -57,6 +62,8 @@ export function createViewControls(
   const { i18n, selection, storage, onZoom, onOrbitsChange } = options;
   const { onQualityChange } = options;
   let visible = loadOrbitsVisible(storage);
+  let gravityVisible =
+    options.gravityFromLink === true || loadGravityVisible(storage);
   let disposed = false;
   let atMin = false;
   let atMax = false;
@@ -71,6 +78,10 @@ export function createViewControls(
   element.setAttribute('data-testid', 'view-controls');
 
   const reset = button('view-reset');
+  reset.classList.add('view-reset');
+  // Below 1180 px the text hides (CSS) so the two switches fit; the name stays.
+  reset.setAttribute('aria-label', i18n.t('view.reset.text'));
+  reset.setAttribute('title', i18n.t('view.reset.text'));
   reset.append(createIcon('system'), label(i18n.t('view.reset.text')));
   // Text on every breakpoint and a switch that shows the state (SPEC §5.2).
   const orbits = button('view-orbits');
@@ -84,6 +95,18 @@ export function createViewControls(
     createIcon('orbits'),
     label(i18n.t('view.orbits.text')),
     orbitsSwitch,
+  );
+  const gravity = button('view-gravity');
+  gravity.classList.add('o-toggle', 'view-gravity');
+  gravity.setAttribute('title', i18n.t('view.gravity.title'));
+  gravity.setAttribute('aria-pressed', gravityVisible ? 'true' : 'false');
+  const gravitySwitch = document.createElement('span');
+  gravitySwitch.className = 'o-toggle__switch';
+  gravitySwitch.setAttribute('aria-hidden', 'true');
+  gravity.append(
+    createIcon('gravity'),
+    label(i18n.t('view.gravity.text')),
+    gravitySwitch,
   );
   const zoomOut = button('view-zoom-out');
   zoomOut.classList.add('view-zoom');
@@ -157,7 +180,16 @@ export function createViewControls(
     select.setAttribute('aria-describedby', hint.id);
     panel.append(hint);
   }
-  element.append(reset, orbits, zoomOut, zoomIn, fullscreen, settings, panel);
+  element.append(
+    reset,
+    orbits,
+    gravity,
+    zoomOut,
+    zoomIn,
+    fullscreen,
+    settings,
+    panel,
+  );
 
   element.addEventListener('click', onClick);
   element.addEventListener('keydown', onKeyDown);
@@ -173,6 +205,7 @@ export function createViewControls(
     parent.insertBefore(element, options.before);
   }
   onOrbitsChange(visible);
+  options.onGravityChange(gravityVisible);
 
   function setPanelOpen(open: boolean, restoreFocus: boolean): void {
     if (panelOpen === open) {
@@ -304,6 +337,13 @@ export function createViewControls(
       onZoom(CAMERA_CONFIG.zoomStepOut);
       return;
     }
+    if (testId === 'view-gravity') {
+      gravityVisible = !gravityVisible;
+      gravity.setAttribute('aria-pressed', gravityVisible ? 'true' : 'false');
+      options.onGravityChange(gravityVisible);
+      saveGravityVisible(storage, gravityVisible);
+      return;
+    }
     if (testId !== 'view-orbits') {
       return;
     }
@@ -317,6 +357,9 @@ export function createViewControls(
     element,
     isOrbitsVisible(): boolean {
       return visible;
+    },
+    isGravityVisible(): boolean {
+      return gravityVisible;
     },
     toggleFullscreen,
     setZoomLimits(nextAtMin: boolean, nextAtMax: boolean): void {

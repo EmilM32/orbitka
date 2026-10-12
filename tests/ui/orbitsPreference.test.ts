@@ -43,6 +43,7 @@ function mount(storage: OrbitsStorage | null = null) {
     storage,
     onZoom: vi.fn<(factor: number) => void>(),
     onOrbitsChange,
+    onGravityChange: vi.fn(),
     onQualityChange: vi.fn(),
     qualityValue: null,
     qualityLocked: false,
@@ -174,9 +175,12 @@ test('css contract', () => {
   expect(CONTROLS_CSS).toMatch(
     /\.o-toggle__switch\s*\{[^}]*border:\s*1\.5px solid var\(--c-control-border\)/u,
   );
-  // Text is never hidden on a breakpoint.
-  expect(CSS).not.toMatch(/display:\s*none/u);
-  expect(CSS).not.toMatch(/@media/u);
+  // The switches never hide their text. Only "Cały układ" keeps just its
+  // icon below 1180 px, so "Orbity" and "Grawitacja" fit (EMI-264).
+  expect(CSS.match(/@media[^{]*/gu)).toEqual(['@media (max-width: 1180px) ']);
+  expect(CSS.match(/[^{}]*\{[^}]*display:\s*none/gu)).toEqual([
+    expect.stringMatching(/^\s*#view-controls \.view-reset > span \{/u),
+  ]);
 });
 
 test('pl.json keys', () => {
@@ -197,6 +201,7 @@ test('tab order inside group', () => {
   expect(ids).toEqual([
     'view-reset',
     'view-orbits',
+    'view-gravity',
     'view-zoom-out',
     'view-zoom-in',
     'view-fullscreen',
@@ -217,6 +222,7 @@ test('dispose cleans up', () => {
     storage: null,
     onZoom,
     onOrbitsChange,
+    onGravityChange: vi.fn(),
     onQualityChange: vi.fn(),
     qualityValue: null,
     qualityLocked: false,

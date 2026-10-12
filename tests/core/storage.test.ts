@@ -113,3 +113,12 @@ test('intro.done is a plain "1" with no old key to migrate', () => {
   // The unknown old key is left alone.
   expect(data.get('orbitka.intro.done')).toBe('1');
 });
+
+test('gravity holds true or false and has no old key', () => {
+  const { data, storage } = memory({ 'orbitka.gravity': 'true' });
+  const app = createAppStorage(() => storage);
+  expect(app.getItem('gravity')).toBeNull();
+  app.setItem('gravity', 'true');
+  expect(data.get('orbitka.v1.gravity')).toBe('true');
+  expect(() => app.setItem('gravity', '1')).toThrow(RangeError);
+});

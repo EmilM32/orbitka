@@ -34,6 +34,8 @@ export type UiInputs = {
   bodyContent: BodyContentCatalog;
   interiors: Readonly<Record<string, BodyCardInterior>>;
   initialCutaway: boolean;
+  /** A link turned the gravity grid on. */
+  initialGravity: boolean;
   viewRig: ViewRig;
   sceneRig: SceneRig;
   selectionRig: SelectionRig;
@@ -51,6 +53,7 @@ export function wireUi({
   bodyContent,
   interiors,
   initialCutaway,
+  initialGravity,
   viewRig,
   sceneRig,
   selectionRig,
@@ -134,7 +137,7 @@ export function wireUi({
     tabletListQuery.removeEventListener('change', updateListMode);
     railWidthQuery.removeEventListener('change', updateListMode);
   });
-  const { quality, orbitLines, cutaway } = sceneRig;
+  const { quality, orbitLines, gravityGrid, cutaway } = sceneRig;
   let bodyCard: BodyCard | null = null;
   const shortcutsDialog = createShortcutsDialog(document.body, i18n);
   stack.add(() => {
@@ -150,6 +153,11 @@ export function wireUi({
     onOrbitsChange: (visible) => {
       orbitLines.setOrbitLinesVisible(visible);
     },
+    onGravityChange: (visible) => {
+      gravityGrid.setVisible(visible);
+      scaleNotice.setGravity(visible);
+    },
+    gravityFromLink: initialGravity,
     onQualityChange: (level) => {
       quality.setOverride(level);
     },
@@ -165,6 +173,7 @@ export function wireUi({
         paused: clock.paused,
         presetId: presetIdForSpeed(clock.speed),
         cutaway: bodyId !== null && (bodyCard?.isCutawayOpen() ?? false),
+        gravity: viewControls.isGravityVisible(),
       });
       return copyText(navigator.clipboard, link);
     },

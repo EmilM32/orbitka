@@ -59,8 +59,6 @@
 }
 
 #time-controls .time-today {
-  min-width: 0;
-  min-height: 1.75rem;
   padding: 0 0.5rem;
   font-size: 0.8125rem;
   visibility: hidden;
@@ -163,13 +161,44 @@
   border-color: var(--c-active-border);
 }
 
-#speed-slider {
-  --fill: 0%;
-
+/* The slider and its preset marks. The marks sit on the track under the thumb. */
+.time-slider {
+  position: relative;
   box-sizing: border-box;
   flex: 1 1 9rem;
   width: 9rem;
   min-width: 8rem;
+  height: var(--hit);
+}
+
+.time-ticks {
+  position: absolute;
+  inset: 0 0.625rem;
+  pointer-events: none;
+}
+
+.time-tick {
+  position: absolute;
+  top: 50%;
+  left: calc(var(--tick) * 100%);
+  width: 2px;
+  height: 0.875rem;
+  background: var(--c-text-2);
+  border-radius: 1px;
+  transform: translate(-50%, -50%);
+}
+
+/* The active preset is white, never yellow. */
+.time-tick[data-active='true'] {
+  background: var(--c-text);
+}
+
+#speed-slider {
+  --fill: 0%;
+
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
   height: var(--hit);
   margin: 0;
   padding: 0;

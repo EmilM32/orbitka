@@ -37,6 +37,9 @@ Progi: tekst 4,5:1 (AA, tekst zwykły), elementy UI i grafika 3:1 (WCAG 1.4.11).
 | UI    | Przełącznik wył. (obrys #5d6a8c) względem szkła                                    | `#0b0f1b`          | **3,55:1**  | 3,0  | ✅    |
 | UI    | Uchwyt suwaka (biały) względem szkła                                               | `#0b0f1b`          | **19,11:1** | 3,0  | ✅    |
 | UI    | Wypełnienie suwaka #b3bcd1 względem toru #48536f                                   | `#48536f`          | **4,02:1**  | 3,0  | ✅    |
+| UI    | Kreska presetu na suwaku #b3bcd1 względem toru #48536f                             | `#48536f`          | **4,02:1**  | 3,0  | ✅    |
+| UI    | Kreska presetu na suwaku #b3bcd1 względem szkła                                    | `#0b0f1b`          | **10,04:1** | 4,5  | ✅    |
+| UI    | Kreska aktywnego presetu #f2f4fa względem toru #48536f                             | `#48536f`          | **6,96:1**  | 3,0  | ✅    |
 | UI    | Obrys „Pozycje przybliżone” #ffb36b względem szkła                                 | `#0b0f1b`          | **10,84:1** | 3,0  | ✅    |
 | UI    | Miernik: Ziemia #3a78c2 względem toru (szkło + biel 5%)                            | `#181b27`          | **3,80:1**  | 3,0  | ✅    |
 | UI    | Miernik: obrys Ziemi #8fb8ea względem toru                                         | `#181b27`          | **8,35:1**  | 3,0  | ✅    |

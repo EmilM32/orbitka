@@ -1,4 +1,4 @@
-import { SPEED_MAX, SPEED_MIN } from './clock.ts';
+import { SPEED_MAX, SPEED_MIN, SPEED_PRESETS } from './clock.ts';
 
 export const SLIDER_STEPS = 1000;
 
@@ -68,4 +68,55 @@ export function speedToSlider(
   return Math.round(
     (SLIDER_STEPS * Math.log(speed / min)) / Math.log(max / min),
   );
+}
+
+export type PresetTick = {
+  id: string;
+  /** Slider position, 0 to `SLIDER_STEPS`, from the same mapping as the thumb. */
+  position: number;
+};
+
+/** The speed presets as marks on the slider. "Pause" has no speed, so no mark. */
+export function presetTicks(): readonly PresetTick[] {
+  return SPEED_PRESETS.filter((preset) => preset.daysPerSecond > 0).map(
+    (preset) => ({
+      id: preset.id,
+      position: speedToSlider(preset.daysPerSecond),
+    }),
+  );
+}
+
+/** Slider steps that span `radiusPx` on a track `trackPx` wide. */
+export function stepsForPixels(radiusPx: number, trackPx: number): number {
+  if (!Number.isFinite(radiusPx) || radiusPx < 0) {
+    throw new RangeError(
+      `stepsForPixels: parameter "radiusPx" must be finite and >= 0, got ${radiusPx}`,
+    );
+  }
+
+  if (!Number.isFinite(trackPx) || !(trackPx > 0)) {
+    throw new RangeError(
+      `stepsForPixels: parameter "trackPx" must be finite and > 0, got ${trackPx}`,
+    );
+  }
+
+  return (radiusPx / trackPx) * SLIDER_STEPS;
+}
+
+/** The nearest preset mark within `radiusSteps` of `position`, else null. */
+export function nearestPresetTick(
+  position: number,
+  radiusSteps: number,
+): PresetTick | null {
+  let nearest: PresetTick | null = null;
+  let nearestDistance = Infinity;
+  for (const tick of presetTicks()) {
+    const distance = Math.abs(tick.position - position);
+    if (distance <= radiusSteps && distance < nearestDistance) {
+      nearest = tick;
+      nearestDistance = distance;
+    }
+  }
+
+  return nearest;
 }

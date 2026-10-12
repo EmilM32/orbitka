@@ -959,3 +959,84 @@ test('timeControls › "Dziś" stays hidden for days out of range', () => {
   controls.dispose();
   parent.remove();
 });
+
+function ticksOf(parent: ParentNode): HTMLElement[] {
+  return [...parent.querySelectorAll<HTMLElement>('.time-tick')];
+}
+
+test('timeControls › slider marks at the presets', () => {
+  const view = setup();
+  const layer = view.parent.querySelector('.time-ticks');
+  expect(layer?.getAttribute('aria-hidden')).toBe('true');
+  const ticks = ticksOf(view.parent);
+  expect(ticks.map((tick) => tick.dataset['preset'])).toEqual([
+    'day',
+    'ten-days',
+    'month',
+    'year',
+  ]);
+  for (const [id, speed] of [
+    ['day', 1],
+    ['ten-days', 10],
+    ['month', 30.4375],
+    ['year', 365.25],
+  ] as const) {
+    const tick = ticks.find((candidate) => candidate.dataset['preset'] === id);
+    expect(Number(tick?.style.getPropertyValue('--tick'))).toBeCloseTo(
+      speedToSlider(speed) / 1000,
+      10,
+    );
+  }
+
+  const active = (): (string | undefined)[] =>
+    ticksOf(view.parent)
+      .filter((tick) => tick.dataset['active'] === 'true')
+      .map((tick) => tick.dataset['preset']);
+  expect(active()).toEqual(['day']);
+  button(view.parent, 'time-preset-year').click();
+  expect(active()).toEqual(['year']);
+  view.clock.setSpeed(123);
+  expect(active()).toEqual([]);
+  // The slider keeps its value text and no tick is focusable.
+  expect(sliderOf(view.parent).getAttribute('aria-valuetext')).toBe(
+    '123 dni na sekundę',
+  );
+  expect(ticksOf(view.parent).every((tick) => tick.tabIndex === -1)).toBe(true);
+
+  view.cleanup();
+});
+
+test('timeControls › mouse drag snaps to a mark, keys do not', () => {
+  const view = setup();
+  const slider = sliderOf(view.parent);
+  vi.spyOn(slider, 'getBoundingClientRect').mockReturnValue({
+    width: 220,
+  } as DOMRect);
+  Object.defineProperty(slider, 'setPointerCapture', { value: vi.fn() });
+  const yearPosition = speedToSlider(365.25);
+
+  // Without a pointer the value stays where the input put it.
+  fireInput(slider, String(yearPosition + 8));
+  expect(slider.value).toBe(String(yearPosition + 8));
+
+  // 5 px of a 200 px track is 25 steps.
+  slider.dispatchEvent(
+    new PointerEvent('pointerdown', { pointerId: 1, bubbles: true }),
+  );
+  fireInput(slider, String(yearPosition + 8));
+  expect(slider.value).toBe(String(yearPosition));
+  expect(view.clock.speed).toBe(365.25);
+  expect(
+    button(view.parent, 'time-preset-year').getAttribute('aria-checked'),
+  ).toBe('true');
+  fireInput(slider, String(yearPosition - 40));
+  expect(slider.value).toBe(String(yearPosition - 40));
+  slider.dispatchEvent(new Event('pointerup', { bubbles: true }));
+
+  // The arrow keys are not a pointer: the step stays one.
+  slider.dispatchEvent(new Event('blur'));
+  fireInput(slider, String(yearPosition - 5));
+  expect(slider.value).toBe(String(yearPosition - 5));
+
+  view.cleanup();
+});

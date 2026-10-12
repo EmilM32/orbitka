@@ -11,9 +11,12 @@ import {
 } from '@core/clock.ts';
 import { dateDistance } from '@core/dateDistance.ts';
 import {
+  nearestPresetTick,
+  presetTicks,
   SLIDER_STEPS,
   sliderToSpeed,
   speedToSlider,
+  stepsForPixels,
 } from '@core/speedSlider.ts';
 import { orbitalElementsAreApproximate } from '@data/elementValidity.ts';
 
@@ -38,6 +41,10 @@ export type TimeControls = {
 // The first move outside 1800–2050 is announced once per session (module
 // memory, not browser storage), however many panels come and go.
 let approximateAnnounced = false;
+
+// The thumb is 1.25rem (timeControls.css) and the snap reaches 5 px around a mark.
+const THUMB_PX = 20;
+const SNAP_RADIUS_PX = 5;
 
 const SPEED_PRESET_IDS = ['day', 'ten-days', 'month', 'year'] as const;
 
@@ -226,6 +233,25 @@ export function createTimeControls(
   slider.setAttribute('max', String(SLIDER_STEPS));
   slider.setAttribute('step', '1');
 
+  // Marks at the preset speeds, from the same mapping as the thumb. They only
+  // decorate: the presets and the value text carry the meaning.
+  const sliderWrap = document.createElement('div');
+  sliderWrap.className = 'time-slider';
+  const tickLayer = document.createElement('div');
+  tickLayer.className = 'time-ticks';
+  tickLayer.setAttribute('aria-hidden', 'true');
+  const tickElements = new Map<string, HTMLElement>();
+  for (const tick of presetTicks()) {
+    const mark = document.createElement('span');
+    mark.className = 'time-tick';
+    mark.setAttribute('data-preset', tick.id);
+    mark.setAttribute('data-active', 'false');
+    mark.style.setProperty('--tick', String(tick.position / SLIDER_STEPS));
+    tickLayer.append(mark);
+    tickElements.set(tick.id, mark);
+  }
+  sliderWrap.append(slider, tickLayer);
+
   const live = document.createElement('div');
   live.setAttribute('class', 'visually-hidden');
   live.setAttribute('aria-live', 'polite');
@@ -237,7 +263,7 @@ export function createTimeControls(
     presetGroup,
     reverseButton,
     sliderLabel,
-    slider,
+    sliderWrap,
     live,
   );
   parent.insertBefore(section, before ?? null);
@@ -339,6 +365,7 @@ export function createTimeControls(
   let lastAnnouncement = '';
   let announce = false;
   let isDragging = false;
+  let pointerActive = false;
   let lastValueText = '';
 
   function presetById(id: string): SpeedPresetId | null {
@@ -397,6 +424,21 @@ export function createTimeControls(
       slider.value = String(speedToSlider(clock.speed));
       return;
     }
+    if (pointerActive) {
+      // Dragging with the mouse or a finger sticks to a preset mark a few
+      // pixels away; the keys keep their own steps.
+      const width = slider.getBoundingClientRect().width - THUMB_PX;
+      const near =
+        width > 0
+          ? nearestPresetTick(
+              Number(slider.value),
+              stepsForPixels(SNAP_RADIUS_PX, width),
+            )
+          : null;
+      if (near !== null) {
+        slider.value = String(near.position);
+      }
+    }
     applySlider(Number(slider.value));
   }
 
@@ -437,11 +479,13 @@ export function createTimeControls(
     }
 
     isDragging = true;
+    pointerActive = true;
     slider.setPointerCapture(event.pointerId);
   }
 
   function endDrag(): void {
     isDragging = false;
+    pointerActive = false;
   }
 
   const sliderListeners: readonly [string, EventListener][] = [
@@ -548,6 +592,9 @@ export function createTimeControls(
         presetButtons
           .get(id)
           ?.setAttribute('tabindex', id === tabStop ? '0' : '-1');
+      }
+      for (const [id, mark] of tickElements) {
+        mark.setAttribute('data-active', String(id === presetId));
       }
       lastPresetId = presetId;
     }

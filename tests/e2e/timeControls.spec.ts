@@ -605,3 +605,28 @@ test('"Dziś" does not overlap the panel at 768×1024', async ({ page }) => {
     panel.x + panel.width,
   );
 });
+
+test('slider marks sit where the thumb stops for each preset', async ({
+  page,
+}) => {
+  await openApp(page, DEBUG_START);
+  const slider = page.getByTestId('time-slider');
+  for (const id of ['day', 'ten-days', 'month', 'year']) {
+    await page.getByTestId(`time-preset-${id}`).click();
+    const [sliderBox, tickBox, value] = await Promise.all([
+      slider.boundingBox(),
+      page.locator(`.time-tick[data-preset="${id}"]`).boundingBox(),
+      slider.evaluate((element) => Number((element as HTMLInputElement).value)),
+    ]);
+    if (sliderBox === null || tickBox === null) {
+      throw new Error('missing box');
+    }
+    // The thumb centre runs from half a thumb (10 px) to the width minus that.
+    const thumbCentre =
+      sliderBox.x + 10 + (value / 1000) * (sliderBox.width - 20);
+    expect(tickBox.x + tickBox.width / 2).toBeCloseTo(thumbCentre, 0);
+    await expect(
+      page.locator(`.time-tick[data-preset="${id}"]`),
+    ).toHaveAttribute('data-active', 'true');
+  }
+});

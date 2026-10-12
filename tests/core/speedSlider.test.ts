@@ -1,10 +1,13 @@
 import { expect, test } from 'vitest';
 
-import { SPEED_MAX, SPEED_MIN } from '@core/clock.ts';
+import { SPEED_MAX, SPEED_MIN, SPEED_PRESETS } from '@core/clock.ts';
 import {
+  nearestPresetTick,
+  presetTicks,
   SLIDER_STEPS,
   sliderToSpeed,
   speedToSlider,
+  stepsForPixels,
 } from '@core/speedSlider.ts';
 
 test('sliderToSpeed › clamp', () => {
@@ -99,4 +102,46 @@ test('speedSlider › custom bounds', () => {
   expect(speedToSlider(4, 2, 8)).toBe(500);
   expect(SPEED_MIN).toBe(0.1);
   expect(SPEED_MAX).toBe(3652.5);
+});
+
+test('presetTicks › positions come from the thumb mapping', () => {
+  const ticks = presetTicks();
+  expect(ticks.map((tick) => tick.id)).toEqual([
+    'day',
+    'ten-days',
+    'month',
+    'year',
+  ]);
+  for (const tick of ticks) {
+    const preset = SPEED_PRESETS.find((candidate) => candidate.id === tick.id);
+    expect(tick.position).toBe(speedToSlider(preset?.daysPerSecond ?? 0));
+    expect(tick.position).toBeGreaterThan(0);
+    expect(tick.position).toBeLessThan(SLIDER_STEPS);
+  }
+  const positions = ticks.map((tick) => tick.position);
+  expect(positions).toEqual([...positions].sort((a, b) => a - b));
+});
+
+test('nearestPresetTick › radius and the nearest wins', () => {
+  const [day, tenDays] = presetTicks();
+  expect(day).toBeDefined();
+  expect(tenDays).toBeDefined();
+  if (day === undefined || tenDays === undefined) {
+    return;
+  }
+  expect(nearestPresetTick(day.position, 0)?.id).toBe('day');
+  expect(nearestPresetTick(day.position + 5, 5)?.id).toBe('day');
+  expect(nearestPresetTick(day.position + 6, 5)).toBeNull();
+  expect(nearestPresetTick(0, 5)).toBeNull();
+  const middle = (day.position + tenDays.position) / 2;
+  expect(nearestPresetTick(middle - 1, 1000)?.id).toBe('day');
+  expect(nearestPresetTick(middle + 1, 1000)?.id).toBe('ten-days');
+});
+
+test('stepsForPixels › converts pixels to steps', () => {
+  expect(stepsForPixels(5, 200)).toBe(25);
+  expect(stepsForPixels(0, 200)).toBe(0);
+  expect(() => stepsForPixels(-1, 200)).toThrow(RangeError);
+  expect(() => stepsForPixels(5, 0)).toThrow(RangeError);
+  expect(() => stepsForPixels(Number.NaN, 200)).toThrow(RangeError);
 });

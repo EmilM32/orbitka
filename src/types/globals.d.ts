@@ -75,6 +75,14 @@ export type OrbitkaQualityState = {
   pixelRatio: number;
 };
 
+/** The projected bounding box of an orbit line, in CSS px of the window. */
+export type OrbitkaOrbitExtent = {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+};
+
 declare global {
   interface Window {
     __orbitka?: {
@@ -87,6 +95,7 @@ declare global {
       getCameraState: () => OrbitkaCameraState;
       getSelectedId: () => string | null;
       getOrbitState: () => OrbitkaOrbitState;
+      getOrbitExtent: (id: string) => OrbitkaOrbitExtent | null;
       getViewInsets: () => { right: number; bottom: number };
       getTextureState: () => OrbitkaTextureState;
       getQuality: () => OrbitkaQualityState;

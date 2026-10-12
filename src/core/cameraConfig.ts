@@ -6,6 +6,8 @@ export const CAMERA_CONFIG = {
   polarMaxDeg: 170,
   startDistanceBase: Math.hypot(75, 95),
   startDistanceAspect: 1.2,
+  // The share of the free area the whole system fills at the start (EMI-241).
+  startFrameFill: 0.9,
   systemZoomMaxFactor: 1.5,
   systemZoomMinFactor: 0.2,
   bodyZoomMinRadiusFactor: 2.5,

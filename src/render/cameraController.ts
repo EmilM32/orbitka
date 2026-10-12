@@ -9,6 +9,7 @@ import {
   setDefaultPose,
   softClampDistance,
   startDistance,
+  type StartFrame,
   systemDistanceLimits,
   wrapAzimuth,
   type CameraPose,
@@ -41,6 +42,12 @@ export type CameraController = {
   ): void;
   zoomBy(factor: number, smooth: boolean, notify?: boolean): void;
   setAspect(aspect: number): void;
+  /**
+   * How the start view fits the free area of the window (EMI-241), or `null`
+   * for the plain aspect rule. The camera distance keeps its place relative
+   * to the start distance, like on a resize; limits follow.
+   */
+  setStartFrame(frame: StartFrame | null): void;
   setTarget(x: number, y: number, z: number): void;
   setLimitsForBody(displayRadius: number | null): void;
   setPose(next: CameraPose): void;
@@ -145,6 +152,12 @@ export function createCameraController(
   if (!Number.isFinite(aspect) || aspect <= 0) {
     aspect = 1;
   }
+  let startFrame: StartFrame | null = null;
+  const startCache: {
+    aspect: number;
+    frame: StartFrame | null;
+    value: number;
+  } = { aspect: Number.NaN, frame: null, value: 1 };
   let displayRadius: number | null = null;
   let residualAzimuth = 0;
   let residualPolar = 0;
@@ -257,13 +270,27 @@ export function createCameraController(
         return;
       }
 
-      const previousStart = startDistance(aspect);
-      const nextStart = startDistance(nextAspect);
-      pose.distance *= nextStart / previousStart;
+      const previousStart = currentStart();
       aspect = nextAspect;
+      pose.distance *= currentStart() / previousStart;
       recomputeLimits();
       camera.aspect = aspect;
       camera.updateProjectionMatrix();
+      syncCamera();
+    },
+    setStartFrame(next: StartFrame | null): void {
+      if (disposed) {
+        return;
+      }
+
+      const previousStart = currentStart();
+      startFrame = next === null ? null : { ...next };
+      const nextStart = currentStart();
+      if (nextStart === previousStart) {
+        return;
+      }
+      pose.distance *= nextStart / previousStart;
+      recomputeLimits();
       syncCamera();
     },
     setTarget(x: number, y: number, z: number): void {
@@ -286,12 +313,12 @@ export function createCameraController(
 
       if (nextRadius !== null) {
         requireFinitePositive('setLimitsForBody', 'displayRadius', nextRadius);
-        bodyDistanceLimits(limits, startDistance(aspect), nextRadius);
+        bodyDistanceLimits(limits, currentStart(), nextRadius);
         displayRadius = nextRadius;
         return;
       }
       displayRadius = null;
-      systemDistanceLimits(limits, startDistance(aspect));
+      systemDistanceLimits(limits, currentStart());
     },
     setPose(next: CameraPose): void {
       if (disposed) {
@@ -392,8 +419,19 @@ export function createCameraController(
     },
   };
 
+  // The fit solves a small search, so it is kept until the aspect or the
+  // frame changes.
+  function currentStart(): number {
+    if (startCache.aspect !== aspect || startCache.frame !== startFrame) {
+      startCache.aspect = aspect;
+      startCache.frame = startFrame;
+      startCache.value = startDistance(aspect, startFrame);
+    }
+    return startCache.value;
+  }
+
   function recomputeLimits(): void {
-    const start = startDistance(aspect);
+    const start = currentStart();
     if (displayRadius === null) {
       systemDistanceLimits(limits, start);
       return;

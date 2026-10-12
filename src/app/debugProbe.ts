@@ -2,6 +2,7 @@ import { bodies } from '@data/bodies.ts';
 import type { CameraControllerState } from '@render/cameraController.ts';
 import type { CameraFlightSnapshot } from '@render/cameraDirector.ts';
 import { ORBIT_GAP_RADIUS_FACTOR } from '@render/orbitLines.ts';
+import { projectedOrbitExtent } from '@render/orbitExtent.ts';
 import { getBodyScenePosition } from '@render/scenePosition.ts';
 import { getBodyScreenPositions } from '@render/screenPositions.ts';
 
@@ -182,6 +183,14 @@ export function installDebugProbe({
     },
     getQuality() {
       return readQuality();
+    },
+    getOrbitExtent(id: string) {
+      return projectedOrbitExtent(
+        orbitLines.group.getObjectByName(`orbit-${id}`),
+        view.camera,
+        viewRig.size.width,
+        viewRig.size.height,
+      );
     },
     getOrbitState() {
       const opacities: number[] = [];

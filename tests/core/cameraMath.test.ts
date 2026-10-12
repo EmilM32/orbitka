@@ -4,10 +4,12 @@ import { CAMERA_CONFIG } from '@core/cameraConfig.ts';
 import {
   blendPose,
   bodyDistanceLimits,
+  centeredFreeShares,
   clampDistance,
   clampPolar,
   dampingFraction,
   easeInOutCubic,
+  fitStartDistance,
   flightGoalDistance,
   freeAreaDistanceFactor,
   flightProgress,
@@ -24,6 +26,7 @@ import {
   zoomDistance,
   type CameraPose,
   type DistanceLimits,
+  type StartFrame,
   type Vec3,
 } from '@core/cameraMath.ts';
 
@@ -841,4 +844,149 @@ test('invalid input', () => {
       );
     }
   }
+});
+
+// EMI-241: the start distance fits the whole system into the free area.
+const NEPTUNE_RADIUS = 43.9;
+
+function frameFor(
+  widthShare: number,
+  heightShare: number,
+  fill = 0.9,
+): StartFrame {
+  return {
+    orbitRadius: NEPTUNE_RADIUS,
+    fovDeg: 45,
+    widthShare,
+    heightShare,
+    fill,
+  };
+}
+
+// How far the orbit reaches from the window center, as shares of half the
+// window, sideways and vertically (the larger of near and far side).
+function orbitShares(
+  distance: number,
+  aspect: number,
+  frame: StartFrame,
+): { width: number; height: number } {
+  const polar = (CAMERA_CONFIG.startPolarDeg * Math.PI) / 180;
+  const tanHalf = Math.tan((frame.fovDeg * Math.PI) / 360);
+  let reachX = 0;
+  let reachY = 0;
+  for (let k = 0; k < 720; k += 1) {
+    const angle = (2 * Math.PI * k) / 720;
+    const depth =
+      distance - frame.orbitRadius * Math.sin(angle) * Math.sin(polar);
+    const x =
+      (frame.orbitRadius * Math.cos(angle)) / (depth * tanHalf * aspect);
+    const y =
+      (-frame.orbitRadius * Math.sin(angle) * Math.cos(polar)) /
+      (depth * tanHalf);
+    reachX = Math.max(reachX, Math.abs(x));
+    reachY = Math.max(reachY, Math.abs(y));
+  }
+  return { width: reachX, height: reachY };
+}
+
+test.each([
+  ['768×1024', 768 / 1024, 0.96, 0.78],
+  ['1024×768', 1024 / 768, 0.97, 0.79],
+  ['1280×720', 1280 / 720, 0.58, 0.76],
+  ['1920×1080', 1920 / 1080, 0.72, 0.84],
+])(
+  'fitStartDistance › %s fills 90% of the free area in its tighter direction',
+  (_name, aspect, widthShare, heightShare) => {
+    const frame = frameFor(widthShare, heightShare);
+    const distance = fitStartDistance(aspect, frame);
+    const shares = orbitShares(distance, aspect, frame);
+    expect(shares.width).toBeLessThanOrEqual(0.9 * widthShare + 0.002);
+    expect(shares.height).toBeLessThanOrEqual(0.9 * heightShare + 0.002);
+    const tighter = Math.max(
+      shares.width / widthShare,
+      shares.height / heightShare,
+    );
+    expect(tighter).toBeGreaterThan(0.9 - 0.005);
+  },
+);
+
+test('fitStartDistance › a larger free area brings the camera closer', () => {
+  const aspect = 1.5;
+  const narrow = fitStartDistance(aspect, frameFor(0.5, 0.5));
+  const wide = fitStartDistance(aspect, frameFor(0.9, 0.9));
+  expect(wide).toBeLessThan(narrow);
+  // Less fill is farther away.
+  expect(fitStartDistance(aspect, frameFor(0.9, 0.9, 0.5))).toBeGreaterThan(
+    wide,
+  );
+});
+
+test('fitStartDistance › the portrait tablet is not left with a small system', () => {
+  // 768×1024 with 16 px margins and the panels at top and bottom.
+  const aspect = 768 / 1024;
+  const frame = frameFor(736 / 768, 0.78);
+  const distance = fitStartDistance(aspect, frame);
+  const fitted = orbitShares(distance, aspect, frame).width;
+  const legacy = orbitShares(startDistance(aspect), aspect, frame).width;
+  expect(fitted).toBeGreaterThan(legacy);
+  expect(fitted).toBeGreaterThan(0.85);
+});
+
+test('startDistance › with a frame it fits, without one it keeps the old rule', () => {
+  expect(startDistance(16 / 9)).toBe(CAMERA_CONFIG.startDistanceBase);
+  expect(startDistance(16 / 9, null)).toBe(CAMERA_CONFIG.startDistanceBase);
+  expect(startDistance(0.75, undefined)).toBeCloseTo(
+    CAMERA_CONFIG.startDistanceBase * 1.6,
+    9,
+  );
+  const frame = frameFor(0.7, 0.7);
+  expect(startDistance(1.5, frame)).toBe(fitStartDistance(1.5, frame));
+});
+
+test('fitStartDistance › bad input throws RangeError', () => {
+  expect(() => fitStartDistance(0, frameFor(0.5, 0.5))).toThrow(RangeError);
+  expect(() => fitStartDistance(1, frameFor(0, 0.5))).toThrow(RangeError);
+  expect(() => fitStartDistance(1, frameFor(0.5, 1.2))).toThrow(RangeError);
+  expect(() => fitStartDistance(1, frameFor(0.5, 0.5, 0))).toThrow(RangeError);
+  expect(() =>
+    fitStartDistance(1, { ...frameFor(0.5, 0.5), orbitRadius: -1 }),
+  ).toThrow(RangeError);
+  expect(() =>
+    fitStartDistance(1, { ...frameFor(0.5, 0.5), fovDeg: Number.NaN }),
+  ).toThrow(RangeError);
+});
+
+test('centeredFreeShares › symmetric around the center', () => {
+  // 1280×720: list on the left, top bar and time panel above and below.
+  const shares = centeredFreeShares(1280, 720, {
+    left: 268,
+    top: 70,
+    right: 16,
+    bottom: 86,
+  });
+  expect(shares?.widthShare).toBeCloseTo((2 * (640 - 268)) / 1280, 10);
+  expect(shares?.heightShare).toBeCloseTo((2 * (360 - 86)) / 720, 10);
+  // The larger inset on either side wins.
+  const flipped = centeredFreeShares(1280, 720, {
+    left: 16,
+    top: 86,
+    right: 268,
+    bottom: 70,
+  });
+  expect(flipped).toEqual(shares);
+});
+
+test('centeredFreeShares › no free area gives null; shares never exceed 1', () => {
+  expect(
+    centeredFreeShares(400, 300, { left: 250, top: 0, right: 0, bottom: 0 }),
+  ).toBeNull();
+  expect(
+    centeredFreeShares(400, 300, { left: 0, top: 160, right: 0, bottom: 0 }),
+  ).toBeNull();
+  expect(
+    centeredFreeShares(400, 300, { left: -5, top: -5, right: 0, bottom: 0 }),
+  ).toEqual({ widthShare: 1, heightShare: 1 });
+  expect(() =>
+    centeredFreeShares(0, 300, { left: 0, top: 0, right: 0, bottom: 0 }),
+  ).toThrow(RangeError);
 });

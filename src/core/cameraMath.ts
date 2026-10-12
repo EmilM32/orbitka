@@ -105,8 +105,102 @@ function requirePose(functionName: string, pose: CameraPose): void {
   requireFinite(functionName, 'targetZ', pose.targetZ);
 }
 
-export function startDistance(aspect: number): number {
+/**
+ * How big the whole system should look at the start and in the system view
+ * (EMI-241). `widthShare` and `heightShare` are the parts of the window width
+ * and height that stay free of panels, measured symmetrically around the
+ * window center (where the camera aims); `fill` is the part of that free area
+ * the outermost orbit may cover.
+ */
+export type StartFrame = {
+  /** Scene radius of the outermost orbit (Neptune). */
+  orbitRadius: number;
+  /** Vertical field of view of the camera, in degrees. */
+  fovDeg: number;
+  widthShare: number;
+  heightShare: number;
+  fill: number;
+};
+
+const FIT_SAMPLES = 128;
+const FIT_ITERATIONS = 50;
+
+function requireShare(name: string, value: number): void {
+  if (!Number.isFinite(value) || value <= 0 || value > 1) {
+    throw invalidInput('startDistance', name, 'must be in (0, 1]', value);
+  }
+}
+
+// How far the projected orbit reaches from the window center, sideways and
+// vertically, each as a share of half the window, for a camera at `distance`
+// looking down at the start polar angle. The orbit is a circle of `radius` in
+// the ecliptic plane (scene x-z) around the origin, which the camera aims at.
+// Seen from an angle the near side reaches farther down than the far side
+// reaches up, so the larger of the two counts: the free area is symmetric.
+function projectedOrbitReach(
+  out: { width: number; height: number },
+  distance: number,
+  radius: number,
+  tanHalfFov: number,
+  aspect: number,
+): void {
+  const sinPolar = Math.sin(START_POLAR_RAD);
+  const cosPolar = Math.cos(START_POLAR_RAD);
+  let reachX = 0;
+  let reachY = 0;
+  for (let k = 0; k < FIT_SAMPLES; k += 1) {
+    const angle = (2 * Math.PI * k) / FIT_SAMPLES;
+    const depth = distance - radius * Math.sin(angle) * sinPolar;
+    const x = (radius * Math.cos(angle)) / (depth * tanHalfFov * aspect);
+    const y = (-radius * Math.sin(angle) * cosPolar) / (depth * tanHalfFov);
+    reachX = Math.max(reachX, Math.abs(x));
+    reachY = Math.max(reachY, Math.abs(y));
+  }
+  out.width = reachX;
+  out.height = reachY;
+}
+
+/**
+ * The camera distance at which the outermost orbit, seen from the start
+ * angle, just fills `frame.fill` of the free area in its tighter direction.
+ */
+export function fitStartDistance(aspect: number, frame: StartFrame): number {
+  requireFinitePositive('fitStartDistance', 'aspect', aspect);
+  requireFinitePositive('fitStartDistance', 'orbitRadius', frame.orbitRadius);
+  requireFinitePositive('fitStartDistance', 'fovDeg', frame.fovDeg);
+  requireShare('widthShare', frame.widthShare);
+  requireShare('heightShare', frame.heightShare);
+  requireShare('fill', frame.fill);
+
+  const radius = frame.orbitRadius;
+  const tanHalfFov = Math.tan((frame.fovDeg * Math.PI) / 360);
+  const wantWidth = frame.fill * frame.widthShare;
+  const wantHeight = frame.fill * frame.heightShare;
+  const shares = { width: 0, height: 0 };
+  // Both extents fall as the camera moves away: bisect for the nearest
+  // distance at which each one fits, then keep the farther of the two.
+  let low = radius;
+  let high = radius * 4096;
+  for (let iteration = 0; iteration < FIT_ITERATIONS; iteration += 1) {
+    const middle = (low + high) / 2;
+    projectedOrbitReach(shares, middle, radius, tanHalfFov, aspect);
+    if (shares.width <= wantWidth && shares.height <= wantHeight) {
+      high = middle;
+    } else {
+      low = middle;
+    }
+  }
+  return high;
+}
+
+export function startDistance(
+  aspect: number,
+  frame?: StartFrame | null,
+): number {
   requireFinitePositive('startDistance', 'aspect', aspect);
+  if (frame !== undefined && frame !== null) {
+    return fitStartDistance(aspect, frame);
+  }
   const multiplier = Math.max(1, CAMERA_CONFIG.startDistanceAspect / aspect);
   return CAMERA_CONFIG.startDistanceBase * multiplier;
 }
@@ -429,4 +523,43 @@ export function dampingFraction(dtSeconds: number): number {
   const retained = 1 - CAMERA_CONFIG.dampingFactor;
   const steps = CAMERA_CONFIG.dampingReferenceFps * dtSeconds;
   return 1 - retained ** steps;
+}
+
+/** Edges of the window taken by panels, in CSS px. */
+export type ChromeInsets = {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+};
+
+/**
+ * The share of the window width and height that stays free around the window
+ * center, where the camera aims. The free area is cut symmetrically, so the
+ * system seen from the camera never reaches under a panel on either side.
+ * Returns `null` when no free area is left.
+ */
+export function centeredFreeShares(
+  widthPx: number,
+  heightPx: number,
+  insets: ChromeInsets,
+): { widthShare: number; heightShare: number } | null {
+  requireFinitePositive('centeredFreeShares', 'widthPx', widthPx);
+  requireFinitePositive('centeredFreeShares', 'heightPx', heightPx);
+  const halfWidth = Math.min(
+    widthPx / 2 - Math.max(0, insets.left),
+    widthPx / 2 - Math.max(0, insets.right),
+  );
+  const halfHeight = Math.min(
+    heightPx / 2 - Math.max(0, insets.top),
+    heightPx / 2 - Math.max(0, insets.bottom),
+  );
+  if (!(halfWidth > 0) || !(halfHeight > 0)) {
+    return null;
+  }
+
+  return {
+    widthShare: Math.min(1, (2 * halfWidth) / widthPx),
+    heightShare: Math.min(1, (2 * halfHeight) / heightPx),
+  };
 }

@@ -16,6 +16,7 @@ Work scope is in Linear, project [Orbitka](https://linear.app/emilm/project/orbi
 | 006 Performance | [EMI-94](https://linear.app/emilm/issue/EMI-94/adr-006-budzet-wydajnosci)                              | FPS budget, `pixelRatio`, local assets              |
 | 007 Tests       | [EMI-95](https://linear.app/emilm/issue/EMI-95/adr-007-strategia-testow)                               | Vitest for the math, Playwright smoke               |
 | 008 Language    | [EMI-176](https://linear.app/emilm/issue/EMI-176/adr-008-jezyk-kodu-i-interfejsu-tlumaczenia-ui-i18n)  | Code in English, UI copy in Polish from `pl.json`   |
+| 011 Goals       | [EMI-244](https://linear.app/emilm/issue/EMI-244/adr-011-silnik-warunkow-cele-wspolny-dla-treningu-pilota-i-misji-m5) | Goals are data, run by the engine in `core` on user events (proposed) |
 
 A new decision that affects the whole project gets its own ADR in Linear. This file holds rules, not task history. Do not record milestone progress here.
 

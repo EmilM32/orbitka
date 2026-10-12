@@ -1,5 +1,14 @@
 // "Trening pilota" (SPEC §5.10): three steps the student completes by using
-// the controls, in any order. No DOM; the panel in src/ui shows the state.
+// the controls, in any order. It is a goal of the goal engine (ADR-011); this
+// file holds its definition and the small tracker the panel in src/ui reads.
+// No DOM.
+
+import {
+  createGoalEngine,
+  type GoalDef,
+  type GoalEngine,
+  type GoalState,
+} from './goals.ts';
 
 export const COACH_ROTATE_DEG = 15;
 export const COACH_ZOOM_RATIO = 0.15;
@@ -24,6 +33,18 @@ export type CoachTracker = {
   onSelected(): void;
   getState(): CoachState;
   subscribe(listener: (state: CoachState) => void): () => void;
+  /** The engine underneath, for the debug hook and the tests. */
+  readonly engine: GoalEngine;
+};
+
+export const COACH_GOAL: GoalDef = {
+  id: 'coach',
+  order: 'any',
+  steps: [
+    { id: 'rotate', condition: { type: 'rotate', degrees: COACH_ROTATE_DEG } },
+    { id: 'zoom', condition: { type: 'zoom', ratio: COACH_ZOOM_RATIO } },
+    { id: 'select', condition: { type: 'select' } },
+  ],
 };
 
 function requireAmount(name: 'deg' | 'ratio', value: number): void {
@@ -34,62 +55,48 @@ function requireAmount(name: 'deg' | 'ratio', value: number): void {
   }
 }
 
-function snapshot(done: Record<CoachStep, boolean>): CoachState {
-  const current = COACH_STEPS.find((step) => !done[step]) ?? null;
+function toCoachState(state: GoalState): CoachState {
+  const done = state.done;
+  const current = COACH_STEPS.find((step) => done[step] !== true) ?? null;
   return Object.freeze({
-    done: Object.freeze({ ...done }),
+    done: Object.freeze({
+      rotate: done['rotate'] === true,
+      zoom: done['zoom'] === true,
+      select: done['select'] === true,
+    }),
     current,
-    finished: current === null,
+    finished: state.finished,
   });
 }
 
 export function createCoachTracker(): CoachTracker {
-  const done: Record<CoachStep, boolean> = {
-    rotate: false,
-    zoom: false,
-    select: false,
-  };
+  const engine = createGoalEngine(COACH_GOAL);
   const listeners: Array<(state: CoachState) => void> = [];
-  let rotatedDeg = 0;
-  let zoomRatio = 0;
-  let state = snapshot(done);
+  let state = toCoachState(engine.getState());
 
-  function complete(step: CoachStep): void {
-    if (done[step]) {
-      return;
-    }
-    done[step] = true;
-    state = snapshot(done);
+  engine.subscribe((next) => {
+    state = toCoachState(next);
     for (const listener of listeners.slice()) {
       listener(state);
     }
-  }
+  });
 
   return {
+    engine,
     onCameraInput(input) {
       if (state.finished) {
         return;
       }
-      // Sums only: called for every drag sample, so nothing is allocated.
       if (input.kind === 'rotate') {
         requireAmount('deg', input.deg);
-        rotatedDeg += input.deg;
-        if (rotatedDeg >= COACH_ROTATE_DEG) {
-          complete('rotate');
-        }
-        return;
+      } else {
+        requireAmount('ratio', input.ratio);
       }
-      requireAmount('ratio', input.ratio);
-      zoomRatio += input.ratio;
-      // A small epsilon: two steps of 0.075 must reach 0.15.
-      if (zoomRatio >= COACH_ZOOM_RATIO - 1e-9) {
-        complete('zoom');
-      }
+      engine.dispatch(input);
     },
     onSelected() {
-      if (!state.finished) {
-        complete('select');
-      }
+      // The training counts any body.
+      engine.dispatch({ kind: 'select', id: '' });
     },
     getState() {
       return state;

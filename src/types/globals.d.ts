@@ -83,6 +83,14 @@ export type OrbitkaOrbitExtent = {
   bottom: number;
 };
 
+/** A goal that is running (ADR-011): which steps are done. */
+export type OrbitkaGoalState = {
+  id: string;
+  done: Record<string, boolean>;
+  current: string | null;
+  finished: boolean;
+};
+
 declare global {
   interface Window {
     __orbitka?: {
@@ -95,6 +103,7 @@ declare global {
       getCameraState: () => OrbitkaCameraState;
       getSelectedId: () => string | null;
       getOrbitState: () => OrbitkaOrbitState;
+      getGoalStates: () => OrbitkaGoalState[];
       getOrbitExtent: (id: string) => OrbitkaOrbitExtent | null;
       getViewInsets: () => { right: number; bottom: number };
       getTextureState: () => OrbitkaTextureState;

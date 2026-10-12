@@ -627,3 +627,25 @@ test('cameraController › a body selected after a start frame keeps limits from
   expect(state.distanceMax).toBeCloseTo(startDistance(16 / 9, frame), 6);
   controller.setLimitsForBody(null);
 });
+
+test('cameraController › a programmatic pose is not user input (ADR-011)', () => {
+  const { controller } = setup();
+  const inputs: number[] = [];
+  controller.onCameraInput(() => {
+    inputs.push(1);
+  });
+  // Flights and the intro go through setPose, never through rotateBy or zoomBy.
+  const pose = readPose(controller);
+  controller.setPose({
+    ...pose,
+    azimuth: pose.azimuth + 1,
+    polar: pose.polar + 0.2,
+    distance: pose.distance * 0.5,
+  });
+  controller.update(1 / 60);
+  controller.setAspect(2);
+  controller.setTarget(1, 2, 3);
+  expect(inputs).toEqual([]);
+  controller.rotateBy(0.1, 0, false);
+  expect(inputs).toEqual([1]);
+});

@@ -1,4 +1,5 @@
-import { createCoachTracker } from '@core/coach.ts';
+import { createCoachTracker, type CoachTracker } from '@core/coach.ts';
+import type { GoalState } from '@core/goals.ts';
 import type { AppStorage } from '@core/storage.ts';
 import { bodies } from '@data/bodies.ts';
 import { createBodyProjector } from '@render/bodyProjector.ts';
@@ -50,8 +51,10 @@ export function wireOverlays({
     memory: { done: false },
   };
   let coachPanel: CoachPanel | null = null;
+  let coachTracker: CoachTracker | null = null;
   if (!skipCoach && !loadCoachDone(coachStorage)) {
     const coach = createCoachTracker();
+    coachTracker = coach;
     stack.add(
       cameraController.onCameraInput((input) => {
         coach.onCameraInput(input);
@@ -150,7 +153,43 @@ export function wireOverlays({
     labels.dispose();
   });
 
-  return { announcer, labelProjector, labels, dispose: stack.disposeAll };
+  return {
+    announcer,
+    labelProjector,
+    labels,
+    /** The goals that are running, for the debug hook. */
+    goals: {
+      getStates(): GoalSnapshot[] {
+        if (coachTracker === null) {
+          return [];
+        }
+        return [
+          snapshotOf(
+            coachTracker.engine.def.id,
+            coachTracker.engine.getState(),
+          ),
+        ];
+      },
+    },
+    dispose: stack.disposeAll,
+  };
 }
 
 export type OverlayRig = ReturnType<typeof wireOverlays>;
+
+export type GoalSnapshot = {
+  id: string;
+  /** Step id → done. */
+  done: Record<string, boolean>;
+  current: string | null;
+  finished: boolean;
+};
+
+function snapshotOf(id: string, state: GoalState): GoalSnapshot {
+  return {
+    id,
+    done: { ...state.done },
+    current: state.current,
+    finished: state.finished,
+  };
+}

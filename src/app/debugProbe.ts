@@ -17,6 +17,9 @@ export type DebugProbeInputs = {
   sceneRig: SceneRig;
   selectionRig: SelectionRig;
   timeRig: TimeRig;
+  readGoals: () => ReturnType<
+    NonNullable<typeof window.__orbitka>['getGoalStates']
+  >;
   readFrameCount: () => number;
   readFrameSnapshot: () => {
     days: number;
@@ -57,6 +60,7 @@ export function installDebugProbe({
   sceneRig,
   selectionRig,
   timeRig,
+  readGoals,
   readFrameCount,
   readFrameSnapshot,
   readPresetId,
@@ -183,6 +187,9 @@ export function installDebugProbe({
     },
     getQuality() {
       return readQuality();
+    },
+    getGoalStates() {
+      return readGoals();
     },
     getOrbitExtent(id: string) {
       return projectedOrbitExtent(

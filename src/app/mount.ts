@@ -82,6 +82,7 @@ export function mount(
       sceneRig,
       selectionRig,
       timeRig,
+      overlayRig,
     });
     stack.add(debugRig.dispose);
     const loopRig = wireLoop({

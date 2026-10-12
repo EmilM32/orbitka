@@ -6,6 +6,8 @@ export const CAMERA_CONFIG = {
   polarMaxDeg: 170,
   startDistanceBase: Math.hypot(75, 95),
   startDistanceAspect: 1.2,
+  // The share of the free area the whole system fills at the start (EMI-241).
+  startFrameFill: 0.9,
   systemZoomMaxFactor: 1.5,
   systemZoomMinFactor: 0.2,
   bodyZoomMinRadiusFactor: 2.5,
@@ -28,6 +30,13 @@ export const CAMERA_CONFIG = {
   bodyDistanceRadiusFactor: 6,
   sunDistanceRadiusFactor: 3.5,
   reducedMotionFadeMs: 150,
+  // The intro flight (EMI-248): from the far end of the system zoom, high
+  // above the ecliptic, down to the start view.
+  introSeconds: 2.2,
+  introPolarDeg: 20,
+  // The panels come in during the last part of the flight, one after another.
+  introPanelsMs: 800,
+  introPanelStaggerMs: 60,
   orbitOpacitySelected: 0.8,
   orbitOpacityDimmed: 0.35,
 } as const;

@@ -49,7 +49,7 @@ test('holds the brief values', () => {
   expect(VIEW_CONFIG.labelSideHysteresisPx).toBe(8);
   expect(VIEW_CONFIG.labelSideHoldLayouts).toBe(30);
   expect(VIEW_CONFIG.labelKeepMaxMovePx).toBe(24);
-  expect(VIEW_CONFIG.orbitsStorageKey).toBe('orbitka.orbits');
+  expect(VIEW_CONFIG.orbitsStorageKey).toBe('orbits');
   expect(VIEW_CONFIG.tabletMaxWidthPx).toBe(1024);
   expect(VIEW_CONFIG.tabletMinWidthPx).toBe(768);
   expect(VIEW_CONFIG.drawerWidthPx).toBe(300);

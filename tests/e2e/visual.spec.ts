@@ -4,6 +4,9 @@ import { assertWebGl, skipCoach, waitForFrames } from './helpers.ts';
 
 test.beforeEach(async ({ page }) => {
   await skipCoach(page);
+  // The time panel says how far the date is from today (EMI-237); a fixed
+  // "today" keeps the baselines from changing with the calendar.
+  await page.clock.setFixedTime(new Date('2026-10-14T12:00:00Z'));
 });
 
 // Baselines exist only for Chromium on Linux in the Playwright image that CI
@@ -72,7 +75,7 @@ test('start 1280×720', async ({ page }) => {
 test('start with the training 1280×720', async ({ page }) => {
   // The other screens mark the training done (beforeEach); this one clears it.
   await page.addInitScript(() => {
-    localStorage.removeItem('orbitka.coach.done');
+    localStorage.removeItem('orbitka.v1.coach.done');
   });
   await openStable(page, DESKTOP);
   await expect(page.getByTestId('coach')).toBeVisible();

@@ -45,6 +45,15 @@ export type CameraFlightSnapshot = {
 
 export type CameraDirector = {
   update(dtSeconds: number): void;
+  /**
+   * The intro (EMI-248): the camera jumps to the far end of the system zoom,
+   * high above the ecliptic, and flies down to the start view. `onEnd` runs
+   * when the flight ends or `finishIntro` cuts it short.
+   */
+  startIntro(onEnd?: () => void): void;
+  isIntroActive(): boolean;
+  /** Puts the camera at the start view at once; no fade, nothing is selected. */
+  finishIntro(): void;
   getFlightState(out: CameraFlightSnapshot): CameraFlightSnapshot;
   dispose(): void;
 };
@@ -149,6 +158,8 @@ export function createCameraDirector(
   let lastWrittenDistance = 0;
   // Free-area factor the current goal was written with.
   let goalFactor = 1;
+  let introActive = false;
+  let introEnd: (() => void) | null = null;
   let reportedActive = 0;
   let reportedKind = KIND_NONE;
   let reportedProgress = 0;
@@ -191,6 +202,9 @@ export function createCameraDirector(
 
       finishFlight(kind);
     },
+    startIntro,
+    isIntroActive: () => introActive,
+    finishIntro,
     getFlightState(out: CameraFlightSnapshot): CameraFlightSnapshot {
       out.active = reportedActive;
       out.kind = reportedKind;
@@ -210,14 +224,63 @@ export function createCameraDirector(
       cancelFlight(flight);
       flightBody = null;
       followBody = null;
+      introActive = false;
+      introEnd = null;
       publishInactive();
     },
   };
+
+  function startIntro(onEnd?: () => void): void {
+    if (disposed || introActive) {
+      return;
+    }
+    controller.getState(controllerState);
+    controller.getPose(livePose);
+    // Farthest the system view allows, and high above the plane of the orbits.
+    livePose.distance = controllerState.distanceMax;
+    livePose.polar = (CAMERA_CONFIG.introPolarDeg * Math.PI) / 180;
+    controller.setPose(livePose);
+    controller.getPose(livePose);
+    followBody = null;
+    flightBody = null;
+    introActive = true;
+    introEnd = onEnd ?? null;
+    beginFlight('system', CAMERA_CONFIG.introSeconds);
+  }
+
+  function finishIntro(): void {
+    if (disposed || !introActive) {
+      return;
+    }
+    controller.getPose(livePose);
+    writeGoal(goalPose, 'system', livePose, null);
+    controller.setPose(goalPose);
+    controller.getPose(livePose);
+    lastWrittenDistance = livePose.distance;
+    cancelFlight(flight);
+    followBody = null;
+    flightBody = null;
+    publishInactive();
+    endIntro();
+  }
+
+  function endIntro(): void {
+    if (!introActive) {
+      return;
+    }
+    introActive = false;
+    const callback = introEnd;
+    introEnd = null;
+    callback?.();
+  }
 
   function onSelection(event: SelectionEvent): void {
     if (disposed || event.kind === 'hover') {
       return;
     }
+    // A pick during the intro ends it at the start view; the flight to the
+    // body goes on from there.
+    finishIntro();
 
     if (event.kind === 'selected') {
       focusBody(event.id);
@@ -328,7 +391,14 @@ export function createCameraDirector(
   }
 
   function onUserInput(): void {
-    if (disposed || !isFlightActive(flight)) {
+    if (disposed) {
+      return;
+    }
+    if (introActive) {
+      finishIntro();
+      return;
+    }
+    if (!isFlightActive(flight)) {
       return;
     }
 
@@ -349,6 +419,7 @@ export function createCameraDirector(
   }
 
   function finishFlight(kind: 'body' | 'system'): void {
+    endIntro();
     if (kind === 'body' && flightBody !== null) {
       followBody = flightBody;
       offsetX = 0;

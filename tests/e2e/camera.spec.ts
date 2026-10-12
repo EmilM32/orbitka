@@ -820,7 +820,7 @@ test('orbit emphasis and toggle', async ({ page }) => {
   const hidden = await page.evaluate(() => window.__orbitka?.getOrbitState());
   expect(hidden?.visible).toBe(0);
   expect(
-    await page.evaluate(() => localStorage.getItem('orbitka.orbits')),
+    await page.evaluate(() => localStorage.getItem('orbitka.v1.orbits')),
   ).toBe('false');
 
   await page.reload();
@@ -1068,3 +1068,116 @@ test('orbit does not cross the selected disc', async ({ page }, testInfo) => {
     (await page.evaluate(() => window.__orbitka?.getOrbitState()))?.gapRadius,
   ).toBe(0);
 });
+
+// EMI-250: hover links the list and the scene both ways. Hover does not change
+// the selection or the camera.
+test('hover on a list row lights its orbit; hover on a body lights its row', async ({
+  page,
+}) => {
+  await page.setViewportSize(VIEWPORT);
+  await page.goto('/?debug=1&days=0&paused=1');
+  await waitReady(page);
+  const orbit = async (): Promise<{
+    hovered: string | null;
+    saturn: number;
+    earth: number;
+  }> =>
+    page.evaluate(() => {
+      const state = window.__orbitka?.getOrbitState();
+      if (state === undefined) {
+        throw new Error('missing debug hook');
+      }
+      // Opacities run Mercury through Neptune.
+      return {
+        hovered: state.hovered,
+        earth: state.opacities[2] ?? -1,
+        saturn: state.opacities[5] ?? -1,
+      };
+    });
+  const before = await orbit();
+  expect(before.hovered).toBeNull();
+
+  await page.getByTestId('body-item-saturn').hover();
+  await expect.poll(async () => (await orbit()).hovered).toBe('saturn');
+  const lit = await orbit();
+  expect(lit.saturn).toBeGreaterThan(before.saturn);
+  expect(lit.earth).toBe(before.earth);
+  // Hover changes neither the selection nor the camera.
+  expect(await selectedId(page)).toBeNull();
+
+  await page.mouse.move(VIEWPORT.width / 2, 5);
+  await expect.poll(async () => (await orbit()).hovered).toBeNull();
+  expect((await orbit()).saturn).toBe(before.saturn);
+
+  // From the scene: park the pointer on Saturn, its row is hovered.
+  const saturn = await screenPoint(page, 'saturn');
+  requireVisible(saturn, 'saturn');
+  await page.mouse.move(saturn.x, saturn.y, { steps: 4 });
+  await expect.poll(async () => (await orbit()).hovered).toBe('saturn');
+  await expect(page.getByTestId('body-item-saturn')).toHaveClass(/is-hovered/u);
+  expect((await orbit()).saturn).toBeGreaterThan(before.saturn);
+  expect(await selectedId(page)).toBeNull();
+});
+
+// EMI-241: the start view fills the area the panels leave free.
+for (const size of [
+  { width: 768, height: 1024 },
+  { width: 1024, height: 768 },
+  { width: 1280, height: 720 },
+  { width: 1920, height: 1080 },
+]) {
+  test(`start view fills the free area at ${size.width}×${size.height}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(size);
+    await page.goto('/?debug=1&days=0&paused=1');
+    await waitReady(page);
+    await page.waitForTimeout(500);
+    const measured = await page.evaluate(() => {
+      const extent = window.__orbitka?.getOrbitExtent('neptune') ?? null;
+      const rect = (selector: string): DOMRect | null =>
+        document.querySelector(selector)?.getBoundingClientRect() ?? null;
+      const header = rect('header.topbar');
+      const controls = rect('[data-testid="view-controls"]');
+      const time = rect('#time-controls');
+      const list = document.querySelector('#bodies-panel, nav.bodies-panel');
+      const listBox =
+        list instanceof HTMLElement && list.offsetParent !== null
+          ? list.getBoundingClientRect()
+          : null;
+      return {
+        extent,
+        top: Math.max(header?.bottom ?? 0, controls?.bottom ?? 0),
+        bottom: time?.top ?? window.innerHeight,
+        listRight: listBox?.right ?? 0,
+        width: window.innerWidth,
+        height: window.innerHeight,
+      };
+    });
+    const { extent } = measured;
+    if (extent === null) {
+      throw new Error('missing orbit extent');
+    }
+    const left = Math.max(16, measured.listRight);
+    const right = measured.width - 16;
+    // Inside the free area (1 px for antialiasing).
+    expect(extent.left).toBeGreaterThanOrEqual(left - 1);
+    expect(extent.right).toBeLessThanOrEqual(right + 1);
+    expect(extent.top).toBeGreaterThanOrEqual(measured.top - 1);
+    expect(extent.bottom).toBeLessThanOrEqual(measured.bottom + 1);
+    // The free area is cut symmetrically around the window center.
+    const centerX = measured.width / 2;
+    const centerY = measured.height / 2;
+    const freeWidth = 2 * Math.min(centerX - left, right - centerX);
+    const freeHeight =
+      2 * Math.min(centerY - measured.top, measured.bottom - centerY);
+    // How far the orbit reaches from the center, against half the free area.
+    const fill = Math.max(
+      Math.max(centerX - extent.left, extent.right - centerX) / (freeWidth / 2),
+      Math.max(centerY - extent.top, extent.bottom - centerY) /
+        (freeHeight / 2),
+    );
+    expect(fill).toBeGreaterThanOrEqual(0.8);
+    expect(fill).toBeLessThanOrEqual(0.95);
+  });
+}

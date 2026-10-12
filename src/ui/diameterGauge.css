@@ -48,6 +48,34 @@
   left: 0;
   min-width: 2px;
   border-radius: 4px;
+  transform-origin: left center;
+  animation: gauge-grow var(--dur-slow) var(--ease-out) backwards;
+}
+
+/* The bars grow from zero when the card opens or the body changes (Earth a
+   beat later), so the comparison is the first thing the eye follows. */
+.gauge-bar--earth {
+  animation-delay: 80ms;
+}
+
+@keyframes gauge-grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes gauge-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Without motion the bars are drawn at their width and fade in. */
+@media (prefers-reduced-motion: reduce) {
+  .gauge-bar,
+  .gauge-bar--earth {
+    animation: gauge-fade var(--dur) var(--ease-out) backwards;
+  }
 }
 
 .gauge-bar--earth {

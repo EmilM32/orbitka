@@ -6,16 +6,17 @@ Educational solar-system simulation in the browser. Audience 12+, UI copy in Pol
 
 Work scope is in Linear, project [Orbitka](https://linear.app/emilm/project/orbitka-eccde281385d) (team EmilM). The issue description says what to build and what to leave alone. Accepted architecture decisions live as issues, not as files in the repo:
 
-| ADR             | Issue                                                                                                  | Rule to keep                                        |
-| --------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------- |
-| 001 Stack       | [EMI-89](https://linear.app/emilm/issue/EMI-89/adr-001-stack-i-narzedzia)                              | Vite, TypeScript `strict`, three.js, plain DOM UI   |
-| 002 Layers      | [EMI-91](https://linear.app/emilm/issue/EMI-91/adr-002-struktura-repo-i-modulow)                       | Directories below; `sim` stays free of three and UI |
-| 003 Data        | [EMI-90](https://linear.app/emilm/issue/EMI-90/adr-003-model-danych-cial-niebieskich)                  | Keplerian elements in JSON, Newton solver           |
-| 004 Scale       | [EMI-92](https://linear.app/emilm/issue/EMI-92/adr-004-uproszczona-skala-odleglosci-rozmiarow-i-czasu) | Distance `AU^0.5`, size `radiusKm^0.4`              |
-| 005 Loop        | [EMI-93](https://linear.app/emilm/issue/EMI-93/adr-005-petla-renderowania-i-symulacji)                 | One loop, state = f(time), `dt` max 0.1 s           |
-| 006 Performance | [EMI-94](https://linear.app/emilm/issue/EMI-94/adr-006-budzet-wydajnosci)                              | FPS budget, `pixelRatio`, local assets              |
-| 007 Tests       | [EMI-95](https://linear.app/emilm/issue/EMI-95/adr-007-strategia-testow)                               | Vitest for the math, Playwright smoke               |
-| 008 Language    | [EMI-176](https://linear.app/emilm/issue/EMI-176/adr-008-jezyk-kodu-i-interfejsu-tlumaczenia-ui-i18n)  | Code in English, UI copy in Polish from `pl.json`   |
+| ADR             | Issue                                                                                                                 | Rule to keep                                               |
+| --------------- | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| 001 Stack       | [EMI-89](https://linear.app/emilm/issue/EMI-89/adr-001-stack-i-narzedzia)                                             | Vite, TypeScript `strict`, three.js, plain DOM UI          |
+| 002 Layers      | [EMI-91](https://linear.app/emilm/issue/EMI-91/adr-002-struktura-repo-i-modulow)                                      | Directories below; `sim` stays free of three and UI        |
+| 003 Data        | [EMI-90](https://linear.app/emilm/issue/EMI-90/adr-003-model-danych-cial-niebieskich)                                 | Keplerian elements in JSON, Newton solver                  |
+| 004 Scale       | [EMI-92](https://linear.app/emilm/issue/EMI-92/adr-004-uproszczona-skala-odleglosci-rozmiarow-i-czasu)                | Distance `AU^0.5`, size `radiusKm^0.4`                     |
+| 005 Loop        | [EMI-93](https://linear.app/emilm/issue/EMI-93/adr-005-petla-renderowania-i-symulacji)                                | One loop, state = f(time), `dt` max 0.1 s                  |
+| 006 Performance | [EMI-94](https://linear.app/emilm/issue/EMI-94/adr-006-budzet-wydajnosci)                                             | FPS budget, `pixelRatio`, local assets                     |
+| 007 Tests       | [EMI-95](https://linear.app/emilm/issue/EMI-95/adr-007-strategia-testow)                                              | Vitest for the math, Playwright smoke                      |
+| 008 Language    | [EMI-176](https://linear.app/emilm/issue/EMI-176/adr-008-jezyk-kodu-i-interfejsu-tlumaczenia-ui-i18n)                 | Code in English, UI copy in Polish from `pl.json`          |
+| 011 Goals       | [EMI-244](https://linear.app/emilm/issue/EMI-244/adr-011-silnik-warunkow-cele-wspolny-dla-treningu-pilota-i-misji-m5) | Goals are data, run by the engine in `core` on user events |
 
 A new decision that affects the whole project gets its own ADR in Linear. This file holds rules, not task history. Do not record milestone progress here.
 
@@ -76,6 +77,10 @@ ADR-008: code in English, everything the student sees in Polish.
 - No dynamic shadows and no postprocessing. Orbits are a `Line` with precomputed points. Geometries and textures get `dispose()`.
 - Assets come from `public/assets`. No CDN and no third-party scripts. No analytics.
 - FPS overlay only behind a `debug` flag.
+
+## Storage
+
+Persistent state goes through `createAppStorage` in `src/core/storage.ts` only (EMI-245). Entries live under `orbitka.v1.<name>`, are validated on read, and the old unversioned `orbitka.*` keys migrate once. `src/app/storage.ts` is the only file that names `localStorage` or `sessionStorage` (`tests/repo/storage.test.ts`). A new entry is registered in `ENTRIES` with its validator. No personal data.
 
 ## Tests
 

@@ -1,0 +1,23 @@
+/*
+ * The panels come in one after another at the end of the intro (EMI-248):
+ * a fade and a short slide up. `translate` is its own property, so it does not
+ * disturb the `transform` that some panels already use.
+ */
+.intro-panel {
+  transition:
+    opacity var(--dur) var(--ease-out),
+    translate var(--dur) var(--ease-out);
+}
+
+.intro-panel.intro-hidden {
+  opacity: 0;
+  translate: 0 8px;
+  pointer-events: none;
+}
+
+/* Without motion the panels only fade (--dur is 150 ms there). */
+@media (prefers-reduced-motion: reduce) {
+  .intro-panel.intro-hidden {
+    translate: none;
+  }
+}

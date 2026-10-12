@@ -7,6 +7,8 @@ import { createDebugSession } from '@ui/debugSession.ts';
 
 import { installDebugProbe } from './debugProbe.ts';
 import { createDisposables } from './disposables.ts';
+import type { IntroRig } from './wireIntro.ts';
+import type { OverlayRig } from './wireOverlays.ts';
 import type { SceneRig } from './wireScene.ts';
 import type { SelectionRig } from './wireSelection.ts';
 import type { TimeRig } from './wireTime.ts';
@@ -19,6 +21,8 @@ export type DebugInputs = {
   sceneRig: SceneRig;
   selectionRig: SelectionRig;
   timeRig: TimeRig;
+  overlayRig: OverlayRig;
+  introRig: IntroRig;
 };
 
 /**
@@ -32,6 +36,8 @@ export function wireDebug({
   sceneRig,
   selectionRig,
   timeRig,
+  overlayRig,
+  introRig,
 }: DebugInputs) {
   const { view, frameRenderer, textureMemory } = viewRig;
   const { bodyView, quality } = sceneRig;
@@ -79,6 +85,8 @@ export function wireDebug({
         sceneRig,
         selectionRig,
         timeRig,
+        readGoals: () => overlayRig.goals.getStates(),
+        readIntro: () => introRig.getState(),
         readFrameCount: () => frameCount,
         readFrameSnapshot: () => frameSnapshot,
         readPresetId: () => presetId,

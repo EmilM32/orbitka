@@ -32,8 +32,8 @@ describe('QUALITY_CONFIG', () => {
     expect(QUALITY_CONFIG.upMedianFps).toBe(58);
     expect(QUALITY_CONFIG.upP90FrameMs).toBe(20);
     expect(QUALITY_CONFIG.maxDowngradesPerSession).toBe(2);
-    expect(QUALITY_CONFIG.storageKeyAuto).toBe('orbitka.quality.auto');
-    expect(QUALITY_CONFIG.storageKeyOverride).toBe('orbitka.quality.override');
+    expect(QUALITY_CONFIG.storageKeyAuto).toBe('quality.auto');
+    expect(QUALITY_CONFIG.storageKeyOverride).toBe('quality.override');
   });
 });
 
@@ -259,8 +259,8 @@ describe('loadStoredQuality', () => {
 
   it('reads valid values', () => {
     const storage = memory({
-      'orbitka.quality.auto': 'low',
-      'orbitka.quality.override': 'high',
+      'quality.auto': 'low',
+      'quality.override': 'high',
     });
 
     expect(loadStoredQuality(storage)).toEqual({
@@ -271,8 +271,8 @@ describe('loadStoredQuality', () => {
 
   it('removes invalid values', () => {
     const storage = memory({
-      'orbitka.quality.auto': 'ultra',
-      'orbitka.quality.override': '',
+      'quality.auto': 'ultra',
+      'quality.override': '',
     });
 
     expect(loadStoredQuality(storage)).toEqual({
@@ -479,7 +479,7 @@ describe('createQualityStore', () => {
     run(5.1, 0.01667);
     store.flush();
 
-    expect(data.get('orbitka.quality.auto')).toBe('high');
+    expect(data.get('quality.auto')).toBe('high');
   });
 
   it('keeps the level after a middling run', () => {
@@ -492,7 +492,7 @@ describe('createQualityStore', () => {
     run(5.1, 0.0175);
     store.flush();
 
-    expect(data.get('orbitka.quality.auto')).toBe('medium');
+    expect(data.get('quality.auto')).toBe('medium');
   });
 
   it('writes nothing before any measurement', () => {
@@ -510,7 +510,7 @@ describe('createQualityStore', () => {
     run(2, 0.025);
     run(5.1, 0.025);
 
-    expect(data.get('orbitka.quality.auto')).toBe('medium');
+    expect(data.get('quality.auto')).toBe('medium');
   });
 
   it('does not save an automatic level while locked', () => {
@@ -536,7 +536,7 @@ describe('createQualityStore', () => {
     expect(store.getSource()).toBe('override');
     expect(store.isLocked()).toBe(true);
     expect(levels).toEqual(['low']);
-    expect(data.get('orbitka.quality.override')).toBe('low');
+    expect(data.get('quality.override')).toBe('low');
   });
 
   it('setOverride(null) removes the key and returns to the automatic level', () => {
@@ -552,13 +552,13 @@ describe('createQualityStore', () => {
     expect(store.get()).toBe('medium');
     expect(store.isLocked()).toBe(false);
     expect(store.getSource()).toBe('auto');
-    expect(data.has('orbitka.quality.override')).toBe(false);
+    expect(data.has('quality.override')).toBe(false);
     expect(levels).toEqual(['medium', 'high', 'medium']);
   });
 
   it('returns to the stored level from an override start', () => {
     const { storage } = recordingStorage();
-    storage.setItem('orbitka.quality.auto', 'low');
+    storage.setItem('quality.auto', 'low');
     const { store } = setup(
       { level: 'high', source: 'override', locked: true },
       storage,

@@ -23,7 +23,7 @@ function resetDocument(): void {
 function memoryStorage(value: string | null = null): OrbitsStorage {
   const data = new Map<string, string>();
   if (value !== null) {
-    data.set('orbitka.orbits', value);
+    data.set('orbits', value);
   }
   return {
     getItem(key: string): string | null {
@@ -44,6 +44,8 @@ function mount(
     onQualityChange?: (level: QualityLevel | null) => void;
     qualityValue?: QualityLevel | null;
     qualityLocked?: boolean;
+    onCopyLink?: () => Promise<boolean>;
+    onShowShortcuts?: () => void;
   } = {},
 ) {
   const selection = options.selection ?? createSelection(['mars', 'earth']);
@@ -52,6 +54,10 @@ function mount(
     options.onOrbitsChange ?? vi.fn<(visible: boolean) => void>();
   const onQualityChange =
     options.onQualityChange ?? vi.fn<(level: QualityLevel | null) => void>();
+  const onCopyLink =
+    options.onCopyLink ??
+    vi.fn<() => Promise<boolean>>(() => Promise.resolve(true));
+  const onShowShortcuts = options.onShowShortcuts ?? vi.fn<() => void>();
   const storage =
     options.storage === undefined ? memoryStorage() : options.storage;
   const controls = createViewControls(document.body, {
@@ -63,6 +69,8 @@ function mount(
     onQualityChange,
     qualityValue: options.qualityValue ?? null,
     qualityLocked: options.qualityLocked ?? false,
+    onCopyLink,
+    onShowShortcuts,
   });
   return {
     controls,
@@ -70,6 +78,8 @@ function mount(
     onZoom,
     onOrbitsChange,
     onQualityChange,
+    onCopyLink,
+    onShowShortcuts,
     storage,
   };
 }
@@ -100,7 +110,10 @@ test('group structure', () => {
       'view-orbits',
       'view-zoom-out',
       'view-zoom-in',
+      'view-fullscreen',
       'view-settings',
+      'view-copy-link',
+      'view-shortcuts',
     ],
   );
   expect(element.classList.contains('o-glass')).toBe(true);
@@ -138,10 +151,10 @@ test('orbits toggle has text and switch', () => {
 
   orbits.click();
   expect(orbits.getAttribute('aria-pressed')).toBe('false');
-  expect(storage.getItem('orbitka.orbits')).toBe('false');
+  expect(storage.getItem('orbits')).toBe('false');
   orbits.click();
   expect(orbits.getAttribute('aria-pressed')).toBe('true');
-  expect(storage.getItem('orbitka.orbits')).toBe('true');
+  expect(storage.getItem('orbits')).toBe('true');
 });
 
 test('zoom buttons reflect limits', () => {
@@ -280,7 +293,7 @@ test('orbits toggle persists', () => {
 
   expect(button('view-orbits').getAttribute('aria-pressed')).toBe('false');
   expect(onOrbitsChange).toHaveBeenLastCalledWith(false);
-  expect(setItem).toHaveBeenCalledWith('orbitka.orbits', 'false');
+  expect(setItem).toHaveBeenCalledWith('orbits', 'false');
   expect(selection.getSelectedId()).toBeNull();
   expect(events).toEqual([]);
 });
@@ -386,4 +399,173 @@ test('dispose removes the outside click listener', () => {
   expect(() => {
     document.dispatchEvent(new Event('pointerdown'));
   }).not.toThrow();
+});
+
+function copyButton(): HTMLButtonElement {
+  const found = document.querySelector('[data-testid="view-copy-link"]');
+  if (!(found instanceof HTMLButtonElement)) {
+    throw new Error('missing copy link button');
+  }
+  return found;
+}
+
+function copyStatus(): HTMLElement {
+  const found = document.querySelector('[data-testid="view-copy-status"]');
+  if (!(found instanceof HTMLElement)) {
+    throw new Error('missing copy status');
+  }
+  return found;
+}
+
+test('copy link: a button in the settings panel, with a status read out', async () => {
+  vi.useFakeTimers();
+  const { controls, onCopyLink } = mount();
+  const button = copyButton();
+  expect(button.closest('#view-settings-panel')).not.toBeNull();
+  expect(button.textContent).toBe('Kopiuj link do tego widoku');
+  expect(button.className).not.toContain('primary');
+  expect(copyStatus().getAttribute('aria-live')).toBe('polite');
+  expect(copyStatus().hasAttribute('role')).toBe(false);
+  expect(copyStatus().textContent).toBe('');
+
+  button.click();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(onCopyLink).toHaveBeenCalledTimes(1);
+  expect(copyStatus().textContent).toBe('Skopiowano link do tego widoku');
+
+  // The note goes away on its own.
+  await vi.advanceTimersByTimeAsync(4000);
+  expect(copyStatus().textContent).toBe('');
+  controls.dispose();
+  vi.useRealTimers();
+});
+
+test('copy link: a refusal says so in Polish', async () => {
+  const { controls } = mount({ onCopyLink: () => Promise.resolve(false) });
+  copyButton().click();
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(copyStatus().textContent).toBe(
+    'Nie udało się skopiować linku. Skopiuj adres z paska przeglądarki.',
+  );
+  controls.dispose();
+});
+
+test('copy link: a second click restarts the note; dispose stops it', async () => {
+  vi.useFakeTimers();
+  const { controls } = mount();
+  copyButton().click();
+  await vi.advanceTimersByTimeAsync(3000);
+  copyButton().click();
+  await vi.advanceTimersByTimeAsync(3000);
+  // 6 s after the first click but 3 s after the second.
+  expect(copyStatus().textContent).toBe('Skopiowano link do tego widoku');
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(copyStatus().textContent).toBe('');
+  const status = copyStatus();
+  copyButton().click();
+  controls.dispose();
+  await vi.advanceTimersByTimeAsync(5000);
+  expect(status.textContent).toBe('');
+  vi.useRealTimers();
+});
+
+type FullscreenDocument = {
+  fullscreenEnabled?: boolean;
+  fullscreenElement?: Element | null;
+  exitFullscreen?: () => Promise<void>;
+};
+
+function stubFullscreen(enabled: boolean) {
+  const doc = document as unknown as FullscreenDocument;
+  const request = vi.fn(() => Promise.resolve());
+  const exit = vi.fn(() => Promise.resolve());
+  Object.defineProperty(document, 'fullscreenEnabled', {
+    value: enabled,
+    configurable: true,
+  });
+  Object.defineProperty(document, 'fullscreenElement', {
+    value: null,
+    configurable: true,
+    writable: true,
+  });
+  doc.exitFullscreen = exit;
+  Object.defineProperty(document.documentElement, 'requestFullscreen', {
+    value: request,
+    configurable: true,
+  });
+  return {
+    request,
+    exit,
+    enter() {
+      doc.fullscreenElement = document.documentElement;
+      document.dispatchEvent(new Event('fullscreenchange'));
+    },
+    leave() {
+      doc.fullscreenElement = null;
+      document.dispatchEvent(new Event('fullscreenchange'));
+    },
+  };
+}
+
+function restoreFullscreen(): void {
+  for (const key of ['fullscreenEnabled', 'fullscreenElement']) {
+    Reflect.deleteProperty(document, key);
+  }
+  Reflect.deleteProperty(document.documentElement, 'requestFullscreen');
+  Reflect.deleteProperty(document, 'exitFullscreen');
+}
+
+test('fullscreen: no button where the browser has none', () => {
+  stubFullscreen(false);
+  const { controls } = mount();
+  expect(button('view-fullscreen').hidden).toBe(true);
+  controls.toggleFullscreen();
+  controls.dispose();
+  restoreFullscreen();
+});
+
+test('fullscreen: the button asks for it and follows the browser', () => {
+  const fullscreen = stubFullscreen(true);
+  const { controls } = mount();
+  const control = button('view-fullscreen');
+  expect(control.hidden).toBe(false);
+  expect(control.getAttribute('aria-label')).toBe('Pełny ekran');
+  expect(control.getAttribute('aria-pressed')).toBe('false');
+  expect(control.className).not.toContain('primary');
+
+  control.click();
+  expect(fullscreen.request).toHaveBeenCalledTimes(1);
+  // Pressed only when the browser says so (fullscreenchange).
+  expect(control.getAttribute('aria-pressed')).toBe('false');
+  fullscreen.enter();
+  expect(control.getAttribute('aria-pressed')).toBe('true');
+
+  control.click();
+  expect(fullscreen.exit).toHaveBeenCalledTimes(1);
+  fullscreen.leave();
+  expect(control.getAttribute('aria-pressed')).toBe('false');
+
+  controls.toggleFullscreen();
+  expect(fullscreen.request).toHaveBeenCalledTimes(2);
+  controls.dispose();
+  // After dispose the browser's changes and the key do nothing.
+  fullscreen.enter();
+  controls.toggleFullscreen();
+  expect(fullscreen.request).toHaveBeenCalledTimes(2);
+  restoreFullscreen();
+});
+
+test('fullscreen: a refusal by the browser is not an error', async () => {
+  const fullscreen = stubFullscreen(true);
+  fullscreen.request.mockImplementation(() =>
+    Promise.reject(new Error('TypeError: not allowed')),
+  );
+  const { controls } = mount();
+  button('view-fullscreen').click();
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(button('view-fullscreen').getAttribute('aria-pressed')).toBe('false');
+  controls.dispose();
+  restoreFullscreen();
 });

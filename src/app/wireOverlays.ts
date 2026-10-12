@@ -1,4 +1,6 @@
-import { createCoachTracker } from '@core/coach.ts';
+import { createCoachTracker, type CoachTracker } from '@core/coach.ts';
+import type { GoalState } from '@core/goals.ts';
+import type { AppStorage } from '@core/storage.ts';
 import { bodies } from '@data/bodies.ts';
 import { createBodyProjector } from '@render/bodyProjector.ts';
 import { createAnnouncer } from '@ui/announcer.ts';
@@ -9,6 +11,7 @@ import { createLabelObstacles } from '@ui/labelObstacles.ts';
 import { createLayoutObserver } from '@ui/layoutObserver.ts';
 
 import { createDisposables } from './disposables.ts';
+import { sessionStore } from './storage.ts';
 import type { AppI18n } from './types.ts';
 import type { SceneRig } from './wireScene.ts';
 import type { SelectionRig } from './wireSelection.ts';
@@ -17,6 +20,9 @@ import type { ViewRig } from './wireView.ts';
 
 export type OverlayInputs = {
   i18n: AppI18n;
+  storage: AppStorage;
+  /** The pilot training stays out of the way (a link with a body in it). */
+  skipCoach: boolean;
   viewRig: ViewRig;
   sceneRig: SceneRig;
   selectionRig: SelectionRig;
@@ -26,6 +32,8 @@ export type OverlayInputs = {
 /** The pilot training, the live announcements and the labels in the scene. */
 export function wireOverlays({
   i18n,
+  storage,
+  skipCoach,
   viewRig,
   sceneRig,
   selectionRig,
@@ -35,15 +43,18 @@ export function wireOverlays({
   const { bodyView } = sceneRig;
   const { selection, viewInsets } = selectionRig;
   const stack = createDisposables();
+  const sessionApp = sessionStore();
   // "Trening pilota" runs until it is finished or skipped once.
   const coachStorage: CoachStorages = {
-    local: () => window.localStorage,
-    session: () => window.sessionStorage,
+    local: () => storage,
+    session: () => sessionApp,
     memory: { done: false },
   };
   let coachPanel: CoachPanel | null = null;
-  if (!loadCoachDone(coachStorage)) {
+  let coachTracker: CoachTracker | null = null;
+  if (!skipCoach && !loadCoachDone(coachStorage)) {
     const coach = createCoachTracker();
+    coachTracker = coach;
     stack.add(
       cameraController.onCameraInput((input) => {
         coach.onCameraInput(input);
@@ -142,7 +153,45 @@ export function wireOverlays({
     labels.dispose();
   });
 
-  return { announcer, labelProjector, labels, dispose: stack.disposeAll };
+  return {
+    announcer,
+    labelProjector,
+    labels,
+    /** The pilot training panel, when it runs. */
+    coachElement: coachPanel?.element ?? null,
+    /** The goals that are running, for the debug hook. */
+    goals: {
+      getStates(): GoalSnapshot[] {
+        if (coachTracker === null) {
+          return [];
+        }
+        return [
+          snapshotOf(
+            coachTracker.engine.def.id,
+            coachTracker.engine.getState(),
+          ),
+        ];
+      },
+    },
+    dispose: stack.disposeAll,
+  };
 }
 
 export type OverlayRig = ReturnType<typeof wireOverlays>;
+
+export type GoalSnapshot = {
+  id: string;
+  /** Step id → done. */
+  done: Record<string, boolean>;
+  current: string | null;
+  finished: boolean;
+};
+
+function snapshotOf(id: string, state: GoalState): GoalSnapshot {
+  return {
+    id,
+    done: { ...state.done },
+    current: state.current,
+    finished: state.finished,
+  };
+}

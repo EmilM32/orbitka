@@ -2,6 +2,7 @@ import { bodies } from '@data/bodies.ts';
 import type { CameraControllerState } from '@render/cameraController.ts';
 import type { CameraFlightSnapshot } from '@render/cameraDirector.ts';
 import { ORBIT_GAP_RADIUS_FACTOR } from '@render/orbitLines.ts';
+import { projectedOrbitExtent } from '@render/orbitExtent.ts';
 import { getBodyScenePosition } from '@render/scenePosition.ts';
 import { getBodyScreenPositions } from '@render/screenPositions.ts';
 
@@ -16,6 +17,10 @@ export type DebugProbeInputs = {
   sceneRig: SceneRig;
   selectionRig: SelectionRig;
   timeRig: TimeRig;
+  readIntro: () => { played: boolean; active: boolean };
+  readGoals: () => ReturnType<
+    NonNullable<typeof window.__orbitka>['getGoalStates']
+  >;
   readFrameCount: () => number;
   readFrameSnapshot: () => {
     days: number;
@@ -56,6 +61,8 @@ export function installDebugProbe({
   sceneRig,
   selectionRig,
   timeRig,
+  readGoals,
+  readIntro,
   readFrameCount,
   readFrameSnapshot,
   readPresetId,
@@ -183,6 +190,20 @@ export function installDebugProbe({
     getQuality() {
       return readQuality();
     },
+    getIntroState() {
+      return readIntro();
+    },
+    getGoalStates() {
+      return readGoals();
+    },
+    getOrbitExtent(id: string) {
+      return projectedOrbitExtent(
+        orbitLines.group.getObjectByName(`orbit-${id}`),
+        view.camera,
+        viewRig.size.width,
+        viewRig.size.height,
+      );
+    },
     getOrbitState() {
       const opacities: number[] = [];
       for (const id of planetIds) {
@@ -194,6 +215,7 @@ export function installDebugProbe({
         visible: orbitLines.group.visible ? 1 : 0,
         opacities,
         gapRadius: gap.mesh === null ? 0 : gap.radius * ORBIT_GAP_RADIUS_FACTOR,
+        hovered: selection.getHoveredId(),
       };
     },
   };

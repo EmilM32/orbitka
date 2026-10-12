@@ -47,19 +47,49 @@
 .time-readout {
   position: relative;
   flex: none;
-  width: 11rem;
+  width: 14rem;
+}
+
+/* The date and the "back to today" button share a row; the button fades but keeps its place. */
+.time-date-row {
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+  justify-content: space-between;
+}
+
+#time-controls .time-today {
+  padding: 0 0.5rem;
+  font-size: 0.8125rem;
+  visibility: hidden;
+  opacity: 0;
+  transition:
+    opacity var(--dur) var(--ease-out),
+    visibility 0s linear var(--dur),
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+
+#time-controls .time-today[data-visible='true'] {
+  visibility: visible;
+  opacity: 1;
+  transition:
+    opacity var(--dur) var(--ease-out),
+    visibility 0s,
+    background-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
 }
 
 #sim-date {
   display: block;
-  min-width: 11ch;
-  font: var(--fw-display) var(--fs-lg) / 1.2 var(--font-display);
+  min-width: 17ch;
+  font: var(--fw-display) var(--fs-md) / 1.2 var(--font-display);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
 #sim-speed {
-  min-width: 16ch;
+  min-width: 24ch;
   margin: 0;
   color: var(--c-text-2);
   font-size: 0.8125rem;
@@ -131,13 +161,44 @@
   border-color: var(--c-active-border);
 }
 
-#speed-slider {
-  --fill: 0%;
-
+/* The slider and its preset marks. The marks sit on the track under the thumb. */
+.time-slider {
+  position: relative;
   box-sizing: border-box;
   flex: 1 1 9rem;
   width: 9rem;
   min-width: 8rem;
+  height: var(--hit);
+}
+
+.time-ticks {
+  position: absolute;
+  inset: 0 0.625rem;
+  pointer-events: none;
+}
+
+.time-tick {
+  position: absolute;
+  top: 50%;
+  left: calc(var(--tick) * 100%);
+  width: 2px;
+  height: 0.875rem;
+  background: var(--c-text-2);
+  border-radius: 1px;
+  transform: translate(-50%, -50%);
+}
+
+/* The active preset is white, never yellow. */
+.time-tick[data-active='true'] {
+  background: var(--c-text);
+}
+
+#speed-slider {
+  --fill: 0%;
+
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
   height: var(--hit);
   margin: 0;
   padding: 0;

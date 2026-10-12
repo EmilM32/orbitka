@@ -830,3 +830,127 @@ test('uses framingRadius', () => {
   director.dispose();
   controller.dispose();
 });
+
+// EMI-248: the intro flies from the far end of the system zoom, high above the
+// ecliptic, to the start view.
+function runSeconds(rig: Rig, seconds: number): void {
+  for (let elapsed = 0; elapsed < seconds; elapsed += FRAME_SECONDS) {
+    rig.director.update(FRAME_SECONDS);
+  }
+}
+
+test('cameraDirector › intro starts far and high and ends at the start view', () => {
+  const rig = setup();
+  const start = startDistance(ASPECT);
+  const ends: number[] = [];
+  rig.director.startIntro(() => {
+    ends.push(1);
+  });
+  expect(rig.director.isIntroActive()).toBe(true);
+  const first = readPose(rig.controller);
+  expect(first.distance).toBeCloseTo(
+    CAMERA_CONFIG.systemZoomMaxFactor * start,
+    6,
+  );
+  expect(first.polar * (180 / Math.PI)).toBeCloseTo(
+    CAMERA_CONFIG.introPolarDeg,
+    6,
+  );
+  expect(snapshot(rig.director).active).toBe(1);
+
+  runSeconds(rig, CAMERA_CONFIG.introSeconds / 2);
+  const middle = readPose(rig.controller);
+  expect(middle.distance).toBeLessThan(first.distance);
+  expect(middle.distance).toBeGreaterThan(start);
+  expect(ends).toEqual([]);
+
+  runSeconds(rig, CAMERA_CONFIG.introSeconds);
+  const last = readPose(rig.controller);
+  expect(last.distance).toBeCloseTo(start, 6);
+  expect(last.polar * (180 / Math.PI)).toBeCloseTo(
+    CAMERA_CONFIG.startPolarDeg,
+    6,
+  );
+  expect(rig.director.isIntroActive()).toBe(false);
+  expect(ends).toEqual([1]);
+  expect(snapshot(rig.director).active).toBe(0);
+});
+
+test('cameraDirector › finishIntro puts the camera at the start view at once, without a fade', () => {
+  const rig = setup();
+  const start = startDistance(ASPECT);
+  const ends: number[] = [];
+  rig.director.startIntro(() => {
+    ends.push(1);
+  });
+  runSeconds(rig, 0.5);
+  rig.director.finishIntro();
+  const pose = readPose(rig.controller);
+  expect(pose.distance).toBeCloseTo(start, 6);
+  expect(pose.polar * (180 / Math.PI)).toBeCloseTo(
+    CAMERA_CONFIG.startPolarDeg,
+    6,
+  );
+  expect(rig.director.isIntroActive()).toBe(false);
+  expect(snapshot(rig.director).active).toBe(0);
+  expect(rig.jumps.count).toBe(0);
+  expect(ends).toEqual([1]);
+  // Twice is the same as once.
+  rig.director.finishIntro();
+  expect(ends).toEqual([1]);
+});
+
+test('cameraDirector › user input on the camera ends the intro at the start view', () => {
+  const rig = setup();
+  const start = startDistance(ASPECT);
+  rig.director.startIntro();
+  runSeconds(rig, 0.3);
+  rig.controller.notifyUserInput();
+  expect(rig.director.isIntroActive()).toBe(false);
+  expect(readPose(rig.controller).distance).toBeCloseTo(start, 6);
+});
+
+test('cameraDirector › a pick during the intro ends it, then flies to the body', () => {
+  const rig = setup();
+  const start = startDistance(ASPECT);
+  const ends: number[] = [];
+  rig.director.startIntro(() => {
+    ends.push(1);
+  });
+  runSeconds(rig, 0.4);
+  rig.selection.select('mars');
+  expect(ends).toEqual([1]);
+  expect(rig.director.isIntroActive()).toBe(false);
+  expect(snapshot(rig.director).kind).toBe(1);
+  // The flight to Mars began from the start view, not from the middle of the intro.
+  expect(readPose(rig.controller).distance).toBeCloseTo(start, 6);
+});
+
+test('cameraDirector › the intro does not select anything or start twice', () => {
+  const rig = setup();
+  rig.director.startIntro();
+  rig.director.startIntro();
+  expect(rig.selection.getSelectedId()).toBeNull();
+  runSeconds(rig, CAMERA_CONFIG.introSeconds + 0.5);
+  expect(rig.selection.getSelectedId()).toBeNull();
+  expect(rig.director.isIntroActive()).toBe(false);
+  // Without an intro, finishIntro is nothing.
+  expect(() => {
+    rig.director.finishIntro();
+  }).not.toThrow();
+});
+
+test('cameraDirector › dispose ends the intro quietly', () => {
+  const rig = setup();
+  let ended = false;
+  rig.director.startIntro(() => {
+    ended = true;
+  });
+  rig.director.dispose();
+  expect(rig.director.isIntroActive()).toBe(false);
+  expect(ended).toBe(false);
+  expect(() => {
+    rig.director.startIntro();
+  }).not.toThrow();
+  expect(rig.director.isIntroActive()).toBe(false);
+});

@@ -396,7 +396,7 @@ test('slider', async ({ page }) => {
 
 test('date', async ({ page }) => {
   await openApp(page, DEBUG_START);
-  await expect(page.getByTestId('sim-date')).toContainText('01.01.2000');
+  await expect(page.getByTestId('sim-date')).toHaveText('1 stycznia 2000');
 
   await page.getByTestId('time-preset-year').click();
   await page.waitForFunction(
@@ -407,7 +407,7 @@ test('date', async ({ page }) => {
   await page.getByTestId('time-pause').click();
 
   const date = await page.getByTestId('sim-date').innerText();
-  expect(date).not.toContain('01.01.2000');
+  expect(date).not.toContain('1 stycznia 2000');
   const clock = await readClock(page);
   expect(clock.days).toBeGreaterThanOrEqual(1);
   expect(clock.paused).toBe(true);
@@ -451,14 +451,21 @@ test('panel width is stable', async ({ page }) => {
 test('status under the date', async ({ page }) => {
   await openApp(page, DEBUG_START);
   const status = page.locator('#sim-speed');
-  await page.getByTestId('time-preset-day').click();
-  await expect(status).toHaveText('1 dzień/s');
+  // 1 January 2000 is always in the past: the status is the distance from today.
+  await expect(status).toHaveText(
+    /^\d+ (?:lat|lata|rok)(?: i \d+ \S+)? temu$/u,
+  );
   await page.getByTestId('time-preset-year').click();
   await page.getByTestId('time-reverse').click();
-  await expect(status).toHaveText('Wstecz · 1 rok/s');
+  await expect(page.getByTestId('time-reverse')).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
   await page.getByTestId('time-pause').click();
-  await expect(status).toHaveText('Pauza');
-  await expect(page.getByTestId('time-reverse')).toHaveText('Wstecz');
+  await expect(page.getByTestId('time-pause')).toHaveAccessibleName(
+    'Start: wznów czas',
+  );
+  await expect(status).toHaveText(/ temu$/u);
 });
 
 test('two rows at 768', async ({ page }) => {
@@ -499,4 +506,127 @@ test('approximate chip for 2054', async ({ page }) => {
 
   await openApp(page, '/?debug=1&paused=1&days=9776');
   await expect(page.getByTestId('time-accuracy')).toBeHidden();
+});
+
+// EMI-237: the longest date and the longest status fit their block, so the
+// panel neither grows nor overlaps the presets.
+for (const [width, height] of [
+  [1280, 720],
+  [1024, 768],
+  [768, 1024],
+] as const) {
+  test(`long date and status fit at ${width}×${height}`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    // 28 October 2051 (outside 1800–2050, so the chip shows) is far from today.
+    const days =
+      (Date.UTC(2051, 9, 28) - Date.UTC(2000, 0, 1, 12)) / 86_400_000;
+    await openApp(page, `/?debug=1&paused=1&days=${days}`);
+    const date = page.getByTestId('sim-date');
+    await expect(date).toHaveText('28 października 2051');
+    const fits = await page.evaluate(() => {
+      const readout = document.querySelector('.time-readout');
+      const status = document.querySelector('#sim-speed');
+      const dateEl = document.querySelector('#sim-date');
+      const presets = document.querySelector('.time-presets');
+      if (!readout || !status || !dateEl || !presets) {
+        return null;
+      }
+      const box = readout.getBoundingClientRect();
+      return {
+        dateInside: dateEl.scrollWidth <= box.width + 0.5,
+        statusInside: status.scrollWidth <= box.width + 0.5,
+        clearOfPresets:
+          presets.getBoundingClientRect().left >= box.right - 0.5 ||
+          presets.getBoundingClientRect().top >= box.bottom - 0.5,
+      };
+    });
+    expect(fits).toEqual({
+      dateInside: true,
+      statusInside: true,
+      clearOfPresets: true,
+    });
+    const panel = await page.locator('#time-controls').boundingBox();
+    expect(panel?.x ?? -1).toBeGreaterThanOrEqual(0);
+    expect((panel?.x ?? 0) + (panel?.width ?? 0)).toBeLessThanOrEqual(width);
+  });
+}
+
+test('"Dziś" returns to today and keeps focus on the panel', async ({
+  page,
+}) => {
+  await openApp(page, '/?debug=1');
+  const today = page.getByTestId('time-today');
+  await expect(today).toBeHidden();
+
+  await page.getByTestId('time-preset-year').click();
+  await page.waitForFunction(
+    () => (window.__orbitka?.getClock().days ?? 0) > 365,
+    undefined,
+    { timeout: 30_000 },
+  );
+  await page.getByTestId('time-pause').click();
+  await expect(today).toBeVisible();
+
+  await today.focus();
+  await page.keyboard.press('Enter');
+  const expected = await page.evaluate(() =>
+    new Intl.DateTimeFormat('pl', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'UTC',
+    }).format(new Date()),
+  );
+  await expect(page.getByTestId('sim-date')).toHaveText(expected);
+  await expect(today).toBeHidden();
+  await expect(page.getByTestId('time-pause')).toBeFocused();
+  await expect(page.locator('#sim-speed')).toHaveText('dziś');
+  // Paused and in the forward direction before the click: both are unchanged.
+  const clock = await readClock(page);
+  expect(clock.paused).toBe(true);
+  expect(clock.reversed).toBe(false);
+});
+
+test('"Dziś" does not overlap the panel at 768×1024', async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await openApp(page, DEBUG_START);
+  const today = page.getByTestId('time-today');
+  await expect(today).toBeVisible();
+  const [todayBox, dateBox, panel] = await Promise.all([
+    today.boundingBox(),
+    page.getByTestId('sim-date').boundingBox(),
+    page.locator('#time-controls').boundingBox(),
+  ]);
+  if (todayBox === null || dateBox === null || panel === null) {
+    throw new Error('missing box');
+  }
+  expect(todayBox.x).toBeGreaterThanOrEqual(dateBox.x + dateBox.width - 1);
+  expect(todayBox.x + todayBox.width).toBeLessThanOrEqual(
+    panel.x + panel.width,
+  );
+});
+
+test('slider marks sit where the thumb stops for each preset', async ({
+  page,
+}) => {
+  await openApp(page, DEBUG_START);
+  const slider = page.getByTestId('time-slider');
+  for (const id of ['day', 'ten-days', 'month', 'year']) {
+    await page.getByTestId(`time-preset-${id}`).click();
+    const [sliderBox, tickBox, value] = await Promise.all([
+      slider.boundingBox(),
+      page.locator(`.time-tick[data-preset="${id}"]`).boundingBox(),
+      slider.evaluate((element) => Number((element as HTMLInputElement).value)),
+    ]);
+    if (sliderBox === null || tickBox === null) {
+      throw new Error('missing box');
+    }
+    // The thumb centre runs from half a thumb (10 px) to the width minus that.
+    const thumbCentre =
+      sliderBox.x + 10 + (value / 1000) * (sliderBox.width - 20);
+    expect(tickBox.x + tickBox.width / 2).toBeCloseTo(thumbCentre, 0);
+    await expect(
+      page.locator(`.time-tick[data-preset="${id}"]`),
+    ).toHaveAttribute('data-active', 'true');
+  }
 });

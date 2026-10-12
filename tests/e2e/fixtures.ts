@@ -1,12 +1,15 @@
 export const VIEWPORT = { width: 1280, height: 720 } as const;
 
-// Independent copy of the 1280×720 start view (aspect 16:9, multiplier 1).
-// Distance is hypot(75, 95); zoom limits are 0.2× and 1.5× that distance.
-// Not imported from src.
-export const START_DISTANCE = 121.037;
+// Independent copy of the 1280×720 start view (EMI-241). The distance fits
+// Neptune's orbit (radius 43.9 at 8·AU^0.5, polar 55°, FOV 45°) to 90% of the
+// free area around the window center: the list ends at x = 268, the top bar
+// at y = 60 and the time panel starts at y = 625.1, so the free half-height is
+// 265.1 px. Zoom limits are 0.2× and 1.5× that distance. Measured from the
+// layout, not imported from src. Before the fit it was hypot(75, 95) = 121.037.
+export const START_DISTANCE = 127.591;
 export const START_POLAR_DEG = 55;
-export const ZOOM_MIN = 24.207;
-export const ZOOM_MAX = 181.556;
+export const ZOOM_MIN = 25.518;
+export const ZOOM_MAX = 191.386;
 
 export const DRAWN_BODY_IDS = [
   'sun',
@@ -35,13 +38,13 @@ export const MOON_IDS = [
 
 // Kepler position at t = 0 (J2000 elements, Newton) on a 1280×720 frame.
 // Ecliptic (x, y, north z) is scaled by 8·AU^0.5, then mapped to scene
-// (x, north y, −y). Camera: polar 55°, azimuth 0°, distance hypot(75, 95),
+// (x, north y, −y). Camera: polar 55°, azimuth 0°, distance START_DISTANCE,
 // FOV 45°, looking at the origin. Screen x = (ndcX·0.5+0.5)·1280,
 // y = (−ndcY·0.5+0.5)·720, rounded to 0.1 px. Constants, not a mesh readout.
 export const GOLDEN_SCREEN = {
-  mercury: { x: 628.7, y: 384.1 },
-  earth: { x: 630.3, y: 329.5 },
-  neptune: { x: 873.7, y: 557.9 },
+  mercury: { x: 629.3, y: 382.8 },
+  earth: { x: 630.7, y: 331.0 },
+  neptune: { x: 858.1, y: 544.7 },
 } as const;
 
 // visual.color from src/data/bodies.json, copied: e2e imports nothing from src.

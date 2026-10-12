@@ -130,7 +130,7 @@ test('skip and tab order', async ({ page }) => {
   await page.getByTestId('coach-skip').click();
   await expect(page.locator('#coach')).toHaveCount(0);
   expect(
-    await page.evaluate(() => localStorage.getItem('orbitka.coach.done')),
+    await page.evaluate(() => localStorage.getItem('orbitka.v1.coach.done')),
   ).toBe('1');
 });
 
@@ -151,4 +151,75 @@ test('touch hints on tablet', async ({ browser }) => {
     1,
   );
   await context.close();
+});
+
+// EMI-245: a user who finished the training before the keys were versioned
+// does not see it again, and the old key moves to orbitka.v1.*.
+test('legacy coach key migrates and hides the training', async ({ page }) => {
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('legacy-seeded') === null) {
+      sessionStorage.setItem('legacy-seeded', '1');
+      localStorage.setItem('orbitka.coach.done', '1');
+    }
+  });
+  await open(page);
+  await expect(page.locator('#coach')).toHaveCount(0);
+  const keys = await page.evaluate(() => ({
+    legacy: localStorage.getItem('orbitka.coach.done'),
+    current: localStorage.getItem('orbitka.v1.coach.done'),
+  }));
+  expect(keys).toEqual({ legacy: null, current: '1' });
+});
+
+// EMI-252: the training runs on the goal engine (ADR-011). The debug hook
+// shows the goal, and a camera flight does not complete the rotate or zoom step.
+test('goal state in the hook; a flight completes only the select step', async ({
+  page,
+}) => {
+  await open(page);
+  const goals = () => page.evaluate(() => window.__orbitka?.getGoalStates());
+  expect(await goals()).toEqual([
+    {
+      id: 'coach',
+      done: { rotate: false, zoom: false, select: false },
+      current: 'rotate',
+      finished: false,
+    },
+  ]);
+
+  // The flight to Jupiter turns and zooms the camera by itself.
+  await page.keyboard.press('5');
+  await page.waitForFunction(
+    () => (window.__orbitka?.getCameraState().flightActive ?? 1) === 0,
+    undefined,
+    { timeout: 15_000 },
+  );
+  const after = await goals();
+  expect(after?.[0]?.done).toEqual({
+    rotate: false,
+    zoom: false,
+    select: true,
+  });
+  expect(after?.[0]?.current).toBe('rotate');
+
+  // The same steps by hand finish it.
+  await page.getByTestId('view-zoom-in').click();
+  await page.getByTestId('view-zoom-in').click();
+  await page.locator('canvas').focus();
+  for (let press = 0; press < 4; press += 1) {
+    await page.keyboard.press('ArrowLeft');
+  }
+  await expect
+    .poll(async () => (await goals())?.[0]?.finished ?? false)
+    .toBe(true);
+});
+
+test('no goal in the hook once the training is done', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('orbitka.v1.coach.done', '1');
+  });
+  await open(page);
+  expect(await page.evaluate(() => window.__orbitka?.getGoalStates())).toEqual(
+    [],
+  );
 });

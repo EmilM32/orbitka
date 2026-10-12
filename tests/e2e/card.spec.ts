@@ -171,7 +171,9 @@ test('mercury and the sun', async ({ page }) => {
   await expect(card.locator('.gauge-bar')).toHaveCount(0);
 });
 
-test('close paths and more', async ({ page }) => {
+test('close paths, and the description needs no button on desktop', async ({
+  page,
+}) => {
   await open(page, { width: 1280, height: 720 });
   const card = page.getByTestId('body-card');
   for (const close of ['x', 'system', 'Escape', 'Home'] as const) {
@@ -191,12 +193,54 @@ test('close paths and more', async ({ page }) => {
   }
 
   await select(page, 'mars');
+  await expect(page.getByTestId('body-card-more')).toBeHidden();
+  await expect(page.locator('#card-description')).toBeVisible();
+});
+
+test('more opens the description on the sheet and is not yellow', async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    viewport: { width: 768, height: 1024 },
+    hasTouch: true,
+  });
+  const page = await context.newPage();
+  await skipCoach(page);
+  await open(page, { width: 768, height: 1024 });
+  await select(page, 'mars');
   const more = page.getByTestId('body-card-more');
+  await expect(more).toBeVisible();
+  await expect(page.locator('#card-description')).toBeHidden();
   await expect(more).toHaveAttribute('aria-expanded', 'false');
-  await more.click();
+  await more.tap();
   await expect(more).toHaveAttribute('aria-expanded', 'true');
   await expect(more).toHaveText('Mniej');
   await expect(page.locator('#card-description')).toBeVisible();
+  const background = await more.evaluate(
+    (element) => getComputedStyle(element).backgroundColor,
+  );
+  expect(['rgba(0, 0, 0, 0)', 'transparent']).toContain(background);
+  await context.close();
+});
+
+test('the Jupiter card fits at 1280×720 above the time panel', async ({
+  page,
+}) => {
+  await open(page, { width: 1280, height: 720 });
+  await select(page, 'jupiter');
+  await expect(page.locator('#card-description')).toBeVisible();
+  const card = await boxOf(page, '#body-card');
+  const time = await boxOf(page, '#time-controls');
+  expect(card.y + card.height).toBeLessThanOrEqual(time.y);
+  const system = await boxOf(page, '[data-testid="body-card-system"]');
+  expect(system.y + system.height).toBeLessThanOrEqual(card.y + card.height);
+  // No yellow fill on any button of the card.
+  const fills = await page
+    .locator('#body-card button')
+    .evaluateAll((buttons) =>
+      buttons.map((button) => getComputedStyle(button).backgroundColor),
+    );
+  expect(fills).not.toContain('rgb(255, 194, 75)');
 });
 
 test('tab order', async ({ page }) => {
@@ -266,7 +310,7 @@ test('sheet on tablet', async ({ browser }) => {
 test('card scrolls at a low window', async ({ page }) => {
   await open(page, { width: 1280, height: 600 });
   await select(page, 'saturn');
-  await page.getByTestId('body-card-more').click();
+  await expect(page.locator('#card-description')).toBeVisible();
   const scroll = await page
     .getByTestId('body-card-scroll')
     .evaluate((element) => ({
@@ -274,8 +318,48 @@ test('card scrolls at a low window', async ({ page }) => {
       clientHeight: element.clientHeight,
     }));
   expect(scroll.scrollHeight).toBeGreaterThan(scroll.clientHeight);
-  for (const id of ['body-card-system', 'body-card-more']) {
+  for (const id of ['body-card-system']) {
     const box = await boxOf(page, `[data-testid="${id}"]`);
     expect(box.y + box.height, id).toBeLessThanOrEqual(600);
   }
+});
+
+// EMI-251: the gauge bars grow from zero and end at the width the gauge
+// computed; changing the body does not move the card.
+test('gauge bars end at their width and the card stays put on a body change', async ({
+  page,
+}) => {
+  await open(page, { width: 1280, height: 720 });
+  await select(page, 'jupiter');
+  const before = await boxOf(page, '#body-card');
+
+  const widths = async (): Promise<number[]> =>
+    page.locator('.gauge-bar').evaluateAll((bars) =>
+      bars.map((bar) => {
+        const track = bar.parentElement?.getBoundingClientRect().width ?? 0;
+        const fraction =
+          Number.parseFloat((bar as HTMLElement).style.width) / 100;
+        return Math.abs(bar.getBoundingClientRect().width - track * fraction);
+      }),
+    );
+
+  // The bars end at their width once the animation is done; a slow frame
+  // (a texture upload) may delay it, so poll rather than sleep.
+  await expect
+    .poll(async () => Math.max(...(await widths())), { timeout: 10_000 })
+    .toBeLessThanOrEqual(1);
+
+  await page.getByTestId('body-item-mars').click();
+  await expect(page.locator('#body-card h2')).toHaveText('Mars');
+  const during = await boxOf(page, '#body-card');
+  expect(Math.abs(during.x - before.x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(during.y - before.y)).toBeLessThanOrEqual(1);
+  // The bars end at their width once the animation is done; a slow frame
+  // (a texture upload) may delay it, so poll rather than sleep.
+  await expect
+    .poll(async () => Math.max(...(await widths())), { timeout: 10_000 })
+    .toBeLessThanOrEqual(1);
+  const after = await boxOf(page, '#body-card');
+  expect(Math.abs(after.x - during.x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(after.y - during.y)).toBeLessThanOrEqual(1);
 });

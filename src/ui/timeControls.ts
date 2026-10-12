@@ -3,19 +3,26 @@ import './timeControls.css';
 import {
   DAYS_LIMIT,
   daysToUtcDate,
+  J2000_UTC_MS,
+  MS_PER_DAY,
   SPEED_PRESETS,
   type Clock,
   type ClockState,
 } from '@core/clock.ts';
+import { dateDistance } from '@core/dateDistance.ts';
 import {
+  nearestPresetTick,
+  presetTicks,
   SLIDER_STEPS,
   sliderToSpeed,
   speedToSlider,
+  stepsForPixels,
 } from '@core/speedSlider.ts';
 import { orbitalElementsAreApproximate } from '@data/elementValidity.ts';
 
-import { formatDate, formatDateTimeAttr } from './formatDate.ts';
-import { formatSpeed, formatSpeedSpoken } from './formatSpeed.ts';
+import { formatDateTimeAttr, formatDateWords } from './formatDate.ts';
+import { formatDistance } from './formatDistance.ts';
+import { formatSpeedSpoken } from './formatSpeed.ts';
 import { type Dictionary, type I18n } from './i18n.ts';
 import { createIcon } from './icons.ts';
 import { createTooltip } from './tooltip.ts';
@@ -28,12 +35,18 @@ export type TimeControls = {
    * Tab order, a click does nothing) and the status says the scene is loading.
    */
   setReady(ready: boolean): void;
+  /** The "back to today" button, for a shortcut. Does nothing before the scene is ready. */
+  goToToday(): void;
   dispose(): void;
 };
 
 // The first move outside 1800–2050 is announced once per session (module
-// memory, not localStorage), however many panels come and go.
+// memory, not browser storage), however many panels come and go.
 let approximateAnnounced = false;
+
+// The thumb is 1.25rem (timeControls.css) and the snap reaches 5 px around a mark.
+const THUMB_PX = 20;
+const SNAP_RADIUS_PX = 5;
 
 const SPEED_PRESET_IDS = ['day', 'ten-days', 'month', 'year'] as const;
 
@@ -83,6 +96,7 @@ export function createTimeControls(
   clock: Clock,
   i18n: AppI18n,
   before?: Node | null,
+  nowMs: () => number = Date.now,
 ): TimeControls {
   function copyFor(
     visibleKey:
@@ -150,6 +164,19 @@ export function createTimeControls(
     'top',
   );
 
+  // The "back to today" button is in the layout all the time (it fades, it does not appear), so
+  // the panel keeps its width.
+  const dateRow = document.createElement('div');
+  dateRow.className = 'time-date-row';
+
+  const todayButton = document.createElement('button');
+  todayButton.setAttribute('type', 'button');
+  todayButton.setAttribute('data-testid', 'time-today');
+  todayButton.className = 'o-btn o-btn--ghost time-today';
+  todayButton.textContent = i18n.t('time.today.text');
+  todayButton.setAttribute('aria-label', i18n.t('time.today.ariaLabel'));
+  todayButton.setAttribute('data-visible', 'false');
+
   const simDate = document.createElement('time');
   simDate.setAttribute('id', 'sim-date');
   simDate.setAttribute('data-testid', 'sim-date');
@@ -157,7 +184,8 @@ export function createTimeControls(
 
   const simSpeed = document.createElement('p');
   simSpeed.setAttribute('id', 'sim-speed');
-  readout.append(accuracy, simDate, simSpeed);
+  dateRow.append(simDate, todayButton);
+  readout.append(accuracy, dateRow, simSpeed);
 
   // 768–1023 px: the rest of the panel goes to a second row.
   const rowBreak = document.createElement('div');
@@ -207,6 +235,25 @@ export function createTimeControls(
   slider.setAttribute('max', String(SLIDER_STEPS));
   slider.setAttribute('step', '1');
 
+  // Marks at the preset speeds, from the same mapping as the thumb. They only
+  // decorate: the presets and the value text carry the meaning.
+  const sliderWrap = document.createElement('div');
+  sliderWrap.className = 'time-slider';
+  const tickLayer = document.createElement('div');
+  tickLayer.className = 'time-ticks';
+  tickLayer.setAttribute('aria-hidden', 'true');
+  const tickElements = new Map<string, HTMLElement>();
+  for (const tick of presetTicks()) {
+    const mark = document.createElement('span');
+    mark.className = 'time-tick';
+    mark.setAttribute('data-preset', tick.id);
+    mark.setAttribute('data-active', 'false');
+    mark.style.setProperty('--tick', String(tick.position / SLIDER_STEPS));
+    tickLayer.append(mark);
+    tickElements.set(tick.id, mark);
+  }
+  sliderWrap.append(slider, tickLayer);
+
   const live = document.createElement('div');
   live.setAttribute('class', 'visually-hidden');
   live.setAttribute('aria-live', 'polite');
@@ -218,7 +265,7 @@ export function createTimeControls(
     presetGroup,
     reverseButton,
     sliderLabel,
-    slider,
+    sliderWrap,
     live,
   );
   parent.insertBefore(section, before ?? null);
@@ -227,6 +274,7 @@ export function createTimeControls(
     pauseButton,
     ...presetButtonList,
     reverseButton,
+    todayButton,
     slider,
   ];
   let ready = false;
@@ -284,6 +332,18 @@ export function createTimeControls(
     },
     { signal: abort.signal },
   );
+  function goToToday(): void {
+    if (!ready || disposed) {
+      return;
+    }
+    clock.setDays(todayDays());
+    live.textContent = i18n.t('time.today.announce');
+    // The button fades out after this; keep keyboard focus on the panel.
+    if (document.activeElement === todayButton) {
+      pauseButton.focus();
+    }
+  }
+  todayButton.addEventListener('click', goToToday, { signal: abort.signal });
   reverseButton.addEventListener(
     'click',
     () => {
@@ -297,12 +357,14 @@ export function createTimeControls(
   let lastDateText = '';
   let lastDateTime: string | null = null;
   let lastApproximate: boolean | null = null;
+  let lastAwayFromToday: boolean | null = null;
   let lastState: ClockState | null = null;
-  let lastSpeedText = '';
+  let lastStatusText = '';
   let lastPresetId: string | null | undefined;
   let lastAnnouncement = '';
   let announce = false;
   let isDragging = false;
+  let pointerActive = false;
   let lastValueText = '';
 
   function presetById(id: string): SpeedPresetId | null {
@@ -361,6 +423,21 @@ export function createTimeControls(
       slider.value = String(speedToSlider(clock.speed));
       return;
     }
+    if (pointerActive) {
+      // Dragging with the mouse or a finger sticks to a preset mark a few
+      // pixels away; the keys keep their own steps.
+      const width = slider.getBoundingClientRect().width - THUMB_PX;
+      const near =
+        width > 0
+          ? nearestPresetTick(
+              Number(slider.value),
+              stepsForPixels(SNAP_RADIUS_PX, width),
+            )
+          : null;
+      if (near !== null) {
+        slider.value = String(near.position);
+      }
+    }
     applySlider(Number(slider.value));
   }
 
@@ -401,11 +478,13 @@ export function createTimeControls(
     }
 
     isDragging = true;
+    pointerActive = true;
     slider.setPointerCapture(event.pointerId);
   }
 
   function endDrag(): void {
     isDragging = false;
+    pointerActive = false;
   }
 
   const sliderListeners: readonly [string, EventListener][] = [
@@ -423,24 +502,43 @@ export function createTimeControls(
     slider.addEventListener(type, listener);
   }
 
-  function speedText(state: ClockState): string {
+  // The distance only changes with the calendar day of the simulation or of
+  // the real clock, so it is computed once per pair of days.
+  let distanceKey = '';
+  let distanceText = '';
+
+  function todayDays(): number {
+    return (nowMs() - J2000_UTC_MS) / MS_PER_DAY;
+  }
+
+  function distanceFromToday(state: ClockState): string {
+    if (!inRange(state.days)) {
+      return i18n.t('time.date.missing');
+    }
+
+    const simDay = Math.floor(state.days);
+    const today = Math.floor(todayDays());
+    const key = `${simDay}:${today}`;
+    if (key !== distanceKey) {
+      const todayDate = new Date(nowMs());
+      distanceText = formatDistance(
+        dateDistance(todayDate, daysToUtcDate(state.days)),
+        i18n,
+      );
+      distanceKey = key;
+    }
+
+    return distanceText;
+  }
+
+  function statusText(state: ClockState): string {
     if (!ready) {
       return i18n.t('time.status.loading');
     }
 
-    if (state.paused) {
-      return i18n.t('time.status.paused');
-    }
-
-    const preset = activePreset(state);
-    const value =
-      preset === null
-        ? formatSpeed(state.speed, i18n)
-        : presetCopy[preset].visible;
-    const key = state.reversed
-      ? 'time.status.speedReversed'
-      : 'time.status.speed';
-    return i18n.t(key, { speed: value });
+    // Pause and reverse stay readable on their own buttons (the play icon and
+    // the pressed "Wstecz"), so the status keeps room for the distance.
+    return distanceFromToday(state);
   }
 
   function announcement(state: ClockState): string {
@@ -494,6 +592,9 @@ export function createTimeControls(
           .get(id)
           ?.setAttribute('tabindex', id === tabStop ? '0' : '-1');
       }
+      for (const [id, mark] of tickElements) {
+        mark.setAttribute('data-active', String(id === presetId));
+      }
       lastPresetId = presetId;
     }
 
@@ -506,7 +607,7 @@ export function createTimeControls(
     let dateTime: string | null = null;
     if (inRange(state.days)) {
       const date = daysToUtcDate(state.days);
-      dateText = formatDate(date);
+      dateText = formatDateWords(date, i18n);
       dateTime = formatDateTimeAttr(date);
     }
     lastDateText = setText(simDate, dateText, lastDateText);
@@ -530,7 +631,15 @@ export function createTimeControls(
       lastApproximate = approximate;
     }
 
-    lastSpeedText = setText(simSpeed, speedText(state), lastSpeedText);
+    lastStatusText = setText(simSpeed, statusText(state), lastStatusText);
+
+    // A whole day away from today or more; a jump of less is not worth a button.
+    const awayFromToday =
+      inRange(state.days) && Math.abs(state.days - todayDays()) >= 1;
+    if (awayFromToday !== lastAwayFromToday) {
+      todayButton.setAttribute('data-visible', String(awayFromToday));
+      lastAwayFromToday = awayFromToday;
+    }
 
     const valueText = formatSpeedSpoken(
       state.speed,
@@ -581,6 +690,7 @@ export function createTimeControls(
   const unsubscribe = clock.subscribe(render);
 
   return {
+    goToToday,
     setReady(next: boolean) {
       if (disposed || next === ready) {
         return;
@@ -588,7 +698,11 @@ export function createTimeControls(
       ready = next;
       applyReady();
       if (lastState !== null) {
-        lastSpeedText = setText(simSpeed, speedText(lastState), lastSpeedText);
+        lastStatusText = setText(
+          simSpeed,
+          statusText(lastState),
+          lastStatusText,
+        );
       }
     },
     dispose() {

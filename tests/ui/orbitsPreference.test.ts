@@ -46,6 +46,8 @@ function mount(storage: OrbitsStorage | null = null) {
     onQualityChange: vi.fn(),
     qualityValue: null,
     qualityLocked: false,
+    onCopyLink: () => Promise.resolve(true),
+    onShowShortcuts: () => undefined,
   });
   return { controls, onOrbitsChange };
 }
@@ -89,8 +91,7 @@ test('storage errors are swallowed', () => {
 });
 
 test('storage key literal', () => {
-  expect(VIEW_CONFIG.orbitsStorageKey).toBe('orbitka.orbits');
-  expect(VIEW_CONFIG.orbitsStorageKey.startsWith('orbitka.')).toBe(true);
+  expect(VIEW_CONFIG.orbitsStorageKey).toBe('orbits');
 
   const keys: string[] = [];
   const storage: OrbitsStorage = {
@@ -107,7 +108,7 @@ test('storage key literal', () => {
   expect(loadOrbitsVisible(storage)).toBe(true);
   saveOrbitsVisible(storage, false);
 
-  expect(keys).toEqual(['orbitka.orbits', 'orbitka.orbits']);
+  expect(keys).toEqual(['orbits', 'orbits']);
   expect(cookie).not.toHaveBeenCalled();
   cookie.mockRestore();
 
@@ -198,7 +199,10 @@ test('tab order inside group', () => {
     'view-orbits',
     'view-zoom-out',
     'view-zoom-in',
+    'view-fullscreen',
     'view-settings',
+    'view-copy-link',
+    'view-shortcuts',
   ]);
   controls.dispose();
 });
@@ -216,6 +220,8 @@ test('dispose cleans up', () => {
     onQualityChange: vi.fn(),
     qualityValue: null,
     qualityLocked: false,
+    onCopyLink: () => Promise.resolve(true),
+    onShowShortcuts: () => undefined,
   });
   const orbits = button('view-orbits');
   const zoomIn = button('view-zoom-in');

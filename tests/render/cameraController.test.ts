@@ -7,6 +7,7 @@ import {
   startDistance,
   wrapAzimuth,
   type CameraPose,
+  type StartFrame,
 } from '@core/cameraMath.ts';
 import {
   createCameraController,
@@ -541,4 +542,110 @@ test('cameraController › onCameraInput reports rotate and zoom', () => {
   controller.dispose();
   controller.rotateBy(DEG, 0, false);
   expect(second).not.toHaveBeenCalled();
+});
+
+test('cameraController › start frame scales the distance and the limits', () => {
+  const { controller } = setup(1);
+  const frame: StartFrame = {
+    orbitRadius: 43.9,
+    fovDeg: 45,
+    widthShare: 0.9,
+    heightShare: 0.7,
+    fill: 0.9,
+  };
+  const before = readPose(controller).distance;
+  const startBefore = startDistance(1);
+  expect(before).toBeCloseTo(startBefore, 8);
+
+  controller.setStartFrame(frame);
+  const startAfter = startDistance(1, frame);
+  const after = readPose(controller).distance;
+  expect(after).toBeCloseTo(startAfter, 6);
+  const limits = readState(controller);
+  expect(limits.distanceMin).toBeCloseTo(
+    CAMERA_CONFIG.systemZoomMinFactor * startAfter,
+    6,
+  );
+  expect(limits.distanceMax).toBeCloseTo(
+    CAMERA_CONFIG.systemZoomMaxFactor * startAfter,
+    6,
+  );
+
+  // The user's own zoom keeps its place relative to the start distance.
+  controller.zoomBy(0.8, false);
+  const zoomed = readPose(controller).distance;
+  controller.setStartFrame({ ...frame, widthShare: 0.5, heightShare: 0.5 });
+  const refit = startDistance(1, {
+    ...frame,
+    widthShare: 0.5,
+    heightShare: 0.5,
+  });
+  expect(readPose(controller).distance).toBeCloseTo(
+    (zoomed * refit) / startAfter,
+    6,
+  );
+
+  // The same frame again is no change; null returns to the aspect rule.
+  const stable = readPose(controller).distance;
+  controller.setStartFrame({ ...frame, widthShare: 0.5, heightShare: 0.5 });
+  expect(readPose(controller).distance).toBe(stable);
+  controller.setStartFrame(null);
+  expect(readPose(controller).distance).toBeCloseTo(
+    (stable * startDistance(1)) / refit,
+    6,
+  );
+});
+
+test('cameraController › a resize with a start frame uses the fitted distance', () => {
+  const { controller } = setup(16 / 9);
+  const frame: StartFrame = {
+    orbitRadius: 43.9,
+    fovDeg: 45,
+    widthShare: 0.6,
+    heightShare: 0.7,
+    fill: 0.9,
+  };
+  controller.setStartFrame(frame);
+  const before = readPose(controller).distance;
+  controller.setAspect(9 / 16);
+  const ratio = startDistance(9 / 16, frame) / startDistance(16 / 9, frame);
+  expect(readPose(controller).distance).toBeCloseTo(before * ratio, 6);
+});
+
+test('cameraController › a body selected after a start frame keeps limits from it', () => {
+  const { controller } = setup(16 / 9);
+  const frame: StartFrame = {
+    orbitRadius: 43.9,
+    fovDeg: 45,
+    widthShare: 0.6,
+    heightShare: 0.7,
+    fill: 0.9,
+  };
+  controller.setStartFrame(frame);
+  controller.setLimitsForBody(1);
+  const state = readState(controller);
+  expect(state.distanceMax).toBeCloseTo(startDistance(16 / 9, frame), 6);
+  controller.setLimitsForBody(null);
+});
+
+test('cameraController › a programmatic pose is not user input (ADR-011)', () => {
+  const { controller } = setup();
+  const inputs: number[] = [];
+  controller.onCameraInput(() => {
+    inputs.push(1);
+  });
+  // Flights and the intro go through setPose, never through rotateBy or zoomBy.
+  const pose = readPose(controller);
+  controller.setPose({
+    ...pose,
+    azimuth: pose.azimuth + 1,
+    polar: pose.polar + 0.2,
+    distance: pose.distance * 0.5,
+  });
+  controller.update(1 / 60);
+  controller.setAspect(2);
+  controller.setTarget(1, 2, 3);
+  expect(inputs).toEqual([]);
+  controller.rotateBy(0.1, 0, false);
+  expect(inputs).toEqual([1]);
 });

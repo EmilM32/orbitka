@@ -21,6 +21,11 @@
   border-radius: var(--radius-panel);
 }
 
+/* The open settings panel hangs over the body card, not under it. */
+#view-controls.has-panel {
+  z-index: var(--z-dock);
+}
+
 #view-controls .o-btn {
   padding: 0 var(--s-3);
 }
@@ -59,6 +64,7 @@
   background: var(--c-surface-hover);
 }
 
+#view-controls .view-fullscreen,
 #view-controls .view-settings {
   padding: 0;
 }
@@ -96,6 +102,18 @@
 }
 
 #view-controls .view-quality-hint {
+  margin: 0;
+  color: var(--c-text-2);
+}
+
+#view-controls .view-shortcuts,
+#view-controls .view-copy-link {
+  justify-content: flex-start;
+  margin-top: var(--s-2);
+}
+
+/* The note after a copy: an empty paragraph has no height. */
+#view-controls .view-copy-status {
   margin: 0;
   color: var(--c-text-2);
 }

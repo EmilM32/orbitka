@@ -21,6 +21,7 @@ test('holds the brief values', () => {
   expect(CAMERA_CONFIG.polarMaxDeg).toBe(170);
   expect(CAMERA_CONFIG.startDistanceBase).toBe(Math.hypot(75, 95));
   expect(CAMERA_CONFIG.startDistanceAspect).toBe(1.2);
+  expect(CAMERA_CONFIG.startFrameFill).toBe(0.9);
   expect(CAMERA_CONFIG.systemZoomMaxFactor).toBe(1.5);
   expect(CAMERA_CONFIG.systemZoomMinFactor).toBe(0.2);
   expect(CAMERA_CONFIG.bodyZoomMinRadiusFactor).toBe(2.5);
@@ -58,6 +59,7 @@ test('is frozen at type level', () => {
     'polarMaxDeg',
     'startDistanceBase',
     'startDistanceAspect',
+    'startFrameFill',
     'systemZoomMaxFactor',
     'systemZoomMinFactor',
     'bodyZoomMinRadiusFactor',
@@ -80,6 +82,10 @@ test('is frozen at type level', () => {
     'bodyDistanceRadiusFactor',
     'sunDistanceRadiusFactor',
     'reducedMotionFadeMs',
+    'introSeconds',
+    'introPolarDeg',
+    'introPanelsMs',
+    'introPanelStaggerMs',
     'orbitOpacitySelected',
     'orbitOpacityDimmed',
   ]);

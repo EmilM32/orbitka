@@ -1,5 +1,6 @@
 import {
   BufferGeometry,
+  DynamicDrawUsage,
   Float32BufferAttribute,
   Group,
   LineBasicMaterial,
@@ -21,14 +22,31 @@ import { eclipticToScene } from './coords.ts';
 export const ORBIT_SEGMENTS = 256;
 export const ORBIT_COLOR = 0x5b6b8c;
 export const ORBIT_OPACITY = 0.55;
+// A hovered body (list, rail or scene) lights its orbit: lighter and more
+// opaque than the other states, never yellow (yellow is selection).
+export const ORBIT_COLOR_HOVERED = 0xc9d6f2;
+export const ORBIT_OPACITY_HOVERED = 0.9;
 // ADR-010 point 10: no orbit line is drawn closer than 1.25 R to the line of
 // sight through the selected body's center.
 export const ORBIT_GAP_RADIUS_FACTOR = 1.25;
 
+// The trail behind a body (EMI-249): the line is brighter right behind the
+// body and fades out over about 105° of the orbit, nothing ahead of it.
+export const ORBIT_TRAIL_LENGTH = 105 / 360;
+export const ORBIT_TRAIL_BOOST = 0.8;
+
 export type OrbitLines = {
   group: Group;
+  /**
+   * Where the body of orbit `id` is along its line (`orbitPhase`, 0 to 1) and
+   * how strong its trail is (0 to 1; 0 while the body mesh is faded for a
+   * large time step). Called every frame; it does not allocate.
+   */
+  setBodyTrail: (id: string, phase: number, strength: number) => void;
   setOrbitLinesVisible: (visible: boolean) => void;
   setSelectedBody: (id: string | null) => void;
+  /** The orbit of the hovered body is lit; the selected orbit keeps its own look. */
+  setHoveredBody: (id: string | null) => void;
   /**
    * Cuts every orbit line where it passes in front of or behind the disc
    * centered at `center` (world space) with scene radius `radius`. `null`
@@ -84,6 +102,65 @@ export function patchOrbitGap(
   );
 }
 
+// The weight of the trail at each line point is computed on the CPU (a few
+// hundred points per line, no trigonometry) and drawn from a vertex attribute:
+// the three orbit materials are shared by all lines, and three.js uploads the
+// uniforms of a shared material once per material, not once per line.
+const TRAIL_VERTEX_HEAD = `attribute float aTrail;
+varying float vTrail;
+void main() {`;
+const TRAIL_VERTEX_BODY = `#include <project_vertex>
+\tvTrail = aTrail;`;
+const TRAIL_FRAGMENT_HEAD = `varying float vTrail;
+void main() {`;
+const TRAIL_FRAGMENT_BODY = `#include <color_fragment>
+\tdiffuseColor.a = min( 1.0, diffuseColor.a * ( 1.0 + ${ORBIT_TRAIL_BOOST.toFixed(3)} * vTrail ) );
+\tdiffuseColor.rgb = mix( diffuseColor.rgb, vec3( 1.0 ), 0.3 * vTrail );`;
+
+export function patchOrbitTrail(
+  shader: WebGLProgramParametersWithUniforms,
+): void {
+  shader.vertexShader = replaceOnce(
+    replaceOnce(shader.vertexShader, 'void main() {', TRAIL_VERTEX_HEAD),
+    '#include <project_vertex>',
+    TRAIL_VERTEX_BODY,
+  );
+  shader.fragmentShader = replaceOnce(
+    replaceOnce(shader.fragmentShader, 'void main() {', TRAIL_FRAGMENT_HEAD),
+    '#include <color_fragment>',
+    TRAIL_FRAGMENT_BODY,
+  );
+}
+
+/**
+ * Trail weight of a point that lies `behind` turns behind the body (in the
+ * direction of motion): 1 right behind it, easing to 0 at `ORBIT_TRAIL_LENGTH`,
+ * 0 beyond that and everywhere ahead of the body.
+ */
+export function trailWeight(behind: number): number {
+  if (!(behind >= 0) || behind >= ORBIT_TRAIL_LENGTH) {
+    return 0;
+  }
+  const t = behind / ORBIT_TRAIL_LENGTH;
+  return 1 - t * t * (3 - 2 * t);
+}
+
+/**
+ * Fills `out` with the trail weight of each of its points, for a body at
+ * orbit fraction `phase`. Point `k` of `n` is at `k / n` of the orbit.
+ */
+export function fillTrailWeights(
+  out: Float32Array,
+  phase: number,
+  strength: number,
+): void {
+  const count = out.length;
+  for (let k = 0; k < count; k += 1) {
+    const behind = phase - k / count;
+    out[k] = strength * trailWeight(behind - Math.floor(behind));
+  }
+}
+
 function requireSegments(segments: number): void {
   if (!Number.isInteger(segments) || segments < 3) {
     throw new RangeError(
@@ -132,9 +209,10 @@ export function computeOrbitPoints(
 function createOrbitMaterial(
   opacity: number,
   uniforms: OrbitGapUniforms,
+  color = ORBIT_COLOR,
 ): LineBasicMaterial {
   const material = new LineBasicMaterial({
-    color: ORBIT_COLOR,
+    color,
     transparent: true,
     opacity,
     depthWrite: false,
@@ -143,6 +221,7 @@ function createOrbitMaterial(
   // attached to the lines only after a selection (SPEC §9.2).
   material.onBeforeCompile = (shader) => {
     patchOrbitGap(shader, uniforms);
+    patchOrbitTrail(shader);
   };
   return material;
 }
@@ -157,10 +236,25 @@ export function createOrbitLines(defs: readonly BodyDef[]): OrbitLines {
   const normal = createOrbitMaterial(ORBIT_OPACITY, gap);
   const dimmed = createOrbitMaterial(CAMERA_CONFIG.orbitOpacityDimmed, gap);
   const selected = createOrbitMaterial(CAMERA_CONFIG.orbitOpacitySelected, gap);
-  const materials = [normal, dimmed, selected];
+  const hovered = createOrbitMaterial(
+    ORBIT_OPACITY_HOVERED,
+    gap,
+    ORBIT_COLOR_HOVERED,
+  );
+  const materials = [normal, dimmed, selected, hovered];
   const lines: LineLoop[] = [];
+  const trails = new Map<
+    string,
+    {
+      weights: Float32Array;
+      attribute: Float32BufferAttribute;
+      phase: number;
+      strength: number;
+    }
+  >();
   let disposed = false;
   let selectedId: string | null = null;
+  let hoveredId: string | null = null;
 
   const dispose = (): void => {
     if (disposed) {
@@ -190,13 +284,15 @@ export function createOrbitLines(defs: readonly BodyDef[]): OrbitLines {
       }
     }
 
+    const hoveredName =
+      hoveredId === null || hoveredId === 'sun' ? '' : `orbit-${hoveredId}`;
     for (const line of lines) {
-      if (!found) {
-        line.material = normal;
-      } else if (line.name === selectedName) {
+      if (found && line.name === selectedName) {
         line.material = selected;
+      } else if (line.name === hoveredName) {
+        line.material = hovered;
       } else {
-        line.material = dimmed;
+        line.material = found ? dimmed : normal;
       }
     }
   };
@@ -212,8 +308,17 @@ export function createOrbitLines(defs: readonly BodyDef[]): OrbitLines {
         'position',
         new Float32BufferAttribute(computeOrbitPoints(def), 3),
       );
+      // The attribute copies what it is given: write into its own array.
+      const attribute = new Float32BufferAttribute(
+        new Float32Array(ORBIT_SEGMENTS),
+        1,
+      );
+      const weights = attribute.array as Float32Array;
+      attribute.setUsage(DynamicDrawUsage);
+      geometry.setAttribute('aTrail', attribute);
       const line = new LineLoop(geometry, normal);
       line.name = `orbit-${def.id}`;
+      trails.set(def.id, { weights, attribute, phase: 0, strength: 0 });
       line.frustumCulled = false;
       line.renderOrder = -1;
       group.add(line);
@@ -232,11 +337,31 @@ export function createOrbitLines(defs: readonly BodyDef[]): OrbitLines {
       }
       group.visible = visible;
     },
+    setBodyTrail(id: string, phase: number, strength: number): void {
+      const trail = trails.get(id);
+      if (disposed || trail === undefined) {
+        return;
+      }
+      if (trail.phase === phase && trail.strength === strength) {
+        return;
+      }
+      trail.phase = phase;
+      trail.strength = strength;
+      fillTrailWeights(trail.weights, phase, strength);
+      trail.attribute.needsUpdate = true;
+    },
     setSelectedBody(id: string | null): void {
       if (disposed) {
         return;
       }
       selectedId = id;
+      applyMaterials();
+    },
+    setHoveredBody(id: string | null): void {
+      if (disposed || id === hoveredId) {
+        return;
+      }
+      hoveredId = id;
       applyMaterials();
     },
     setGap(center: Vector3 | null, radius: number, camera: Camera): void {

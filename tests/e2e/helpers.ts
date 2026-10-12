@@ -287,11 +287,14 @@ export async function freeAreaCenter(
 }
 
 // "Trening pilota" shows on the first visit and changes the layout. Specs
-// that test something else mark it done before the app loads (EMI-201).
+// that test something else mark it done before the app loads (EMI-201). The
+// intro (EMI-248) plays once per session without `?debug=1`; it is marked as
+// played too, so the panels are in place from the first frame.
 export async function skipCoach(page: Page): Promise<void> {
   await page.addInitScript(() => {
     try {
-      localStorage.setItem('orbitka.coach.done', '1');
+      localStorage.setItem('orbitka.v1.coach.done', '1');
+      sessionStorage.setItem('orbitka.v1.intro.done', '1');
     } catch {
       // No storage: the training shows; the spec runs anyway.
     }

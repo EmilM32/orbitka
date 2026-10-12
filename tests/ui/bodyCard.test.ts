@@ -231,8 +231,8 @@ test('close paths show the system', () => {
   }
 });
 
-test('more toggles description', () => {
-  const { card } = setup();
+test('more toggles the description on the sheet', () => {
+  const { card } = setup({ tablet: true });
   card.show('jupiter');
   const more = card.element.querySelector<HTMLButtonElement>('.body-card-more');
   const description =
@@ -240,7 +240,9 @@ test('more toggles description', () => {
   if (more === null || description === null) {
     throw new Error('missing more or description');
   }
-  expect(more.classList.contains('o-btn--primary')).toBe(true);
+  // Not a primary action: no yellow fill on any breakpoint.
+  expect(more.classList.contains('o-btn--primary')).toBe(false);
+  expect(more.hidden).toBe(false);
   expect(more.getAttribute('aria-controls')).toBe('card-description');
   expect(more.getAttribute('aria-expanded')).toBe('false');
   expect(description.hidden).toBe(true);
@@ -257,6 +259,31 @@ test('more toggles description', () => {
   card.show('mars');
   expect(description.hidden).toBe(true);
   expect(more.textContent).toBe('Więcej');
+});
+
+test('desktop shows the description at once and has no more button', () => {
+  const { card } = setup();
+  card.show('jupiter');
+  const more = card.element.querySelector<HTMLButtonElement>('.body-card-more');
+  const description =
+    card.element.querySelector<HTMLElement>('#card-description');
+  if (more === null || description === null) {
+    throw new Error('missing more or description');
+  }
+  expect(more.hidden).toBe(true);
+  expect(description.hidden).toBe(false);
+  expect(description.textContent).toBe(content.jupiter?.description);
+  card.show('mars');
+  expect(description.hidden).toBe(false);
+  expect(description.textContent).toBe(content.mars?.description);
+  const actions = [
+    ...card.element.querySelectorAll<HTMLButtonElement>(
+      '.body-card-actions button',
+    ),
+  ].filter((button) => !button.hidden);
+  expect(actions.map((button) => button.dataset['testid'])).toEqual([
+    'body-card-system',
+  ]);
 });
 
 test('writes insets', () => {
@@ -409,4 +436,80 @@ test('dispose removes the card and its listeners', () => {
   expect(insets.get()).toEqual({ right: 0, bottom: 0 });
   remove.mockRestore();
   selection.dispose();
+});
+
+test('the description follows the mode when the window is resized', () => {
+  const view = setup();
+  view.card.show('jupiter');
+  const description =
+    view.card.element.querySelector<HTMLElement>('#card-description');
+  const more =
+    view.card.element.querySelector<HTMLButtonElement>('.body-card-more');
+  if (description === null || more === null) {
+    throw new Error('missing description or more');
+  }
+  expect(description.hidden).toBe(false);
+
+  // To the sheet: closed again, with the toggle.
+  view.setTablet(true);
+  expect(description.hidden).toBe(true);
+  expect(more.hidden).toBe(false);
+  more.click();
+  expect(description.hidden).toBe(false);
+
+  // Back to the desktop: shown, without the toggle.
+  view.setTablet(false);
+  expect(description.hidden).toBe(false);
+  expect(more.hidden).toBe(true);
+  view.setTablet(true);
+  expect(description.hidden).toBe(false);
+});
+
+test('an open card fades the new content in; a closed one does not', () => {
+  const animate = vi.fn();
+  const proto = HTMLElement.prototype as unknown as { animate?: unknown };
+  const original = proto.animate;
+  proto.animate = animate;
+  try {
+    const { card } = setup();
+    card.show('jupiter');
+    // First open: the card's own entrance, no swap fade.
+    expect(animate).not.toHaveBeenCalled();
+    card.show('mars');
+    expect(animate).toHaveBeenCalledTimes(2);
+    const targets = animate.mock.contexts.map(
+      (context) => (context as HTMLElement).className,
+    );
+    expect(targets).toEqual(['body-card-head', 'body-card-scroll']);
+    expect(animate.mock.calls[0]?.[0]).toEqual([
+      { opacity: 0 },
+      { opacity: 1 },
+    ]);
+    expect(animate.mock.calls[0]?.[1]).toMatchObject({ duration: 220 });
+
+    // The same body again is not a change.
+    card.show('mars');
+    expect(animate).toHaveBeenCalledTimes(2);
+
+    card.hide();
+    card.show('venus');
+    expect(animate).toHaveBeenCalledTimes(2);
+  } finally {
+    proto.animate = original;
+  }
+});
+
+test('reduced motion shortens the swap fade to 150 ms', () => {
+  const animate = vi.fn();
+  const proto = HTMLElement.prototype as unknown as { animate?: unknown };
+  const original = proto.animate;
+  proto.animate = animate;
+  try {
+    const { card } = setup({ reducedMotion: true });
+    card.show('jupiter');
+    card.show('mars');
+    expect(animate.mock.calls[0]?.[1]).toMatchObject({ duration: 150 });
+  } finally {
+    proto.animate = original;
+  }
 });

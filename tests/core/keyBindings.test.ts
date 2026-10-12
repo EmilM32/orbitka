@@ -9,7 +9,16 @@ import {
   CANVAS_KEY_SHOW_SYSTEM,
   CANVAS_KEY_ZOOM_IN,
   CANVAS_KEY_ZOOM_OUT,
+  GLOBAL_KEY_FULLSCREEN,
+  GLOBAL_KEY_NONE,
+  GLOBAL_KEY_SELECT_BASE,
+  GLOBAL_KEY_SHOW_SHORTCUTS,
+  GLOBAL_KEY_TODAY,
+  GLOBAL_KEY_TOGGLE_PAUSE,
   resolveCanvasKey,
+  resolveGlobalKey,
+  shortcutsAllowedOn,
+  type KeyTarget,
 } from '@core/keyBindings.ts';
 
 test('resolveCanvasKey table', () => {
@@ -133,4 +142,108 @@ test('resolveCanvasKey table', () => {
       }),
     ).toBe(row.action);
   }
+});
+
+function globalKey(
+  key: string,
+  extra: Partial<Parameters<typeof resolveGlobalKey>[0]> = {},
+): number {
+  return resolveGlobalKey({
+    key,
+    ctrlKey: false,
+    metaKey: false,
+    altKey: false,
+    isComposing: false,
+    ...extra,
+  });
+}
+
+test.each([
+  [' ', GLOBAL_KEY_TOGGLE_PAUSE],
+  ['f', GLOBAL_KEY_FULLSCREEN],
+  ['F', GLOBAL_KEY_FULLSCREEN],
+  ['d', GLOBAL_KEY_TODAY],
+  ['D', GLOBAL_KEY_TODAY],
+  ['?', GLOBAL_KEY_SHOW_SHORTCUTS],
+  ['0', GLOBAL_KEY_SELECT_BASE],
+  ['1', GLOBAL_KEY_SELECT_BASE + 1],
+  ['5', GLOBAL_KEY_SELECT_BASE + 5],
+  ['8', GLOBAL_KEY_SELECT_BASE + 8],
+  ['9', GLOBAL_KEY_NONE],
+  ['a', GLOBAL_KEY_NONE],
+  ['Enter', GLOBAL_KEY_NONE],
+  ['ArrowLeft', GLOBAL_KEY_NONE],
+  ['Escape', GLOBAL_KEY_NONE],
+  ['10', GLOBAL_KEY_NONE],
+  ['', GLOBAL_KEY_NONE],
+])('globalKey › %j', (key, expected) => {
+  expect(globalKey(key)).toBe(expected);
+});
+
+test('globalKey › Ctrl, Meta, Alt and composition give none', () => {
+  for (const extra of [
+    { ctrlKey: true },
+    { metaKey: true },
+    { altKey: true },
+    { isComposing: true },
+  ]) {
+    for (const key of [' ', 'd', 'f', '?', '3']) {
+      expect(globalKey(key, extra), `${key} ${JSON.stringify(extra)}`).toBe(
+        GLOBAL_KEY_NONE,
+      );
+    }
+  }
+});
+
+function target(extra: Partial<KeyTarget> = {}): KeyTarget {
+  return {
+    tagName: 'DIV',
+    inputType: '',
+    isContentEditable: false,
+    actsOnSpace: false,
+    insideModal: false,
+    ...extra,
+  };
+}
+
+test('shortcutsAllowedOn › the page, the canvas and plain elements allow them', () => {
+  for (const key of [' ', 'd', '?', '3']) {
+    expect(shortcutsAllowedOn(target(), key)).toBe(true);
+    expect(shortcutsAllowedOn(target({ tagName: 'CANVAS' }), key)).toBe(true);
+    expect(shortcutsAllowedOn(target({ tagName: 'BODY' }), key)).toBe(true);
+  }
+});
+
+test('shortcutsAllowedOn › fields for typing, selects and modals block all keys', () => {
+  const blocked: KeyTarget[] = [
+    target({ tagName: 'INPUT', inputType: 'text' }),
+    target({ tagName: 'INPUT', inputType: 'search' }),
+    target({ tagName: 'INPUT', inputType: 'number' }),
+    target({ tagName: 'INPUT', inputType: '' }),
+    target({ tagName: 'TEXTAREA' }),
+    target({ tagName: 'SELECT' }),
+    target({ isContentEditable: true }),
+    target({ insideModal: true }),
+    target({ tagName: 'BUTTON', insideModal: true }),
+  ];
+  for (const item of blocked) {
+    for (const key of [' ', 'd', '?', '3']) {
+      expect(shortcutsAllowedOn(item, key), `${item.tagName} ${key}`).toBe(
+        false,
+      );
+    }
+  }
+});
+
+test('shortcutsAllowedOn › the slider and buttons keep Space, but not the other keys', () => {
+  const slider = target({ tagName: 'INPUT', inputType: 'range' });
+  expect(shortcutsAllowedOn(slider, ' ')).toBe(false);
+  expect(shortcutsAllowedOn(slider, '5')).toBe(true);
+  expect(shortcutsAllowedOn(slider, '?')).toBe(true);
+  const button = target({ tagName: 'BUTTON', actsOnSpace: true });
+  expect(shortcutsAllowedOn(button, ' ')).toBe(false);
+  expect(shortcutsAllowedOn(button, '5')).toBe(true);
+  const checkbox = target({ tagName: 'INPUT', inputType: 'checkbox' });
+  expect(shortcutsAllowedOn(checkbox, ' ')).toBe(false);
+  expect(shortcutsAllowedOn(checkbox, 'd')).toBe(true);
 });

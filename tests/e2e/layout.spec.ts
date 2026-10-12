@@ -7,7 +7,9 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 // Inline, because this spec imports nothing but Playwright and node.
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
-    localStorage.setItem('orbitka.coach.done', '1');
+    localStorage.setItem('orbitka.v1.coach.done', '1');
+    // The intro (EMI-248) plays once per session; these specs measure the final layout.
+    sessionStorage.setItem('orbitka.v1.intro.done', '1');
   });
 });
 
@@ -410,6 +412,7 @@ test('tab order', async ({ page }) => {
     'view-orbits',
     'view-zoom-out',
     'view-zoom-in',
+    'view-fullscreen',
     'view-settings',
     'time-pause',
   ]);
@@ -425,6 +428,7 @@ test('tab order', async ({ page }) => {
     'view-orbits',
     'view-zoom-out',
     'view-zoom-in',
+    'view-fullscreen',
     'view-settings',
     'time-pause',
   ]);
@@ -1076,7 +1080,7 @@ test.describe('M4 states', () => {
   // These states include "Trening pilota": undo the top-level beforeEach.
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
-      localStorage.removeItem('orbitka.coach.done');
+      localStorage.removeItem('orbitka.v1.coach.done');
     });
   });
 

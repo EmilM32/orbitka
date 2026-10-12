@@ -641,3 +641,72 @@ test('collapsible option renders the fold button', () => {
   expect(panel.element.querySelector('#bodies-collapse')).toBeNull();
   panel.dispose();
 });
+
+function pointerOver(target: Element, pointerType: string): void {
+  const event = new Event('pointerover', { bubbles: true });
+  Object.defineProperty(event, 'pointerType', { value: pointerType });
+  target.dispatchEvent(event);
+}
+
+function pointerLeave(target: Element, pointerType: string): void {
+  const event = new Event('pointerleave');
+  Object.defineProperty(event, 'pointerType', { value: pointerType });
+  target.dispatchEvent(event);
+}
+
+test('mouse over a row hovers that body; leaving clears it', () => {
+  const { panel, selection } = mount();
+  pointerOver(item('saturn'), 'mouse');
+  expect(selection.getHoveredId()).toBe('saturn');
+  expect(item('saturn').classList.contains('is-hovered')).toBe(true);
+  pointerOver(item('mars'), 'pen');
+  expect(selection.getHoveredId()).toBe('mars');
+  // Over the panel but not over a row.
+  pointerOver(panel.head, 'mouse');
+  expect(selection.getHoveredId()).toBeNull();
+  pointerOver(item('earth'), 'mouse');
+  pointerLeave(panel.element, 'mouse');
+  expect(selection.getHoveredId()).toBeNull();
+});
+
+test('touch does not hover', () => {
+  const { selection } = mount();
+  pointerOver(item('saturn'), 'touch');
+  expect(selection.getHoveredId()).toBeNull();
+  selection.setHovered('mars');
+  pointerLeave(item('mars').parentElement as Element, 'touch');
+  expect(selection.getHoveredId()).toBe('mars');
+});
+
+test('keyboard focus hovers, a click focus does not, blur clears', () => {
+  const { selection } = mount();
+  const matches = vi.spyOn(Element.prototype, 'matches');
+  matches.mockImplementation(function (this: Element, selector: string) {
+    return selector === ':focus-visible' ? this.id === 'visible' : false;
+  });
+  const row = item('jupiter');
+  row.id = 'visible';
+  row.focus();
+  expect(selection.getHoveredId()).toBe('jupiter');
+  row.blur();
+  expect(selection.getHoveredId()).toBeNull();
+
+  // Focus that is not :focus-visible (a mouse click or a tap).
+  const other = item('mars');
+  other.focus();
+  expect(selection.getHoveredId()).toBeNull();
+  matches.mockRestore();
+});
+
+test('an engine without :focus-visible gives no keyboard hover', () => {
+  const { selection } = mount();
+  const matches = vi.spyOn(Element.prototype, 'matches');
+  matches.mockImplementation(() => {
+    throw new SyntaxError('unsupported selector');
+  });
+  expect(() => {
+    item('venus').focus();
+  }).not.toThrow();
+  expect(selection.getHoveredId()).toBeNull();
+  matches.mockRestore();
+});

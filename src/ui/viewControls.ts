@@ -14,9 +14,14 @@ import {
 
 type AppI18n = I18n<Dictionary>;
 
+// How long the "link copied" note stays in the settings panel.
+const COPY_STATUS_MS = 4000;
+
 export type ViewControls = {
   element: HTMLElement;
   isOrbitsVisible(): boolean;
+  /** Full screen on or off, as the button does; nothing where the browser has none. */
+  toggleFullscreen(): void;
   /**
    * `atMin`: the camera is closest, so zoom in is disabled. `atMax`: the
    * camera is farthest, so zoom out is disabled. The DOM changes only when a
@@ -36,6 +41,10 @@ export type ViewControlsOptions = {
   onQualityChange: (level: QualityLevel | null) => void;
   /** The saved manual level; `null` = automatic. */
   qualityValue: QualityLevel | null;
+  /** Opens the list of keyboard shortcuts. */
+  onShowShortcuts: () => void;
+  /** Copies the link to this view; true when it was copied. */
+  onCopyLink: () => Promise<boolean>;
   /** `?quality=` in the address fixes the level, so the select is off. */
   qualityLocked: boolean;
   before?: Node;
@@ -52,6 +61,7 @@ export function createViewControls(
   let atMin = false;
   let atMax = false;
   let panelOpen = false;
+  let copyTimer: ReturnType<typeof setTimeout> | null = null;
 
   const element = document.createElement('div');
   element.setAttribute('id', 'view-controls');
@@ -83,6 +93,15 @@ export function createViewControls(
   zoomIn.classList.add('view-zoom');
   zoomIn.setAttribute('aria-label', i18n.t('view.zoomIn.ariaLabel'));
   zoomIn.append(createIcon('plus'));
+  // Full screen for a projector in the classroom (EMI-247). Where the browser
+  // has no such mode (an iPhone) there is no button.
+  const fullscreenSupported = document.fullscreenEnabled === true;
+  const fullscreen = button('view-fullscreen');
+  fullscreen.classList.add('view-fullscreen');
+  fullscreen.setAttribute('aria-label', i18n.t('view.fullscreen.ariaLabel'));
+  fullscreen.setAttribute('aria-pressed', 'false');
+  fullscreen.append(createIcon('maximize'));
+  fullscreen.hidden = !fullscreenSupported;
   const settings = button('view-settings');
   settings.classList.add('view-settings');
   settings.setAttribute('aria-label', i18n.t('view.settings.ariaLabel'));
@@ -109,7 +128,26 @@ export function createViewControls(
     select.append(option);
   }
   select.value = options.qualityValue ?? 'auto';
-  panel.append(selectLabel, select);
+  const shortcuts = document.createElement('button');
+  shortcuts.type = 'button';
+  shortcuts.className = 'o-btn o-btn--outline view-shortcuts';
+  shortcuts.setAttribute('data-testid', 'view-shortcuts');
+  shortcuts.setAttribute('aria-haspopup', 'dialog');
+  shortcuts.append(
+    createIcon('keyboard'),
+    label(i18n.t('view.shortcuts.text')),
+  );
+  const copyLink = document.createElement('button');
+  copyLink.type = 'button';
+  copyLink.className = 'o-btn o-btn--outline view-copy-link';
+  copyLink.setAttribute('data-testid', 'view-copy-link');
+  copyLink.append(createIcon('link'), label(i18n.t('view.copyLink.text')));
+  const copyStatus = document.createElement('p');
+  copyStatus.className = 'view-copy-status';
+  // aria-live, not role="status": the announcer owns the one status region.
+  copyStatus.setAttribute('aria-live', 'polite');
+  copyStatus.setAttribute('data-testid', 'view-copy-status');
+  panel.append(selectLabel, select, copyLink, copyStatus, shortcuts);
   if (options.qualityLocked) {
     const hint = document.createElement('p');
     hint.id = 'view-quality-hint';
@@ -119,11 +157,16 @@ export function createViewControls(
     select.setAttribute('aria-describedby', hint.id);
     panel.append(hint);
   }
-  element.append(reset, orbits, zoomOut, zoomIn, settings, panel);
+  element.append(reset, orbits, zoomOut, zoomIn, fullscreen, settings, panel);
 
   element.addEventListener('click', onClick);
   element.addEventListener('keydown', onKeyDown);
   select.addEventListener('change', onSelectChange);
+  if (fullscreenSupported) {
+    document.addEventListener('fullscreenchange', syncFullscreen);
+  }
+  copyLink.addEventListener('click', onCopyClick);
+  shortcuts.addEventListener('click', onShortcutsClick);
   if (options.before === undefined) {
     parent.append(element);
   } else {
@@ -137,6 +180,7 @@ export function createViewControls(
     }
     panelOpen = open;
     panel.hidden = !open;
+    element.classList.toggle('has-panel', open);
     settings.setAttribute('aria-expanded', open ? 'true' : 'false');
     if (open) {
       document.addEventListener('pointerdown', onOutsidePointer, true);
@@ -163,6 +207,61 @@ export function createViewControls(
     setPanelOpen(false, true);
   }
 
+  function toggleFullscreen(): void {
+    if (disposed || !fullscreenSupported) {
+      return;
+    }
+    // The browser may refuse (no user gesture, a policy): the button then
+    // simply stays as it is.
+    const request =
+      document.fullscreenElement === null
+        ? document.documentElement.requestFullscreen()
+        : document.exitFullscreen();
+    request.catch(() => undefined);
+  }
+
+  function syncFullscreen(): void {
+    const on = document.fullscreenElement !== null;
+    fullscreen.setAttribute('aria-pressed', on ? 'true' : 'false');
+    fullscreen.replaceChildren(createIcon(on ? 'minimize' : 'maximize'));
+  }
+
+  function onShortcutsClick(): void {
+    if (disposed) {
+      return;
+    }
+    // The panel closes (a click on the dialog counts as outside it) and the
+    // focus goes to the gear, which is where it comes back to.
+    setPanelOpen(false, true);
+    options.onShowShortcuts();
+  }
+
+  function onCopyClick(): void {
+    if (disposed) {
+      return;
+    }
+    void options.onCopyLink().then((copied) => {
+      if (disposed) {
+        return;
+      }
+      showCopyStatus(
+        i18n.t(copied ? 'view.copyLink.done' : 'view.copyLink.failed'),
+      );
+    });
+  }
+
+  // The status is read out (aria-live) and leaves the panel soon after.
+  function showCopyStatus(text: string): void {
+    copyStatus.textContent = text;
+    if (copyTimer !== null) {
+      clearTimeout(copyTimer);
+    }
+    copyTimer = setTimeout(() => {
+      copyTimer = null;
+      copyStatus.textContent = '';
+    }, COPY_STATUS_MS);
+  }
+
   function onSelectChange(): void {
     // 'auto' is not a level, so the parse gives null: automatic.
     onQualityChange(parseQualityLevel(select.value));
@@ -185,6 +284,10 @@ export function createViewControls(
       return;
     }
     const testId = control.getAttribute('data-testid');
+    if (testId === 'view-fullscreen') {
+      toggleFullscreen();
+      return;
+    }
     if (testId === 'view-settings') {
       setPanelOpen(!panelOpen, false);
       return;
@@ -215,6 +318,7 @@ export function createViewControls(
     isOrbitsVisible(): boolean {
       return visible;
     },
+    toggleFullscreen,
     setZoomLimits(nextAtMin: boolean, nextAtMax: boolean): void {
       if (disposed) {
         return;
@@ -234,9 +338,16 @@ export function createViewControls(
       }
       disposed = true;
       document.removeEventListener('pointerdown', onOutsidePointer, true);
+      document.removeEventListener('fullscreenchange', syncFullscreen);
       element.removeEventListener('click', onClick);
       element.removeEventListener('keydown', onKeyDown);
       select.removeEventListener('change', onSelectChange);
+      copyLink.removeEventListener('click', onCopyClick);
+      shortcuts.removeEventListener('click', onShortcutsClick);
+      if (copyTimer !== null) {
+        clearTimeout(copyTimer);
+        copyTimer = null;
+      }
       element.remove();
     },
   };

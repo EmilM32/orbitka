@@ -3,6 +3,7 @@ import { Vector3, type Mesh } from 'three';
 import type { BodyDef } from '@data/types.ts';
 import { bodyPositionAu } from '@sim/kepler.ts';
 import { meshIsVisibleForOrbitStep, orbitStepDegrees } from '@sim/orbitStep.ts';
+import { orbitPhase } from '@sim/orbitPhase.ts';
 import { compressPositionAu, type Vec3 } from '@sim/scale.ts';
 
 import { eclipticToScene } from './coords.ts';
@@ -12,6 +13,11 @@ type PlanetView = {
   mesh: Mesh;
 };
 
+/** Receives where each planet is on its orbit line (the trail behind it). */
+export type OrbitTrailSink = {
+  setBodyTrail(id: string, phase: number, strength: number): void;
+};
+
 export type BodyAnimator = {
   update(daysSinceJ2000: number): void;
 };
@@ -19,6 +25,7 @@ export type BodyAnimator = {
 export function createBodyAnimator(
   defs: readonly BodyDef[],
   meshes: ReadonlyMap<string, Mesh>,
+  trails?: OrbitTrailSink,
 ): BodyAnimator {
   const planets: PlanetView[] = [];
 
@@ -62,6 +69,14 @@ export function createBodyAnimator(
           const periodDays = planet.def.orbit?.periodDays ?? Number.NaN;
           planet.mesh.visible = meshIsVisibleForOrbitStep(
             orbitStepDegrees(daysSinceJ2000 - previousDays, periodDays),
+          );
+        }
+        // The trail goes out with the mesh when the step is too large to follow.
+        if (trails !== undefined) {
+          trails.setBodyTrail(
+            planet.def.id,
+            orbitPhase(planet.def, daysSinceJ2000),
+            planet.mesh.visible ? 1 : 0,
           );
         }
       }

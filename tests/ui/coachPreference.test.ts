@@ -24,7 +24,7 @@ function throwing(): CoachStorage {
 }
 
 test('key and value', () => {
-  expect(COACH_STORAGE_KEY).toBe('orbitka.coach.done');
+  expect(COACH_STORAGE_KEY).toBe('coach.done');
   const local = memoryStorage();
   const storages: CoachStorages = {
     local: () => local,
@@ -33,9 +33,9 @@ test('key and value', () => {
   };
   expect(loadCoachDone(storages)).toBe(false);
   saveCoachDone(storages);
-  expect(local.data.get('orbitka.coach.done')).toBe('1');
+  expect(local.data.get('coach.done')).toBe('1');
   expect(loadCoachDone({ ...storages, memory: { done: false } })).toBe(true);
-  local.data.set('orbitka.coach.done', 'yes');
+  local.data.set('coach.done', 'yes');
   expect(loadCoachDone({ ...storages, memory: { done: false } })).toBe(false);
 });
 
@@ -48,7 +48,7 @@ test('localStorage throws: sessionStorage', () => {
   };
   expect(loadCoachDone(storages)).toBe(false);
   saveCoachDone(storages);
-  expect(session.data.get('orbitka.coach.done')).toBe('1');
+  expect(session.data.get('coach.done')).toBe('1');
   expect(loadCoachDone({ ...storages, memory: { done: false } })).toBe(true);
 
   // getItem itself can throw too.

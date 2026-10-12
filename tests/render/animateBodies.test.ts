@@ -6,6 +6,7 @@ import type { BodyDef } from '@data/types.ts';
 import { createBodyAnimator } from '@render/animateBodies.ts';
 import { eclipticToScene } from '@render/coords.ts';
 import { bodyPositionAu } from '@sim/kepler.ts';
+import { orbitPhase } from '@sim/orbitPhase.ts';
 import { compressPositionAu } from '@sim/scale.ts';
 
 function makeMesh(id: string): Mesh {
@@ -245,5 +246,43 @@ test('animateBodies › orbit step fade', () => {
   expect(mercury.visible).toBe(false);
   expect(sun.visible).toBe(true);
 
+  disposeMeshes(meshes);
+});
+
+test('animateBodies › sends each planet phase and trail strength to the sink', () => {
+  const meshes = planetMeshes(bodies);
+  const calls = new Map<string, { phase: number; strength: number }>();
+  const animator = createBodyAnimator(bodies, meshes, {
+    setBodyTrail(id, phase, strength) {
+      calls.set(id, { phase, strength });
+    },
+  });
+
+  animator.update(0);
+  const planets = bodies.filter((def) => def.type === 'planet');
+  expect([...calls.keys()].sort()).toEqual(planets.map((def) => def.id).sort());
+  for (const def of planets) {
+    expect(calls.get(def.id)?.phase).toBe(orbitPhase(def, 0));
+    expect(calls.get(def.id)?.strength).toBe(1);
+  }
+
+  // A step over 30° of Mercury fades its mesh, and its trail with it.
+  const mercury = getBody('mercury');
+  const period = mercury.orbit?.periodDays ?? 0;
+  animator.update((period / 360) * 40);
+  expect(meshes.get('mercury')?.visible).toBe(false);
+  expect(calls.get('mercury')?.strength).toBe(0);
+  expect(calls.get('neptune')?.strength).toBe(1);
+
+  // Small steps bring it back.
+  animator.update((period / 360) * 40 + 1);
+  expect(meshes.get('mercury')?.visible).toBe(true);
+  expect(calls.get('mercury')?.strength).toBe(1);
+  disposeMeshes(meshes);
+});
+
+test('animateBodies › works without a trail sink', () => {
+  const meshes = planetMeshes(bodies);
+  expect(() => createBodyAnimator(bodies, meshes).update(10)).not.toThrow();
   disposeMeshes(meshes);
 });

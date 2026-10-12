@@ -1,10 +1,13 @@
 import { createDisposables } from './disposables.ts';
+import { parseViewParams } from '@core/viewParams.ts';
 import { loadBodyContent } from './contentCatalog.ts';
 import { localStore } from './storage.ts';
 import type { App, AppI18n } from './types.ts';
 import { wireCanvas } from './wireCanvas.ts';
 import { wireDebug } from './wireDebug.ts';
 import { wireLoop } from './wireLoop.ts';
+import { wireIntro } from './wireIntro.ts';
+import { wireStartFrame } from './wireStartFrame.ts';
 import { wireOverlays } from './wireOverlays.ts';
 import { wireScene } from './wireScene.ts';
 import { wireSelection } from './wireSelection.ts';
@@ -37,7 +40,16 @@ export function mount(
     stack.add(sceneRig.dispose);
     const selectionRig = wireSelection(canvas, viewRig, sceneRig);
     stack.add(selectionRig.dispose);
-    const timeRig = wireTime(sceneRig, search);
+    const viewParams = parseViewParams(
+      search,
+      selectionRig.selectable.map((body) => body.id),
+    );
+    if (import.meta.env.DEV && viewParams.ignored.length > 0) {
+      console.warn(
+        `Ignored unusable address parameters: ${viewParams.ignored.join(', ')}`,
+      );
+    }
+    const timeRig = wireTime(sceneRig, search, viewParams);
     const canvasRig = wireCanvas(canvas, i18n, viewRig, selectionRig);
     stack.add(canvasRig.dispose);
     const uiRig = wireUi({
@@ -53,12 +65,26 @@ export function mount(
     stack.add(uiRig.dispose);
     const overlayRig = wireOverlays({
       i18n,
+      storage,
+      // A student who comes from a teacher's link starts in that view, not in the training.
+      skipCoach: viewParams.bodyId !== null,
       viewRig,
       sceneRig,
       selectionRig,
       uiRig,
     });
     stack.add(overlayRig.dispose);
+    const startFrameRig = wireStartFrame(viewRig, uiRig);
+    stack.add(startFrameRig.dispose);
+    const introRig = wireIntro({
+      search,
+      hasStartBody: viewParams.bodyId !== null,
+      viewRig,
+      selectionRig,
+      uiRig,
+      overlayRig,
+    });
+    stack.add(introRig.dispose);
     const debugRig = wireDebug({
       canvas,
       search,
@@ -66,9 +92,13 @@ export function mount(
       sceneRig,
       selectionRig,
       timeRig,
+      overlayRig,
+      introRig,
     });
     stack.add(debugRig.dispose);
     const loopRig = wireLoop({
+      startBodyId: viewParams.bodyId,
+      introRig,
       viewRig,
       sceneRig,
       selectionRig,

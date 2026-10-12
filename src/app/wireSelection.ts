@@ -121,6 +121,10 @@ export function wireSelection(
   };
   stack.add(
     selection.subscribe((event) => {
+      if (event.kind === 'hover') {
+        orbitLines.setHoveredBody(event.id);
+        return;
+      }
       if (event.kind === 'selected') {
         orbitLines.setSelectedBody(event.id);
         gap.mesh = bodyView.meshes.get(event.id) ?? null;

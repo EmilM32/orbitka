@@ -57,3 +57,15 @@ Textbook ice-giant cuts: an atmosphere down to 0.8 of the radius, a hot "ice" ma
 ## What is left out
 
 The Galilean moons (Io, Europa, Ganymede, Callisto) have no entry. Europa's ocean is a later diagram. Colors are chosen so the layers read on a black background. They are not measured.
+
+## Textures
+
+`texture` says how the cut face is drawn (EMI-268), not a measurement. Each value is a teaching choice that follows the sources above:
+
+- `rock`: crusts, mantles, and the rock-and-ice cores of the giant planets.
+- `metal`: Earth's solid inner core, and the cores of Venus and the Moon, whose state is uncertain.
+- `liquid-metal`: Earth's outer core, the cores of Mercury and Mars (InSight found a liquid core), and the metallic hydrogen of Jupiter and Saturn.
+- `gas`: the outer layers of the giant planets.
+- `ice`: the hot, dense "ices" (water, ammonia, methane) of Uranus and Neptune.
+- `plasma`: the Sun's core and radiative zone.
+- `convection`: the Sun's convection zone, drawn as rising cells.

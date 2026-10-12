@@ -81,6 +81,9 @@ Każdy komponent interaktywny ma stany: domyślny, hover, fokus, aktywny (wciśn
 - **„Cały układ”:** zwykły przycisk.
 - **„Orbity”:** przełącznik z `aria-pressed`, zawiera ikonę orbit, **tekst „Orbity” na każdym breakpoincie** i przełącznik stanu (mięta = wł.). Nie używa żółci. Stan zapisany w `localStorage` (istniejące `saveOrbitsVisible`).
 - **Oddal / Przybliż:** przy limicie zoomu `aria-disabled="true"` i kolor `--c-text-disabled`. Przycisk zostaje w kolejności Tab.
+- **Pełny ekran (EMI-247):** przycisk z ikoną `maximize`/`minimize`, `aria-label` „Pełny ekran” i `aria-pressed` z `fullscreenchange`. Nie ma go tam, gdzie przeglądarka nie ma trybu pełnoekranowego (`document.fullscreenEnabled`). Skrót `F`.
+- **Menu ustawień (⚙):** jakość grafiki, „Kopiuj link do tego widoku” (EMI-246: ciało, data i prędkość albo pauza; status czytany przez `aria-live`) i „Skróty klawiszowe” (EMI-242). Otwarte menu leży nad kartą ciała.
+- **Skróty klawiszowe (EMI-242):** Spacja = pauza/start, `0` = Słońce, `1`–`8` = planety, `D` = dziś, `F` = pełny ekran, `?` = okno ze ściągą. Nie działają w polach edycji, na liście wyboru, pod oknem modalnym i z Ctrl/Meta/Alt; Spacja na przycisku lub suwaku zostaje przy tym elemencie.
 
 ### 5.3 Lista ciał (`<nav aria-label="Ciała niebieskie">`)
 
@@ -151,7 +154,8 @@ Każdy komponent interaktywny ma stany: domyślny, hover, fokus, aktywny (wciśn
 - **Data:** Space Grotesk 16/700, słownie („14 października 2026”), `aria-live="off"`. Status pod datą to odległość od dzisiejszej daty („dziś”, „za 3 lata i 2 miesiące”, „5 miesięcy temu”, najwyżej dwie jednostki). Pauza i „Wstecz” są widoczne na własnych przyciskach (ikona Start, wciśnięte „Wstecz”).
 - **Presety:** `role="radiogroup"`. Aktywny ma biel 16% i obrys biel 70%, **bez żółci**. Gdy prędkość ustawiono suwakiem i nie pasuje do presetu, żaden preset nie jest aktywny.
 - **„Wstecz”:** przełącznik `aria-pressed`, aktywny = biel 16%.
-- **Suwak:** `role="slider"` z `aria-valuetext` (np. „10 lat na sekundę”). Wypełnienie w kolorze tekstu 2 (`#b3bcd1`), uchwyt biały, fokus na uchwycie.
+- **Suwak:** `role="slider"` z `aria-valuetext` (np. „10 lat na sekundę”). Wypełnienie w kolorze tekstu 2 (`#b3bcd1`), uchwyt biały, fokus na uchwycie. Kreski w miejscach presetów (te same pozycje co uchwyt; aktywny preset biały, bez żółci), przyciąganie do preset przy przeciąganiu myszą w promieniu 5 px.
+- **„Dziś” (EMI-238):** przycisk ghost przy dacie, widoczny, gdy data symulacji różni się od dzisiejszej o co najmniej dzień (przenikanie `--dur`, bez zmiany szerokości panelu). Ustawia datę bez zmiany prędkości i kierunku; fokus przechodzi na ▶/⏸. Skrót `D`.
 - **Wyłączony:** tylko do czasu załadowania sceny, ze statusem „Ładowanie sceny…”.
 - **Oś miesięcy (opcja z Atlasu):**
   - 12 skrótów pod rzędem i znacznik bieżącego dnia; bieżący miesiąc pogrubiony;
@@ -201,24 +205,28 @@ Każdy komponent interaktywny ma stany: domyślny, hover, fokus, aktywny (wciśn
 - **Planety:** pigułka 24 px, 13/600, tło 78%.
 - **Księżyce: 14/500, wysokość 26 px (minimum 14 px).**
 - **Wybrane ciało:** żółty obrys 1,5 px, 14 px tekstu, **bez wypełnienia**.
+- **Hover (EMI-250):** biały obrys 1 px i lekkie rozjaśnienie tła; żółty zostaje dla wyboru. Hover wiersza listy lub kropki paska podświetla też orbitę ciała (jaśniejsza i bardziej kryjąca niż stan zwykły, wybrana i przygaszona). Dotyk nie ma hover.
 - Linie odniesienia: 1 px `rgba(220,228,255,.55)`.
 - Istniejący `labelLayout` rozkłada podpisy bez nakładania.
 
 ## 6. Zachowania i animacje (czasy)
 
-| Zdarzenie                                     | Czas                                           | Krzywa               | Uwagi                                     |
-| --------------------------------------------- | ---------------------------------------------- | -------------------- | ----------------------------------------- |
-| hover, press                                  | 120 ms                                         | `--ease-out`         | tło lub kolor                             |
-| dymek (j.a., pasek, przybliżone)              | 120 ms wejście, opóźnienie 300 ms przy hover   | `--ease-out`         | przy fokusie bez opóźnienia               |
-| lista ↔ pasek                                 | 220 ms                                         | `--ease-out`         | razem z `setViewOffset` (interpolacja dx) |
-| karta: wejście z prawej (24 px + przenikanie) | 220 ms                                         | `--ease-out`         | zaczyna się po 60% lotu kamery            |
-| arkusz: zwinięty ↔ rozwinięty                 | 420 ms                                         | `--ease-in-out`      | dy kamery interpolowane razem z arkuszem  |
-| szuflada „Planety”                            | 220 ms                                         | `--ease-out`         | przesunięcie z lewej 16 px + przenikanie  |
-| lot kamery do ciała                           | 1200 ms                                        | istniejąca krzywa M3 |                                           |
-| trening: krok zaliczony                       | 220 ms                                         | `--ease-out`         | ✓ skaluje się 0,6 → 1                     |
-| „Gotowe!”                                     | wejście 220 ms, 3000 ms stania, wyjście 420 ms |                      | `--dur-fade-chip`                         |
-| okno „Dlaczego?”                              | 220 ms (przenikanie + skala 0,98 → 1)          | `--ease-out`         | przyciemnienie 220 ms                     |
-| chip „Pozycje przybliżone”                    | 220 ms przenikanie                             |                      | bez pulsowania                            |
+| Zdarzenie                                     | Czas                                              | Krzywa               | Uwagi                                                   |
+| --------------------------------------------- | ------------------------------------------------- | -------------------- | ------------------------------------------------------- |
+| hover, press                                  | 120 ms                                            | `--ease-out`         | tło lub kolor                                           |
+| dymek (j.a., pasek, przybliżone)              | 120 ms wejście, opóźnienie 300 ms przy hover      | `--ease-out`         | przy fokusie bez opóźnienia                             |
+| lista ↔ pasek                                 | 220 ms                                            | `--ease-out`         | razem z `setViewOffset` (interpolacja dx)               |
+| karta: wejście z prawej (24 px + przenikanie) | 220 ms                                            | `--ease-out`         | zaczyna się po 60% lotu kamery                          |
+| arkusz: zwinięty ↔ rozwinięty                 | 420 ms                                            | `--ease-in-out`      | dy kamery interpolowane razem z arkuszem                |
+| szuflada „Planety”                            | 220 ms                                            | `--ease-out`         | przesunięcie z lewej 16 px + przenikanie                |
+| lot kamery do ciała                           | 1200 ms                                           | istniejąca krzywa M3 |                                                         |
+| trening: krok zaliczony                       | 220 ms                                            | `--ease-out`         | ✓ skaluje się 0,6 → 1                                   |
+| „Gotowe!”                                     | wejście 220 ms, 3000 ms stania, wyjście 420 ms    |                      | `--dur-fade-chip`                                       |
+| okno „Dlaczego?”                              | 220 ms (przenikanie + skala 0,98 → 1)             | `--ease-out`         | przyciemnienie 220 ms                                   |
+| chip „Pozycje przybliżone”                    | 220 ms przenikanie                                |                      | bez pulsowania                                          |
+| karta: paski miernika                         | 420 ms (`--dur-slow`), Ziemia z opóźnieniem 80 ms | `--ease-out`         | `scaleX` od 0; przy zmianie ciała treść przenika 220 ms |
+| „Dziś”                                        | 220 ms przenikanie                                | `--ease-out`         | `visibility` zmienia się po przenikaniu                 |
+| intro: lot kamery                             | 2200 ms                                           | istniejąca krzywa M3 | panele w ostatnich 800 ms, co 60 ms                     |
 
 ## 7. Reduced motion (`prefers-reduced-motion: reduce`)
 
@@ -271,6 +279,16 @@ camera.setViewOffset(W, H, dx, dy, W, H)   // dodatnie dx przesuwa obraz w lewo
 - `onBeforeCompile` na `LineBasicMaterial` orbit. W shaderze wierzchołków liczymy pozycję w przestrzeni widoku. Fragment odrzucamy, gdy promień od kamery przechodzi bliżej niż 1,12 R od środka wybranego ciała. Działa to przed i za tarczą.
 - Uniformy (`uGapC` w przestrzeni widoku, `uGapR`) aktualizujemy co klatkę. Koszt: 0 draw calli.
 - **Uwaga implementacyjna:** materiały `dimmed` i `selected` są przypinane do linii dopiero po wyborze, więc patch trzeba założyć na wszystkie trzy materiały w `createOrbitLines`, a nie przez `scene.traverse` na starcie. To był błąd w labie, poprawiony.
+
+### 9.2a Ślad za planetą i podświetlenie orbity
+
+- **Ślad (EMI-249):** linia orbity jest jaśniejsza tuż za planetą i wygasa na ok. 105° orbity w kierunku przeciwnym do ruchu; przed planetą bez zmian. Waga śladu każdego punktu linii liczona na CPU i podawana atrybutem wierzchołka `aTrail`, bo trzy materiały orbit są współdzielone przez linie. Koszt: 0 draw calli. Przy kroku orbity > 30° na klatkę ślad wygasa razem z siatką ciała.
+- **Hover:** czwarty materiał orbity (`ORBIT_COLOR_HOVERED`, `ORBIT_OPACITY_HOVERED`); wybrana orbita zachowuje swój wygląd.
+
+### 9.2b Kadr startowy i intro
+
+- **Kadr startowy (EMI-241):** odległość startowa i „Cały układ” liczone tak, by orbita Neptuna zajmowała ok. 90% wolnego obszaru wokół środka okna (pasek górny, lista, panel czasu); limity zoomu 0,2× i 1,5× tej odległości (`fitStartDistance`).
+- **Intro (EMI-248):** raz na sesję, po pierwszej klatce: kamera startuje z końca zakresu zoomu i z kąta 20° nad płaszczyzną ekliptyki, w 2,2 s leci do kadru startowego, a panele pojawiają się po kolei (przenikanie i 8 px, co 60 ms) w ostatnich 800 ms; trening pilota na końcu. Dowolne wejście kończy intro w stanie końcowym. `prefers-reduced-motion`: bez lotu, panele przenikają 150 ms. `?debug=1` wyłącza intro, `?debug=1&intro=1` włącza.
 
 ### 9.3 Słońce
 

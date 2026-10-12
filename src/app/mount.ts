@@ -6,6 +6,7 @@ import type { App, AppI18n } from './types.ts';
 import { wireCanvas } from './wireCanvas.ts';
 import { wireDebug } from './wireDebug.ts';
 import { wireLoop } from './wireLoop.ts';
+import { wireIntro } from './wireIntro.ts';
 import { wireStartFrame } from './wireStartFrame.ts';
 import { wireOverlays } from './wireOverlays.ts';
 import { wireScene } from './wireScene.ts';
@@ -75,6 +76,15 @@ export function mount(
     stack.add(overlayRig.dispose);
     const startFrameRig = wireStartFrame(viewRig, uiRig);
     stack.add(startFrameRig.dispose);
+    const introRig = wireIntro({
+      search,
+      hasStartBody: viewParams.bodyId !== null,
+      viewRig,
+      selectionRig,
+      uiRig,
+      overlayRig,
+    });
+    stack.add(introRig.dispose);
     const debugRig = wireDebug({
       canvas,
       search,
@@ -83,10 +93,12 @@ export function mount(
       selectionRig,
       timeRig,
       overlayRig,
+      introRig,
     });
     stack.add(debugRig.dispose);
     const loopRig = wireLoop({
       startBodyId: viewParams.bodyId,
+      introRig,
       viewRig,
       sceneRig,
       selectionRig,

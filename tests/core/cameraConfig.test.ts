@@ -82,6 +82,10 @@ test('is frozen at type level', () => {
     'bodyDistanceRadiusFactor',
     'sunDistanceRadiusFactor',
     'reducedMotionFadeMs',
+    'introSeconds',
+    'introPolarDeg',
+    'introPanelsMs',
+    'introPanelStaggerMs',
     'orbitOpacitySelected',
     'orbitOpacityDimmed',
   ]);

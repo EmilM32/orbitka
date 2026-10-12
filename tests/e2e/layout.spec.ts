@@ -8,6 +8,8 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem('orbitka.v1.coach.done', '1');
+    // The intro (EMI-248) plays once per session; these specs measure the final layout.
+    sessionStorage.setItem('orbitka.v1.intro.done', '1');
   });
 });
 

@@ -157,6 +157,8 @@ export function wireOverlays({
     announcer,
     labelProjector,
     labels,
+    /** The pilot training panel, when it runs. */
+    coachElement: coachPanel?.element ?? null,
     /** The goals that are running, for the debug hook. */
     goals: {
       getStates(): GoalSnapshot[] {

@@ -99,3 +99,17 @@ test('no storage or a throwing storage throws like Storage does', () => {
   });
   expect(() => blocked.getItem('orbits')).toThrow('SecurityError');
 });
+
+test('intro.done is a plain "1" with no old key to migrate', () => {
+  const { data, storage } = memory({ 'orbitka.intro.done': '1' });
+  const app = createAppStorage(() => storage);
+  expect(app.getItem('intro.done')).toBeNull();
+  app.setItem('intro.done', '1');
+  expect(data.get('orbitka.v1.intro.done')).toBe('1');
+  expect(app.getItem('intro.done')).toBe('1');
+  expect(() => {
+    app.setItem('intro.done', 'yes');
+  }).toThrow(RangeError);
+  // The unknown old key is left alone.
+  expect(data.get('orbitka.intro.done')).toBe('1');
+});

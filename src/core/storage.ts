@@ -20,7 +20,7 @@ export type AppStorage = RawStorage;
 
 type Entry = {
   /** Key used before versioning; read once by the migration, then removed. */
-  legacyKey: string;
+  legacyKey?: string;
   isValid(value: string): boolean;
 };
 
@@ -36,6 +36,10 @@ const ENTRIES: Readonly<Record<string, Entry>> = {
   'quality.auto': {
     legacyKey: 'orbitka.quality.auto',
     isValid: (value) => parseQualityLevel(value) !== null,
+  },
+  // The intro has played in this session (kept in the session storage).
+  'intro.done': {
+    isValid: (value) => value === '1',
   },
   'quality.override': {
     legacyKey: 'orbitka.quality.override',
@@ -63,6 +67,9 @@ function entryFor(name: string): Entry {
  */
 export function migrateLegacyKeys(raw: RawStorage): void {
   for (const [name, entry] of Object.entries(ENTRIES)) {
+    if (entry.legacyKey === undefined) {
+      continue;
+    }
     const legacy = raw.getItem(entry.legacyKey);
     if (legacy === null) {
       continue;

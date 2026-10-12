@@ -30,6 +30,13 @@ export const CAMERA_CONFIG = {
   bodyDistanceRadiusFactor: 6,
   sunDistanceRadiusFactor: 3.5,
   reducedMotionFadeMs: 150,
+  // The intro flight (EMI-248): from the far end of the system zoom, high
+  // above the ecliptic, down to the start view.
+  introSeconds: 2.2,
+  introPolarDeg: 20,
+  // The panels come in during the last part of the flight, one after another.
+  introPanelsMs: 800,
+  introPanelStaggerMs: 60,
   orbitOpacitySelected: 0.8,
   orbitOpacityDimmed: 0.35,
 } as const;

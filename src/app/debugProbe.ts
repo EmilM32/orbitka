@@ -17,6 +17,7 @@ export type DebugProbeInputs = {
   sceneRig: SceneRig;
   selectionRig: SelectionRig;
   timeRig: TimeRig;
+  readIntro: () => { played: boolean; active: boolean };
   readGoals: () => ReturnType<
     NonNullable<typeof window.__orbitka>['getGoalStates']
   >;
@@ -61,6 +62,7 @@ export function installDebugProbe({
   selectionRig,
   timeRig,
   readGoals,
+  readIntro,
   readFrameCount,
   readFrameSnapshot,
   readPresetId,
@@ -187,6 +189,9 @@ export function installDebugProbe({
     },
     getQuality() {
       return readQuality();
+    },
+    getIntroState() {
+      return readIntro();
     },
     getGoalStates() {
       return readGoals();

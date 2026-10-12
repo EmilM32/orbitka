@@ -103,6 +103,7 @@ declare global {
       getCameraState: () => OrbitkaCameraState;
       getSelectedId: () => string | null;
       getOrbitState: () => OrbitkaOrbitState;
+      getIntroState: () => { played: boolean; active: boolean };
       getGoalStates: () => OrbitkaGoalState[];
       getOrbitExtent: (id: string) => OrbitkaOrbitExtent | null;
       getViewInsets: () => { right: number; bottom: number };

@@ -3,6 +3,7 @@ import { expect, test } from 'vitest';
 import { bodies } from '@data/bodies.ts';
 import {
   INTERIOR_BODY_IDS,
+  INTERIOR_TEXTURES,
   MIN_DISPLAY_FRACTION_GAP,
   interiors,
   layerMeasure,
@@ -64,12 +65,14 @@ test('interiors › a thin shell and an unknown body are rejected', () => {
           outerRadiusKm: 6371,
           displayFraction: 1,
           color: '#C4A574',
+          texture: 'rock',
         },
         {
           id: 'core',
           outerRadiusKm: 1221,
           displayFraction: 0.99,
           color: '#F2E24B',
+          texture: 'metal',
         },
       ],
     },
@@ -89,4 +92,39 @@ test('interiors › a thin shell and an unknown body are rejected', () => {
   expect(result.errors.some((error) => error.includes('missing body'))).toBe(
     true,
   );
+
+  const lava = validateInteriors(
+    [
+      {
+        ...raw[0],
+        layers: [
+          raw[0]?.layers[0],
+          { ...raw[0]?.layers[1], displayFraction: 0.2, texture: 'lava' },
+        ],
+      },
+    ],
+    known,
+  );
+  expect(lava.ok).toBe(false);
+  if (lava.ok) {
+    return;
+  }
+  expect(lava.errors.some((error) => error.includes('layers[1].texture'))).toBe(
+    true,
+  );
+});
+
+test('interiors › every layer names a texture the renderer draws', () => {
+  for (const entry of interiors.values()) {
+    for (const layer of entry.layers) {
+      expect(INTERIOR_TEXTURES).toContain(layer.texture);
+    }
+  }
+  expect(interiors.get('earth')?.layers.map((layer) => layer.texture)).toEqual([
+    'rock',
+    'rock',
+    'liquid-metal',
+    'metal',
+  ]);
+  expect(interiors.get('sun')?.layers[0]?.texture).toBe('convection');
 });

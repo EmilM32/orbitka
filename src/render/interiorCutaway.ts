@@ -10,7 +10,6 @@ import {
   LineSegments,
   Matrix4,
   Mesh,
-  MeshBasicMaterial,
   Plane,
   Quaternion,
   RingGeometry,
@@ -36,6 +35,12 @@ import {
 } from '@core/cutawayPlane.ts';
 import type { InteriorCatalog, InteriorEntry } from '@data/interiors.ts';
 
+import {
+  MOVING_TEXTURES,
+  createCutawayFaceMaterial,
+  type CutawayFaceMaterial,
+} from './cutawayFaceMaterial.ts';
+
 const FACE_SEGMENTS = 48;
 const ARC_SEGMENTS = 48;
 // With a layer chosen, the others keep this much of their saturation and
@@ -56,6 +61,9 @@ const DORMANT_COLOR = 0x3b3f47;
 const LINE_COLOR = 0x0b0d12;
 const LINE_OPACITY = 0.55;
 const QUARTER = Math.PI / 2;
+// Offsets the noise per face so the two walls do not mirror each other.
+const FACE_SEEDS = [0, 3.7, 7.1] as const;
+const TIME_WRAP_SECONDS = 600;
 
 type Hideable = { visible: boolean };
 
@@ -116,7 +124,7 @@ type LayerFaces = {
   inner: number;
   outer: number;
   /** One per face, in `FACE_SHADES` order. */
-  materials: MeshBasicMaterial[];
+  materials: CutawayFaceMaterial[];
   /** Face plus outline, one per face; moved along `FACE_LIFT`. */
   slots: Group[];
   outlines: LineSegments[];
@@ -288,6 +296,11 @@ export function createInteriorCutaway(
   let progress = 0;
   let appliedId: string | null = null;
   let sceneRadius = 0;
+  // Shared by every face material: one write moves all moving textures.
+  const time = { value: 0 };
+  const radiusUniform = { value: 1 };
+  // True when the shown body has a layer whose texture drifts.
+  let moving = false;
   let disposed = false;
 
   return { setActive, setBody, setHighlight, readLabel, update, dispose };
@@ -427,6 +440,10 @@ export function createInteriorCutaway(
 
     readPositions(mesh, camera);
     const reduced = options.reducedMotion.matches;
+    if (moving && !reduced) {
+      // Wraps long before float precision in the shader suffers.
+      time.value = (time.value + dtSeconds) % TIME_WRAP_SECONDS;
+    }
     if (!captured) {
       if (!captureOctantFrame(bodyTuple, cameraTuple, upTuple, frame)) {
         return;
@@ -504,6 +521,8 @@ export function createInteriorCutaway(
   function buildFaces(entry: InteriorEntry, radius: number): void {
     disposeFaces();
     sceneRadius = radius;
+    radiusUniform.value = radius;
+    moving = false;
     const parents = [wallFixed, wallSwing, floor] as const;
     const outlineShift = 0.5 * CUTAWAY_FACE_OFFSET * radius;
     for (let index = 0; index < entry.layers.length; index += 1) {
@@ -518,13 +537,16 @@ export function createInteriorCutaway(
       const floorOutline = outlineGeometry(inner, outer);
       const wallOutline = floorOutline.clone().rotateX(QUARTER);
       geometries.push(wallGeometry, floorGeometry, wallOutline, floorOutline);
+      if (MOVING_TEXTURES.has(layer.texture)) {
+        moving = true;
+      }
       const outlineMaterial = new LineBasicMaterial({
         color: OUTLINE_COLOR,
         transparent: true,
         opacity: 0,
         depthWrite: false,
       });
-      const materials: MeshBasicMaterial[] = [];
+      const materials: CutawayFaceMaterial[] = [];
       const slots: Group[] = [];
       const outlines: LineSegments[] = [];
       for (let face = 0; face < parents.length; face += 1) {
@@ -534,12 +556,12 @@ export function createInteriorCutaway(
           continue;
         }
         const isFloor = parent === floor;
-        const material = new MeshBasicMaterial({
-          side: DoubleSide,
-          polygonOffset: true,
-          polygonOffsetFactor: -1,
-          polygonOffsetUnits: -1,
-        });
+        const material = createCutawayFaceMaterial(
+          layer.texture,
+          FACE_SEEDS[face] ?? 0,
+          time,
+          radiusUniform,
+        );
         const mesh = new Mesh(isFloor ? floorGeometry : wallGeometry, material);
         mesh.name = layer.id;
         const outline = new LineSegments(
@@ -698,7 +720,7 @@ export function createInteriorCutaway(
       for (let face = 0; face < layer.materials.length; face += 1) {
         const material = layer.materials[face];
         const shade = FACE_SHADES[face] ?? 1;
-        material?.color.copy(scratch).multiplyScalar(shade);
+        material?.uniforms.uColor.value.copy(scratch).multiplyScalar(shade);
       }
     }
   }

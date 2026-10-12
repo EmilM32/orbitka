@@ -20,6 +20,29 @@ export const INTERIOR_BODY_IDS = [
   'neptune',
 ] as const;
 
+/**
+ * How a layer's cut face is drawn (EMI-268): what it is made of, and for
+ * `liquid-metal`, `convection`, and `plasma`, that it moves.
+ */
+export const INTERIOR_TEXTURES = [
+  'rock',
+  'metal',
+  'liquid-metal',
+  'gas',
+  'ice',
+  'plasma',
+  'convection',
+] as const;
+
+export type InteriorTexture = (typeof INTERIOR_TEXTURES)[number];
+
+function isTexture(value: unknown): value is InteriorTexture {
+  return (
+    typeof value === 'string' &&
+    (INTERIOR_TEXTURES as readonly string[]).includes(value)
+  );
+}
+
 export type InteriorLayer = {
   id: string;
   /** True outer radius, kilometers. The first layer matches the body radius. */
@@ -27,6 +50,7 @@ export type InteriorLayer = {
   /** Share of the mesh radius on the diagram. The first layer is 1. */
   displayFraction: number;
   color: string;
+  texture: InteriorTexture;
 };
 
 export type InteriorEntry = {
@@ -49,7 +73,13 @@ type BodyRadius = { id: string; radiusKm: number };
 
 type Fields = Record<string, unknown>;
 
-const LAYER_FIELDS = ['id', 'outerRadiusKm', 'displayFraction', 'color'];
+const LAYER_FIELDS = [
+  'id',
+  'outerRadiusKm',
+  'displayFraction',
+  'color',
+  'texture',
+];
 const ENTRY_FIELDS = ['id', 'source', 'atmosphere', 'layers'];
 const SOURCE_FIELDS = ['name', 'url'];
 
@@ -141,17 +171,26 @@ function readLayers(
       errors.push(`${path}.color must match #rrggbb`);
     }
 
+    const texture = item.texture;
+    if (!isTexture(texture)) {
+      errors.push(
+        `${path}.texture must be one of: ${INTERIOR_TEXTURES.join(', ')}`,
+      );
+    }
+
     if (
       typeof id === 'string' &&
       isFiniteNumber(outer) &&
       isFiniteNumber(fraction) &&
-      typeof color === 'string'
+      typeof color === 'string' &&
+      isTexture(texture)
     ) {
       layers.push({
         id,
         outerRadiusKm: outer,
         displayFraction: fraction,
         color,
+        texture,
       });
     }
   }

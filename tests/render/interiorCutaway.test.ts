@@ -1,8 +1,10 @@
 import {
+  Color,
   Mesh,
   MeshBasicMaterial,
   PerspectiveCamera,
   Scene,
+  ShaderMaterial,
   SphereGeometry,
   Vector3,
 } from 'three';
@@ -21,12 +23,14 @@ const EARTH: InteriorEntry = {
       outerRadiusKm: 6371,
       displayFraction: 1,
       color: '#C4A574',
+      texture: 'rock',
     },
     {
       id: 'core',
       outerRadiusKm: 1221,
       displayFraction: 0.2,
       color: '#F2E24B',
+      texture: 'metal',
     },
   ],
 };
@@ -126,13 +130,14 @@ test('interiorCutaway › a chosen layer keeps its color and gets a label point'
 
   const colorOf = (name: string): string => {
     const mesh = scene.getObjectByName(name);
-    if (
-      !(mesh instanceof Mesh) ||
-      !(mesh.material instanceof MeshBasicMaterial)
-    ) {
+    if (!(mesh instanceof Mesh) || !(mesh.material instanceof ShaderMaterial)) {
       throw new Error(`missing face ${name}`);
     }
-    return mesh.material.color.getHexString();
+    const color: unknown = mesh.material.uniforms['uColor']?.value;
+    if (!(color instanceof Color)) {
+      throw new Error(`face ${name} has no color`);
+    }
+    return color.getHexString();
   };
   const crustBefore = colorOf('crust');
   const coreBefore = colorOf('core');

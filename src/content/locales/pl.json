@@ -103,6 +103,7 @@
     "many": "{count} lat",
     "other": "{count} roku"
   },
+  "view.fullscreen.ariaLabel": "Pełny ekran",
   "view.shortcuts.text": "Skróty klawiszowe",
   "shortcuts.title": "Skróty klawiszowe",
   "shortcuts.closeLabel": "Zamknij skróty klawiszowe",
@@ -117,6 +118,8 @@
   "shortcuts.planets.text": "Wybierz planetę, od Merkurego do Neptuna",
   "shortcuts.today.key": "D",
   "shortcuts.today.text": "Wróć do dzisiejszej daty",
+  "shortcuts.fullscreen.key": "F",
+  "shortcuts.fullscreen.text": "Pełny ekran",
   "shortcuts.help.key": "?",
   "shortcuts.help.text": "Pokaż tę ściągę",
   "shortcuts.rotate.key": "Strzałki",

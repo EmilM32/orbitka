@@ -9,6 +9,7 @@ import {
   CANVAS_KEY_SHOW_SYSTEM,
   CANVAS_KEY_ZOOM_IN,
   CANVAS_KEY_ZOOM_OUT,
+  GLOBAL_KEY_FULLSCREEN,
   GLOBAL_KEY_NONE,
   GLOBAL_KEY_SELECT_BASE,
   GLOBAL_KEY_SHOW_SHORTCUTS,
@@ -159,6 +160,8 @@ function globalKey(
 
 test.each([
   [' ', GLOBAL_KEY_TOGGLE_PAUSE],
+  ['f', GLOBAL_KEY_FULLSCREEN],
+  ['F', GLOBAL_KEY_FULLSCREEN],
   ['d', GLOBAL_KEY_TODAY],
   ['D', GLOBAL_KEY_TODAY],
   ['?', GLOBAL_KEY_SHOW_SHORTCUTS],
@@ -184,7 +187,7 @@ test('globalKey › Ctrl, Meta, Alt and composition give none', () => {
     { altKey: true },
     { isComposing: true },
   ]) {
-    for (const key of [' ', 'd', '?', '3']) {
+    for (const key of [' ', 'd', 'f', '?', '3']) {
       expect(globalKey(key, extra), `${key} ${JSON.stringify(extra)}`).toBe(
         GLOBAL_KEY_NONE,
       );

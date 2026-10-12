@@ -199,6 +199,7 @@ test('tab order inside group', () => {
     'view-orbits',
     'view-zoom-out',
     'view-zoom-in',
+    'view-fullscreen',
     'view-settings',
     'view-copy-link',
     'view-shortcuts',

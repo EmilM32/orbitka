@@ -110,6 +110,7 @@ test('group structure', () => {
       'view-orbits',
       'view-zoom-out',
       'view-zoom-in',
+      'view-fullscreen',
       'view-settings',
       'view-copy-link',
       'view-shortcuts',
@@ -467,4 +468,104 @@ test('copy link: a second click restarts the note; dispose stops it', async () =
   await vi.advanceTimersByTimeAsync(5000);
   expect(status.textContent).toBe('');
   vi.useRealTimers();
+});
+
+type FullscreenDocument = {
+  fullscreenEnabled?: boolean;
+  fullscreenElement?: Element | null;
+  exitFullscreen?: () => Promise<void>;
+};
+
+function stubFullscreen(enabled: boolean) {
+  const doc = document as unknown as FullscreenDocument;
+  const request = vi.fn(() => Promise.resolve());
+  const exit = vi.fn(() => Promise.resolve());
+  Object.defineProperty(document, 'fullscreenEnabled', {
+    value: enabled,
+    configurable: true,
+  });
+  Object.defineProperty(document, 'fullscreenElement', {
+    value: null,
+    configurable: true,
+    writable: true,
+  });
+  doc.exitFullscreen = exit;
+  Object.defineProperty(document.documentElement, 'requestFullscreen', {
+    value: request,
+    configurable: true,
+  });
+  return {
+    request,
+    exit,
+    enter() {
+      doc.fullscreenElement = document.documentElement;
+      document.dispatchEvent(new Event('fullscreenchange'));
+    },
+    leave() {
+      doc.fullscreenElement = null;
+      document.dispatchEvent(new Event('fullscreenchange'));
+    },
+  };
+}
+
+function restoreFullscreen(): void {
+  for (const key of ['fullscreenEnabled', 'fullscreenElement']) {
+    Reflect.deleteProperty(document, key);
+  }
+  Reflect.deleteProperty(document.documentElement, 'requestFullscreen');
+  Reflect.deleteProperty(document, 'exitFullscreen');
+}
+
+test('fullscreen: no button where the browser has none', () => {
+  stubFullscreen(false);
+  const { controls } = mount();
+  expect(button('view-fullscreen').hidden).toBe(true);
+  controls.toggleFullscreen();
+  controls.dispose();
+  restoreFullscreen();
+});
+
+test('fullscreen: the button asks for it and follows the browser', () => {
+  const fullscreen = stubFullscreen(true);
+  const { controls } = mount();
+  const control = button('view-fullscreen');
+  expect(control.hidden).toBe(false);
+  expect(control.getAttribute('aria-label')).toBe('Pełny ekran');
+  expect(control.getAttribute('aria-pressed')).toBe('false');
+  expect(control.className).not.toContain('primary');
+
+  control.click();
+  expect(fullscreen.request).toHaveBeenCalledTimes(1);
+  // Pressed only when the browser says so (fullscreenchange).
+  expect(control.getAttribute('aria-pressed')).toBe('false');
+  fullscreen.enter();
+  expect(control.getAttribute('aria-pressed')).toBe('true');
+
+  control.click();
+  expect(fullscreen.exit).toHaveBeenCalledTimes(1);
+  fullscreen.leave();
+  expect(control.getAttribute('aria-pressed')).toBe('false');
+
+  controls.toggleFullscreen();
+  expect(fullscreen.request).toHaveBeenCalledTimes(2);
+  controls.dispose();
+  // After dispose the browser's changes and the key do nothing.
+  fullscreen.enter();
+  controls.toggleFullscreen();
+  expect(fullscreen.request).toHaveBeenCalledTimes(2);
+  restoreFullscreen();
+});
+
+test('fullscreen: a refusal by the browser is not an error', async () => {
+  const fullscreen = stubFullscreen(true);
+  fullscreen.request.mockImplementation(() =>
+    Promise.reject(new Error('TypeError: not allowed')),
+  );
+  const { controls } = mount();
+  button('view-fullscreen').click();
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(button('view-fullscreen').getAttribute('aria-pressed')).toBe('false');
+  controls.dispose();
+  restoreFullscreen();
 });

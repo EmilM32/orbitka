@@ -64,6 +64,7 @@
   background: var(--c-surface-hover);
 }
 
+#view-controls .view-fullscreen,
 #view-controls .view-settings {
   padding: 0;
 }

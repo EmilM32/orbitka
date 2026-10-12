@@ -52,6 +52,7 @@ export const GLOBAL_KEY_NONE = 0;
 export const GLOBAL_KEY_TOGGLE_PAUSE = 1;
 export const GLOBAL_KEY_TODAY = 2;
 export const GLOBAL_KEY_SHOW_SHORTCUTS = 3;
+export const GLOBAL_KEY_FULLSCREEN = 4;
 /**
  * `GLOBAL_KEY_SELECT_BASE + n` selects the n-th body of the list, counted
  * from the Sun: 0 is the Sun, 1 to 8 are the planets.
@@ -82,6 +83,9 @@ export function resolveGlobalKey(input: GlobalKeyInput): number {
     case 'd':
     case 'D':
       return GLOBAL_KEY_TODAY;
+    case 'f':
+    case 'F':
+      return GLOBAL_KEY_FULLSCREEN;
     case '?':
       return GLOBAL_KEY_SHOW_SHORTCUTS;
     default:

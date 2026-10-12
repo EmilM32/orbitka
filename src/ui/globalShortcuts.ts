@@ -1,4 +1,5 @@
 import {
+  GLOBAL_KEY_FULLSCREEN,
   GLOBAL_KEY_NONE,
   GLOBAL_KEY_SELECT_BASE,
   GLOBAL_KEY_SELECT_COUNT,
@@ -17,6 +18,7 @@ export type GlobalShortcutsOptions = {
   onSelect(id: string): void;
   onToday(): void;
   onShowShortcuts(): void;
+  onToggleFullscreen(): void;
   /** Where the keys are listened to; the page. */
   target?: Document;
 };
@@ -66,7 +68,7 @@ function describeTarget(target: EventTarget | null): KeyTarget {
 
 /**
  * Page-wide keys (EMI-242): Space pauses, 0 to 8 pick the Sun and the planets,
- * D goes back to today, ? opens the list of shortcuts. The keys that work on
+ * D goes back to today, F toggles full screen, ? opens the list of shortcuts. The keys that work on
  * the canvas (arrows, +, −, Home, Esc) stay with the canvas.
  */
 export function createGlobalShortcuts(
@@ -101,6 +103,10 @@ export function createGlobalShortcuts(
     }
     if (action === GLOBAL_KEY_TODAY) {
       options.onToday();
+      return;
+    }
+    if (action === GLOBAL_KEY_FULLSCREEN) {
+      options.onToggleFullscreen();
       return;
     }
     if (action === GLOBAL_KEY_SHOW_SHORTCUTS) {

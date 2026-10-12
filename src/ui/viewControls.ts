@@ -20,6 +20,8 @@ const COPY_STATUS_MS = 4000;
 export type ViewControls = {
   element: HTMLElement;
   isOrbitsVisible(): boolean;
+  /** Full screen on or off, as the button does; nothing where the browser has none. */
+  toggleFullscreen(): void;
   /**
    * `atMin`: the camera is closest, so zoom in is disabled. `atMax`: the
    * camera is farthest, so zoom out is disabled. The DOM changes only when a
@@ -91,6 +93,15 @@ export function createViewControls(
   zoomIn.classList.add('view-zoom');
   zoomIn.setAttribute('aria-label', i18n.t('view.zoomIn.ariaLabel'));
   zoomIn.append(createIcon('plus'));
+  // Full screen for a projector in the classroom (EMI-247). Where the browser
+  // has no such mode (an iPhone) there is no button.
+  const fullscreenSupported = document.fullscreenEnabled === true;
+  const fullscreen = button('view-fullscreen');
+  fullscreen.classList.add('view-fullscreen');
+  fullscreen.setAttribute('aria-label', i18n.t('view.fullscreen.ariaLabel'));
+  fullscreen.setAttribute('aria-pressed', 'false');
+  fullscreen.append(createIcon('maximize'));
+  fullscreen.hidden = !fullscreenSupported;
   const settings = button('view-settings');
   settings.classList.add('view-settings');
   settings.setAttribute('aria-label', i18n.t('view.settings.ariaLabel'));
@@ -146,11 +157,14 @@ export function createViewControls(
     select.setAttribute('aria-describedby', hint.id);
     panel.append(hint);
   }
-  element.append(reset, orbits, zoomOut, zoomIn, settings, panel);
+  element.append(reset, orbits, zoomOut, zoomIn, fullscreen, settings, panel);
 
   element.addEventListener('click', onClick);
   element.addEventListener('keydown', onKeyDown);
   select.addEventListener('change', onSelectChange);
+  if (fullscreenSupported) {
+    document.addEventListener('fullscreenchange', syncFullscreen);
+  }
   copyLink.addEventListener('click', onCopyClick);
   shortcuts.addEventListener('click', onShortcutsClick);
   if (options.before === undefined) {
@@ -191,6 +205,25 @@ export function createViewControls(
     // Esc closes the panel only; the card and the lists keep their state.
     event.stopPropagation();
     setPanelOpen(false, true);
+  }
+
+  function toggleFullscreen(): void {
+    if (disposed || !fullscreenSupported) {
+      return;
+    }
+    // The browser may refuse (no user gesture, a policy): the button then
+    // simply stays as it is.
+    const request =
+      document.fullscreenElement === null
+        ? document.documentElement.requestFullscreen()
+        : document.exitFullscreen();
+    request.catch(() => undefined);
+  }
+
+  function syncFullscreen(): void {
+    const on = document.fullscreenElement !== null;
+    fullscreen.setAttribute('aria-pressed', on ? 'true' : 'false');
+    fullscreen.replaceChildren(createIcon(on ? 'minimize' : 'maximize'));
   }
 
   function onShortcutsClick(): void {
@@ -251,6 +284,10 @@ export function createViewControls(
       return;
     }
     const testId = control.getAttribute('data-testid');
+    if (testId === 'view-fullscreen') {
+      toggleFullscreen();
+      return;
+    }
     if (testId === 'view-settings') {
       setPanelOpen(!panelOpen, false);
       return;
@@ -281,6 +318,7 @@ export function createViewControls(
     isOrbitsVisible(): boolean {
       return visible;
     },
+    toggleFullscreen,
     setZoomLimits(nextAtMin: boolean, nextAtMax: boolean): void {
       if (disposed) {
         return;
@@ -300,6 +338,7 @@ export function createViewControls(
       }
       disposed = true;
       document.removeEventListener('pointerdown', onOutsidePointer, true);
+      document.removeEventListener('fullscreenchange', syncFullscreen);
       element.removeEventListener('click', onClick);
       element.removeEventListener('keydown', onKeyDown);
       select.removeEventListener('change', onSelectChange);

@@ -71,6 +71,10 @@ export function createShortcutsDialog(
         text: i18n.t('shortcuts.today.text'),
       },
       {
+        key: i18n.t('shortcuts.fullscreen.key'),
+        text: i18n.t('shortcuts.fullscreen.text'),
+      },
+      {
         key: i18n.t('shortcuts.help.key'),
         text: i18n.t('shortcuts.help.text'),
       },

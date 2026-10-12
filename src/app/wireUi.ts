@@ -203,6 +203,9 @@ export function wireUi({
     onToday: () => {
       timeControls.goToToday();
     },
+    onToggleFullscreen: () => {
+      viewControls.toggleFullscreen();
+    },
     onShowShortcuts: () => {
       shortcutsDialog.open();
     },

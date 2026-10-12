@@ -26,6 +26,7 @@ function setup() {
     onSelect: vi.fn<(id: string) => void>(),
     onToday: vi.fn(),
     onShowShortcuts: vi.fn(),
+    onToggleFullscreen: vi.fn(),
   };
   const shortcuts = createGlobalShortcuts({ bodyIds: BODIES, ...calls });
   return { calls, shortcuts };
@@ -54,6 +55,9 @@ test('the keys call their actions from the page', () => {
   expect(pause.defaultPrevented).toBe(true);
   press(document.body, 'd');
   expect(calls.onToday).toHaveBeenCalledTimes(1);
+  press(document.body, 'f');
+  press(document.body, 'F', { shiftKey: true });
+  expect(calls.onToggleFullscreen).toHaveBeenCalledTimes(2);
   const help = press(document.body, '?', { shiftKey: true });
   expect(calls.onShowShortcuts).toHaveBeenCalledTimes(1);
   expect(help.defaultPrevented).toBe(true);
@@ -91,6 +95,7 @@ test('fields, selects, modals and modifiers are left alone', () => {
     press(target, '5');
     press(target, ' ');
     press(target, '?');
+    press(target, 'f');
   }
   press(document.body, '5', { ctrlKey: true });
   press(document.body, ' ', { altKey: true });
@@ -100,6 +105,7 @@ test('fields, selects, modals and modifiers are left alone', () => {
   expect(calls.onTogglePause).not.toHaveBeenCalled();
   expect(calls.onToday).not.toHaveBeenCalled();
   expect(calls.onShowShortcuts).not.toHaveBeenCalled();
+  expect(calls.onToggleFullscreen).not.toHaveBeenCalled();
 });
 
 test('a hidden modal does not block the keys', () => {

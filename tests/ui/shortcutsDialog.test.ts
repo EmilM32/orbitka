@@ -43,6 +43,7 @@ test('a hidden modal dialog with the list in Polish', () => {
     '0',
     '1–8',
     'D',
+    'F',
     '?',
     'Strzałki',
     '+ i −',

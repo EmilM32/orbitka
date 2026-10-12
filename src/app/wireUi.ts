@@ -1,5 +1,6 @@
 import type { BodyContentCatalog } from '@content/bodyContent.ts';
 import { shouldShowRail } from '@core/bodiesRail.ts';
+import { presetIdForSpeed } from '@core/clock.ts';
 import type { AppStorage } from '@core/storage.ts';
 import { VIEW_CONFIG } from '@core/viewConfig.ts';
 import { bodies } from '@data/bodies.ts';
@@ -9,10 +10,13 @@ import { createBodiesPanel } from '@ui/bodiesPanel.ts';
 import { createBodyCard } from '@ui/bodyCard.ts';
 import { createPageHeader } from '@ui/pageHeader.ts';
 import { createScaleNotice } from '@ui/scaleNotice.ts';
+import { createGlobalShortcuts } from '@ui/globalShortcuts.ts';
+import { createShortcutsDialog } from '@ui/shortcutsDialog.ts';
 import { createTimeControls } from '@ui/timeControls.ts';
 import { createViewControls } from '@ui/viewControls.ts';
 
 import { createDisposables } from './disposables.ts';
+import { buildViewLink, copyText } from './viewLink.ts';
 import type { AppI18n } from './types.ts';
 import type { SceneRig } from './wireScene.ts';
 import type { SelectionRig } from './wireSelection.ts';
@@ -123,6 +127,10 @@ export function wireUi({
     railWidthQuery.removeEventListener('change', updateListMode);
   });
   const { quality, orbitLines } = sceneRig;
+  const shortcutsDialog = createShortcutsDialog(document.body, i18n);
+  stack.add(() => {
+    shortcutsDialog.dispose();
+  });
   const viewControls = createViewControls(document.body, {
     i18n,
     selection,
@@ -135,6 +143,19 @@ export function wireUi({
     },
     onQualityChange: (level) => {
       quality.setOverride(level);
+    },
+    onShowShortcuts: () => {
+      shortcutsDialog.open();
+    },
+    onCopyLink: () => {
+      const { clock } = timeRig;
+      const link = buildViewLink(window.location, {
+        bodyId: selection.getSelectedId(),
+        days: clock.days,
+        paused: clock.paused,
+        presetId: presetIdForSpeed(clock.speed),
+      });
+      return copyText(navigator.clipboard, link);
     },
     qualityValue: quality.getSource() === 'override' ? quality.get() : null,
     qualityLocked: quality.getSource() === 'param',
@@ -170,6 +191,23 @@ export function wireUi({
   stack.add(() => {
     timeControls.dispose();
   });
+  const shortcuts = createGlobalShortcuts({
+    bodyIds: selection.ids,
+    onTogglePause: () => {
+      timeRig.clock.togglePause();
+    },
+    // Only through the selection (ADR-009): the flight and the card follow.
+    onSelect: (id) => {
+      selection.select(id);
+    },
+    onToday: () => {
+      timeControls.goToToday();
+    },
+    onShowShortcuts: () => {
+      shortcutsDialog.open();
+    },
+  });
+  stack.add(shortcuts.dispose);
 
   return {
     pageHeader,

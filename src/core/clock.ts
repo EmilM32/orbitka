@@ -121,22 +121,8 @@ export function createClock(options: ClockOptions = {}): Clock {
     return reversed ? -speed : speed;
   };
 
-  const presetId = (): string | null => {
-    if (paused) {
-      return 'pause';
-    }
-
-    for (const preset of SPEED_PRESETS) {
-      if (preset.id === 'pause') {
-        continue;
-      }
-      if (Math.abs(speed - preset.daysPerSecond) <= PRESET_MATCH) {
-        return preset.id;
-      }
-    }
-
-    return null;
-  };
+  const presetId = (): string | null =>
+    paused ? 'pause' : presetIdForSpeed(speed);
 
   const snapshot = (): ClockState => ({
     days,
@@ -301,6 +287,20 @@ export function createClock(options: ClockOptions = {}): Clock {
       };
     },
   };
+}
+
+/** The speed preset (never `pause`) that `speed` days per second equals, or null. */
+export function presetIdForSpeed(speed: number): string | null {
+  for (const preset of SPEED_PRESETS) {
+    if (preset.id === 'pause') {
+      continue;
+    }
+    if (Math.abs(speed - preset.daysPerSecond) <= PRESET_MATCH) {
+      return preset.id;
+    }
+  }
+
+  return null;
 }
 
 export function daysToUtcDate(days: number): Date {

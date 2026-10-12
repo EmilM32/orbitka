@@ -46,6 +46,8 @@ function mount(storage: OrbitsStorage | null = null) {
     onQualityChange: vi.fn(),
     qualityValue: null,
     qualityLocked: false,
+    onCopyLink: () => Promise.resolve(true),
+    onShowShortcuts: () => undefined,
   });
   return { controls, onOrbitsChange };
 }
@@ -198,6 +200,8 @@ test('tab order inside group', () => {
     'view-zoom-out',
     'view-zoom-in',
     'view-settings',
+    'view-copy-link',
+    'view-shortcuts',
   ]);
   controls.dispose();
 });
@@ -215,6 +219,8 @@ test('dispose cleans up', () => {
     onQualityChange: vi.fn(),
     qualityValue: null,
     qualityLocked: false,
+    onCopyLink: () => Promise.resolve(true),
+    onShowShortcuts: () => undefined,
   });
   const orbits = button('view-orbits');
   const zoomIn = button('view-zoom-in');

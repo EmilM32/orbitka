@@ -14,6 +14,9 @@ import {
 
 type AppI18n = I18n<Dictionary>;
 
+// How long the "link copied" note stays in the settings panel.
+const COPY_STATUS_MS = 4000;
+
 export type ViewControls = {
   element: HTMLElement;
   isOrbitsVisible(): boolean;
@@ -36,6 +39,10 @@ export type ViewControlsOptions = {
   onQualityChange: (level: QualityLevel | null) => void;
   /** The saved manual level; `null` = automatic. */
   qualityValue: QualityLevel | null;
+  /** Opens the list of keyboard shortcuts. */
+  onShowShortcuts: () => void;
+  /** Copies the link to this view; true when it was copied. */
+  onCopyLink: () => Promise<boolean>;
   /** `?quality=` in the address fixes the level, so the select is off. */
   qualityLocked: boolean;
   before?: Node;
@@ -52,6 +59,7 @@ export function createViewControls(
   let atMin = false;
   let atMax = false;
   let panelOpen = false;
+  let copyTimer: ReturnType<typeof setTimeout> | null = null;
 
   const element = document.createElement('div');
   element.setAttribute('id', 'view-controls');
@@ -109,7 +117,26 @@ export function createViewControls(
     select.append(option);
   }
   select.value = options.qualityValue ?? 'auto';
-  panel.append(selectLabel, select);
+  const shortcuts = document.createElement('button');
+  shortcuts.type = 'button';
+  shortcuts.className = 'o-btn o-btn--outline view-shortcuts';
+  shortcuts.setAttribute('data-testid', 'view-shortcuts');
+  shortcuts.setAttribute('aria-haspopup', 'dialog');
+  shortcuts.append(
+    createIcon('keyboard'),
+    label(i18n.t('view.shortcuts.text')),
+  );
+  const copyLink = document.createElement('button');
+  copyLink.type = 'button';
+  copyLink.className = 'o-btn o-btn--outline view-copy-link';
+  copyLink.setAttribute('data-testid', 'view-copy-link');
+  copyLink.append(createIcon('link'), label(i18n.t('view.copyLink.text')));
+  const copyStatus = document.createElement('p');
+  copyStatus.className = 'view-copy-status';
+  // aria-live, not role="status": the announcer owns the one status region.
+  copyStatus.setAttribute('aria-live', 'polite');
+  copyStatus.setAttribute('data-testid', 'view-copy-status');
+  panel.append(selectLabel, select, copyLink, copyStatus, shortcuts);
   if (options.qualityLocked) {
     const hint = document.createElement('p');
     hint.id = 'view-quality-hint';
@@ -124,6 +151,8 @@ export function createViewControls(
   element.addEventListener('click', onClick);
   element.addEventListener('keydown', onKeyDown);
   select.addEventListener('change', onSelectChange);
+  copyLink.addEventListener('click', onCopyClick);
+  shortcuts.addEventListener('click', onShortcutsClick);
   if (options.before === undefined) {
     parent.append(element);
   } else {
@@ -137,6 +166,7 @@ export function createViewControls(
     }
     panelOpen = open;
     panel.hidden = !open;
+    element.classList.toggle('has-panel', open);
     settings.setAttribute('aria-expanded', open ? 'true' : 'false');
     if (open) {
       document.addEventListener('pointerdown', onOutsidePointer, true);
@@ -161,6 +191,42 @@ export function createViewControls(
     // Esc closes the panel only; the card and the lists keep their state.
     event.stopPropagation();
     setPanelOpen(false, true);
+  }
+
+  function onShortcutsClick(): void {
+    if (disposed) {
+      return;
+    }
+    // The panel closes (a click on the dialog counts as outside it) and the
+    // focus goes to the gear, which is where it comes back to.
+    setPanelOpen(false, true);
+    options.onShowShortcuts();
+  }
+
+  function onCopyClick(): void {
+    if (disposed) {
+      return;
+    }
+    void options.onCopyLink().then((copied) => {
+      if (disposed) {
+        return;
+      }
+      showCopyStatus(
+        i18n.t(copied ? 'view.copyLink.done' : 'view.copyLink.failed'),
+      );
+    });
+  }
+
+  // The status is read out (aria-live) and leaves the panel soon after.
+  function showCopyStatus(text: string): void {
+    copyStatus.textContent = text;
+    if (copyTimer !== null) {
+      clearTimeout(copyTimer);
+    }
+    copyTimer = setTimeout(() => {
+      copyTimer = null;
+      copyStatus.textContent = '';
+    }, COPY_STATUS_MS);
   }
 
   function onSelectChange(): void {
@@ -237,6 +303,12 @@ export function createViewControls(
       element.removeEventListener('click', onClick);
       element.removeEventListener('keydown', onKeyDown);
       select.removeEventListener('change', onSelectChange);
+      copyLink.removeEventListener('click', onCopyClick);
+      shortcuts.removeEventListener('click', onShortcutsClick);
+      if (copyTimer !== null) {
+        clearTimeout(copyTimer);
+        copyTimer = null;
+      }
       element.remove();
     },
   };

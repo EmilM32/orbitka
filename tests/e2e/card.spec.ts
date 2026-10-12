@@ -343,20 +343,22 @@ test('gauge bars end at their width and the card stays put on a body change', as
       }),
     );
 
-  await page.waitForTimeout(800);
-  for (const difference of await widths()) {
-    expect(difference).toBeLessThanOrEqual(1);
-  }
+  // The bars end at their width once the animation is done; a slow frame
+  // (a texture upload) may delay it, so poll rather than sleep.
+  await expect
+    .poll(async () => Math.max(...(await widths())), { timeout: 10_000 })
+    .toBeLessThanOrEqual(1);
 
   await page.getByTestId('body-item-mars').click();
   await expect(page.locator('#body-card h2')).toHaveText('Mars');
   const during = await boxOf(page, '#body-card');
   expect(Math.abs(during.x - before.x)).toBeLessThanOrEqual(1);
   expect(Math.abs(during.y - before.y)).toBeLessThanOrEqual(1);
-  await page.waitForTimeout(800);
-  for (const difference of await widths()) {
-    expect(difference).toBeLessThanOrEqual(1);
-  }
+  // The bars end at their width once the animation is done; a slow frame
+  // (a texture upload) may delay it, so poll rather than sleep.
+  await expect
+    .poll(async () => Math.max(...(await widths())), { timeout: 10_000 })
+    .toBeLessThanOrEqual(1);
   const after = await boxOf(page, '#body-card');
   expect(Math.abs(after.x - during.x)).toBeLessThanOrEqual(1);
   expect(Math.abs(after.y - during.y)).toBeLessThanOrEqual(1);

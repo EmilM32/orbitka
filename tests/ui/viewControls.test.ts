@@ -44,6 +44,8 @@ function mount(
     onQualityChange?: (level: QualityLevel | null) => void;
     qualityValue?: QualityLevel | null;
     qualityLocked?: boolean;
+    onCopyLink?: () => Promise<boolean>;
+    onShowShortcuts?: () => void;
   } = {},
 ) {
   const selection = options.selection ?? createSelection(['mars', 'earth']);
@@ -52,6 +54,10 @@ function mount(
     options.onOrbitsChange ?? vi.fn<(visible: boolean) => void>();
   const onQualityChange =
     options.onQualityChange ?? vi.fn<(level: QualityLevel | null) => void>();
+  const onCopyLink =
+    options.onCopyLink ??
+    vi.fn<() => Promise<boolean>>(() => Promise.resolve(true));
+  const onShowShortcuts = options.onShowShortcuts ?? vi.fn<() => void>();
   const storage =
     options.storage === undefined ? memoryStorage() : options.storage;
   const controls = createViewControls(document.body, {
@@ -63,6 +69,8 @@ function mount(
     onQualityChange,
     qualityValue: options.qualityValue ?? null,
     qualityLocked: options.qualityLocked ?? false,
+    onCopyLink,
+    onShowShortcuts,
   });
   return {
     controls,
@@ -70,6 +78,8 @@ function mount(
     onZoom,
     onOrbitsChange,
     onQualityChange,
+    onCopyLink,
+    onShowShortcuts,
     storage,
   };
 }
@@ -101,6 +111,8 @@ test('group structure', () => {
       'view-zoom-out',
       'view-zoom-in',
       'view-settings',
+      'view-copy-link',
+      'view-shortcuts',
     ],
   );
   expect(element.classList.contains('o-glass')).toBe(true);
@@ -386,4 +398,73 @@ test('dispose removes the outside click listener', () => {
   expect(() => {
     document.dispatchEvent(new Event('pointerdown'));
   }).not.toThrow();
+});
+
+function copyButton(): HTMLButtonElement {
+  const found = document.querySelector('[data-testid="view-copy-link"]');
+  if (!(found instanceof HTMLButtonElement)) {
+    throw new Error('missing copy link button');
+  }
+  return found;
+}
+
+function copyStatus(): HTMLElement {
+  const found = document.querySelector('[data-testid="view-copy-status"]');
+  if (!(found instanceof HTMLElement)) {
+    throw new Error('missing copy status');
+  }
+  return found;
+}
+
+test('copy link: a button in the settings panel, with a status read out', async () => {
+  vi.useFakeTimers();
+  const { controls, onCopyLink } = mount();
+  const button = copyButton();
+  expect(button.closest('#view-settings-panel')).not.toBeNull();
+  expect(button.textContent).toBe('Kopiuj link do tego widoku');
+  expect(button.className).not.toContain('primary');
+  expect(copyStatus().getAttribute('aria-live')).toBe('polite');
+  expect(copyStatus().hasAttribute('role')).toBe(false);
+  expect(copyStatus().textContent).toBe('');
+
+  button.click();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(onCopyLink).toHaveBeenCalledTimes(1);
+  expect(copyStatus().textContent).toBe('Skopiowano link do tego widoku');
+
+  // The note goes away on its own.
+  await vi.advanceTimersByTimeAsync(4000);
+  expect(copyStatus().textContent).toBe('');
+  controls.dispose();
+  vi.useRealTimers();
+});
+
+test('copy link: a refusal says so in Polish', async () => {
+  const { controls } = mount({ onCopyLink: () => Promise.resolve(false) });
+  copyButton().click();
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(copyStatus().textContent).toBe(
+    'Nie udało się skopiować linku. Skopiuj adres z paska przeglądarki.',
+  );
+  controls.dispose();
+});
+
+test('copy link: a second click restarts the note; dispose stops it', async () => {
+  vi.useFakeTimers();
+  const { controls } = mount();
+  copyButton().click();
+  await vi.advanceTimersByTimeAsync(3000);
+  copyButton().click();
+  await vi.advanceTimersByTimeAsync(3000);
+  // 6 s after the first click but 3 s after the second.
+  expect(copyStatus().textContent).toBe('Skopiowano link do tego widoku');
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(copyStatus().textContent).toBe('');
+  const status = copyStatus();
+  copyButton().click();
+  controls.dispose();
+  await vi.advanceTimersByTimeAsync(5000);
+  expect(status.textContent).toBe('');
+  vi.useRealTimers();
 });

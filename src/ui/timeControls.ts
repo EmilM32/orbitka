@@ -35,6 +35,8 @@ export type TimeControls = {
    * Tab order, a click does nothing) and the status says the scene is loading.
    */
   setReady(ready: boolean): void;
+  /** The "back to today" button, for a shortcut. Does nothing before the scene is ready. */
+  goToToday(): void;
   dispose(): void;
 };
 
@@ -330,21 +332,18 @@ export function createTimeControls(
     },
     { signal: abort.signal },
   );
-  todayButton.addEventListener(
-    'click',
-    () => {
-      if (!ready) {
-        return;
-      }
-      clock.setDays(todayDays());
-      live.textContent = i18n.t('time.today.announce');
-      // The button fades out after this click; keep keyboard focus on the panel.
-      if (document.activeElement === todayButton) {
-        pauseButton.focus();
-      }
-    },
-    { signal: abort.signal },
-  );
+  function goToToday(): void {
+    if (!ready || disposed) {
+      return;
+    }
+    clock.setDays(todayDays());
+    live.textContent = i18n.t('time.today.announce');
+    // The button fades out after this; keep keyboard focus on the panel.
+    if (document.activeElement === todayButton) {
+      pauseButton.focus();
+    }
+  }
+  todayButton.addEventListener('click', goToToday, { signal: abort.signal });
   reverseButton.addEventListener(
     'click',
     () => {
@@ -691,6 +690,7 @@ export function createTimeControls(
   const unsubscribe = clock.subscribe(render);
 
   return {
+    goToToday,
     setReady(next: boolean) {
       if (disposed || next === ready) {
         return;

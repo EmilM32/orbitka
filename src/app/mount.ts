@@ -1,4 +1,5 @@
 import { createDisposables } from './disposables.ts';
+import { parseViewParams } from '@core/viewParams.ts';
 import { loadBodyContent } from './contentCatalog.ts';
 import { localStore } from './storage.ts';
 import type { App, AppI18n } from './types.ts';
@@ -38,7 +39,16 @@ export function mount(
     stack.add(sceneRig.dispose);
     const selectionRig = wireSelection(canvas, viewRig, sceneRig);
     stack.add(selectionRig.dispose);
-    const timeRig = wireTime(sceneRig, search);
+    const viewParams = parseViewParams(
+      search,
+      selectionRig.selectable.map((body) => body.id),
+    );
+    if (import.meta.env.DEV && viewParams.ignored.length > 0) {
+      console.warn(
+        `Ignored unusable address parameters: ${viewParams.ignored.join(', ')}`,
+      );
+    }
+    const timeRig = wireTime(sceneRig, search, viewParams);
     const canvasRig = wireCanvas(canvas, i18n, viewRig, selectionRig);
     stack.add(canvasRig.dispose);
     const uiRig = wireUi({
@@ -55,6 +65,8 @@ export function mount(
     const overlayRig = wireOverlays({
       i18n,
       storage,
+      // A student who comes from a teacher's link starts in that view, not in the training.
+      skipCoach: viewParams.bodyId !== null,
       viewRig,
       sceneRig,
       selectionRig,
@@ -73,6 +85,7 @@ export function mount(
     });
     stack.add(debugRig.dispose);
     const loopRig = wireLoop({
+      startBodyId: viewParams.bodyId,
       viewRig,
       sceneRig,
       selectionRig,

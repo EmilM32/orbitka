@@ -11,6 +11,8 @@ import type { UiRig } from './wireUi.ts';
 import type { ViewRig } from './wireView.ts';
 
 export type LoopInputs = {
+  /** The body a link asks for; it is selected once the first frame is drawn. */
+  startBodyId: string | null;
   viewRig: ViewRig;
   sceneRig: SceneRig;
   selectionRig: SelectionRig;
@@ -22,6 +24,7 @@ export type LoopInputs = {
 
 /** The one loop: update(dt), then render(). It starts when the tab is visible. */
 export function wireLoop({
+  startBodyId,
   viewRig,
   sceneRig,
   selectionRig,
@@ -84,6 +87,10 @@ export function wireLoop({
         uiRig.timeControls.setReady(true);
         // Textures load after the first frame, so the start is not delayed.
         textureStore.preloadBase();
+        // Only through the selection (ADR-009), so the flight and the card follow.
+        if (startBodyId !== null) {
+          selectionRig.selection.select(startBodyId);
+        }
       }
       if (size.width > 0 && size.height > 0) {
         projector.update(view.camera, size.width, size.height);

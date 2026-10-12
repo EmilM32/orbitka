@@ -20,6 +20,8 @@ import type { ViewRig } from './wireView.ts';
 export type OverlayInputs = {
   i18n: AppI18n;
   storage: AppStorage;
+  /** The pilot training stays out of the way (a link with a body in it). */
+  skipCoach: boolean;
   viewRig: ViewRig;
   sceneRig: SceneRig;
   selectionRig: SelectionRig;
@@ -30,6 +32,7 @@ export type OverlayInputs = {
 export function wireOverlays({
   i18n,
   storage,
+  skipCoach,
   viewRig,
   sceneRig,
   selectionRig,
@@ -47,7 +50,7 @@ export function wireOverlays({
     memory: { done: false },
   };
   let coachPanel: CoachPanel | null = null;
-  if (!loadCoachDone(coachStorage)) {
+  if (!skipCoach && !loadCoachDone(coachStorage)) {
     const coach = createCoachTracker();
     stack.add(
       cameraController.onCameraInput((input) => {

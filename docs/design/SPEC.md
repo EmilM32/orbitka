@@ -25,7 +25,7 @@ Generatory i skrypty (poza FINAL, bo używają ścieżek bezwzględnych z boxa) 
 ## 2. Zasady wyglądu (krótko)
 
 1. **Scena jest bohaterem.** UI to ciche szkło (72% + blur 12 px na poziomie średnim, 18 px na wysokim). W trybie lekkim panele są pełne w 94% i nie mają blur.
-2. **Dyscyplina akcentu.** Żółte **wypełnienie** (`--c-accent`) dostają tylko akcje główne: ▶/⏸, „Więcej”, „Jasne”/„Rozumiem”.
+2. **Dyscyplina akcentu.** Żółte **wypełnienie** (`--c-accent`) dostają tylko akcje główne: ▶/⏸, „Jasne”/„Rozumiem”. „Więcej” na arkuszu tabletu ma styl ghost.
    - Wybór oznaczamy żółtą **linią** (lista, pasek) albo **obrysem** (podpis w scenie, pierścień wokół ciała).
    - Aktywny preset prędkości ma biel 16% i biały obrys.
    - Stan włączenia i kroki zaliczone są w kolorze mięty `--c-on`.
@@ -109,14 +109,15 @@ Każdy komponent interaktywny ma stany: domyślny, hover, fokus, aktywny (wciśn
   3. fakty: „Rok trwa”, „Obrót wokół osi”, liczone z `bodies.json`;
   4. ciekawostka z pliku treści, przykładowa do czasu dostarczenia przez Treści;
   5. znacznik „Treść przykładowa” (tylko w makietach);
-  6. akcje: „Cały układ” (obrys) i „Więcej” (żółty, akcja główna).
+  6. opis ciała (`description`), widoczny od razu, bez rozwijania;
+  7. akcja: „Cały układ” (obrys). Na desktopie nie ma „Więcej”; przy wysokości okna ≤ 720 px treść karty przewija się, a akcja zostaje przypięta.
 - **Zamknięcie:** ✕, „Cały układ”, Esc lub Home. Wszystkie działają jak „Cały układ” (lot do widoku układu).
 - **Pierścień wyboru:** obrys 1,5 px `rgba(255,194,75,.75)` wokół tarczy (promień + 8 px), bez celownika.
 
 ### 5.6 Dolny arkusz karty (tablet)
 
 - **Zwinięty (112 px):**
-  - układ: uchwyt (`button`, `aria-expanded="false"`, „Rozwiń kartę”), nazwa i rodzaj, kompaktowy miernik bez podpisu, „Cały układ”, „Więcej”;
+  - układ: uchwyt (`button`, `aria-expanded="false"`, „Rozwiń kartę”), nazwa i rodzaj, kompaktowy miernik bez podpisu, „Cały układ”, „Więcej” (ghost, rozwija opis);
   - leży 12 px nad panelem czasu.
 - **Rozwinięty (60 dvh, w poziomie maks. 50 dvh):**
   - układ: nazwa, miernik i fakty w dwóch kolumnach, ciekawostka, akcje;
@@ -403,7 +404,7 @@ Wszystkie wartości zmierzone w labie (`renderer.info`, widok startowy 7.10.2026
    - governor FPS z progami i histerezą (§9.5);
    - pomiar na sprzęcie jako warunek ADR.
 7. **Dyscyplina akcentu:**
-   - żółte wypełnienie tylko ▶/⏸, „Więcej”, „Jasne”/„Rozumiem”;
+   - żółte wypełnienie tylko ▶/⏸, „Jasne”/„Rozumiem”;
    - „Orbity” z przełącznikiem stanu (mięta);
    - wybór na liście to linia, nie wypełnienie;
    - podpis wybranego ciała z obrysem;

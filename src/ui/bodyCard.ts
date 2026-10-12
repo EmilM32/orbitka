@@ -129,7 +129,7 @@ export function createBodyCard(
   system.type = 'button';
   system.setAttribute('data-testid', 'body-card-system');
   system.append(createIcon('system'), textSpan(i18n.t('card.system')));
-  const more = create('button', 'o-btn o-btn--primary body-card-more');
+  const more = create('button', 'o-btn o-btn--ghost body-card-more');
   more.type = 'button';
   more.setAttribute('aria-expanded', 'false');
   more.setAttribute('aria-controls', 'card-description');
@@ -147,6 +147,7 @@ export function createBodyCard(
   let enterTimer: ReturnType<typeof setTimeout> | null = null;
   let sheet = options.isTablet();
   let expanded = false;
+  let descriptionOpen = false;
   let disposed = false;
   let dragStart: { y: number; time: number; pointerId: number } | null = null;
   let suppressClick = false;
@@ -393,10 +394,18 @@ export function createBodyCard(
     writeInsets();
   }
 
+  // The desktop card has room for the description, so it is always shown and
+  // has no "more" button (EMI-240). The sheet keeps the toggle.
   function setDescription(open: boolean): void {
-    description.hidden = !open;
+    descriptionOpen = open;
     more.setAttribute('aria-expanded', open ? 'true' : 'false');
     moreText.textContent = i18n.t(open ? 'card.less' : 'card.more');
+    applyDescription();
+  }
+
+  function applyDescription(): void {
+    description.hidden = sheet && !descriptionOpen;
+    more.hidden = !sheet;
   }
 
   function setExpanded(next: boolean): void {
@@ -420,6 +429,7 @@ export function createBodyCard(
     element.classList.toggle('is-sheet', sheet);
     handle.hidden = !sheet;
     setExpanded(false);
+    applyDescription();
   }
 
   function writeInsets(): void {

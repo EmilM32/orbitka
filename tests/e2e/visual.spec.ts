@@ -4,6 +4,9 @@ import { assertWebGl, skipCoach, waitForFrames } from './helpers.ts';
 
 test.beforeEach(async ({ page }) => {
   await skipCoach(page);
+  // The time panel says how far the date is from today (EMI-237); a fixed
+  // "today" keeps the baselines from changing with the calendar.
+  await page.clock.setFixedTime(new Date('2026-10-14T12:00:00Z'));
 });
 
 // Baselines exist only for Chromium on Linux in the Playwright image that CI

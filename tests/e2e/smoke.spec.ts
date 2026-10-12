@@ -260,3 +260,51 @@ test('hook only with debug', async ({ page }) => {
   expect(hook.getSelectedId).toBe('undefined');
   expect(hook.getOrbitState).toBe('undefined');
 });
+
+test('gravity grid: the switch turns it on without errors and it is remembered', async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      errors.push(message.text());
+    }
+  });
+  page.on('pageerror', (error) => {
+    errors.push(error.message);
+  });
+
+  await openApp(page, '/?debug=1&days=0&paused=1');
+  await waitForBodies(page);
+  const gravity = page.getByTestId('view-gravity');
+  await expect(gravity).toHaveAttribute('aria-pressed', 'false');
+  const sceneOnly = 'body > :not(canvas) { visibility: hidden !important; }';
+  const canvas = page.locator('canvas');
+  const before = await canvas.screenshot({ style: sceneOnly });
+
+  await gravity.click();
+  await expect(gravity).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('#scale-why').click();
+  await expect(page.getByTestId('scale-gravity-point')).toBeVisible();
+  await page.locator('#scale-close').click();
+  await waitForFrames(page, 3);
+  // The clock is paused, so only the grid changes the picture.
+  const after = await canvas.screenshot({ style: sceneOnly });
+  expect(after.equals(before)).toBe(false);
+
+  await page.reload();
+  await expect(page.getByTestId('view-gravity')).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await waitForFrames(page, 3);
+  expect(errors).toEqual([]);
+});
+
+test('gravity grid: a link with gravity=1 turns it on', async ({ page }) => {
+  await openApp(page, '/?debug=1&days=0&paused=1&gravity=1');
+  await expect(page.getByTestId('view-gravity')).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+});

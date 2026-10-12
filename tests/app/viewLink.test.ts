@@ -12,6 +12,7 @@ test('viewLink › a link carries the body, the date and the speed', () => {
       paused: false,
       presetId: 'month',
       cutaway: false,
+      gravity: false,
     }),
   ).toBe(
     'https://orbitka.example/orbitka/?body=saturn&date=2030-02-12&speed=month',
@@ -26,6 +27,7 @@ test('viewLink › nothing to say gives the plain address', () => {
       paused: false,
       presetId: null,
       cutaway: true,
+      gravity: false,
     }),
   ).toBe('https://orbitka.example/orbitka/');
 });
@@ -38,6 +40,7 @@ test('viewLink › paused is a link too', () => {
       paused: true,
       presetId: 'day',
       cutaway: false,
+      gravity: false,
     }),
   ).toBe(
     'https://orbitka.example/orbitka/?body=earth&date=2000-01-01&paused=1',
@@ -52,6 +55,7 @@ test('viewLink › an open cutaway is the last parameter', () => {
       paused: true,
       presetId: 'day',
       cutaway: true,
+      gravity: false,
     }),
   ).toBe(
     'https://orbitka.example/orbitka/?body=earth&date=2000-01-01&paused=1&cutaway=1',
@@ -72,4 +76,19 @@ test('viewLink › a refused or missing clipboard is false', async () => {
     ),
   ).resolves.toBe(false);
   await expect(copyText(undefined, 'x')).resolves.toBe(false);
+});
+
+test('viewLink › the gravity grid goes into the link', () => {
+  expect(
+    buildViewLink(LOCATION, {
+      bodyId: 'earth',
+      days: 0,
+      paused: true,
+      presetId: 'day',
+      cutaway: true,
+      gravity: true,
+    }),
+  ).toBe(
+    'https://orbitka.example/orbitka/?body=earth&date=2000-01-01&paused=1&cutaway=1&gravity=1',
+  );
 });

@@ -10,6 +10,7 @@ import { bodies } from '@data/bodies.ts';
 import { interiors } from '@data/interiors.ts';
 import { applyQualityLevel } from '@render/applyQuality.ts';
 import { createBodies } from '@render/bodies.ts';
+import { createGravityGrid } from '@render/gravityGrid.ts';
 import { createInteriorCutaway } from '@render/interiorCutaway.ts';
 import { createLights } from '@render/lights.ts';
 import { addOrbitLines } from '@render/orbitLines.ts';
@@ -29,7 +30,10 @@ export type SceneInputs = {
   search: string;
 };
 
-/** The scene content: stars, bodies, textures, orbit lines, quality level. */
+/**
+ * The scene content: stars, bodies, textures, orbit lines, the gravity grid,
+ * quality level.
+ */
 export function wireScene({ viewRig, storage, search }: SceneInputs) {
   const { view, textureMemory } = viewRig;
   const stack = createDisposables();
@@ -105,6 +109,17 @@ export function wireScene({ viewRig, storage, search }: SceneInputs) {
   stack.add(() => {
     orbitLines.dispose();
   });
+  // Hidden until the view controls turn it on (EMI-264).
+  const gravityGrid = createGravityGrid(bodies, bodyView.meshes, quality.get());
+  view.scene.add(gravityGrid.lines);
+  stack.add(() => {
+    gravityGrid.dispose();
+  });
+  stack.add(
+    quality.subscribe((level) => {
+      gravityGrid.setQuality(level);
+    }),
+  );
   view.scene.add(createLights());
 
   return {
@@ -113,6 +128,7 @@ export function wireScene({ viewRig, storage, search }: SceneInputs) {
     bodyView,
     textureStore,
     orbitLines,
+    gravityGrid,
     cutaway,
     dispose: stack.disposeAll,
   };

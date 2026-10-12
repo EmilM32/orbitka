@@ -73,6 +73,15 @@ function createSources(
   return { toggle, section };
 }
 
+export type ScaleNotice = {
+  /**
+   * With the gravity grid on, the dialog says it is simplified too. The chip
+   * keeps its text: a longer one would not fit beside the view group.
+   */
+  setGravity(on: boolean): void;
+  dispose(): void;
+};
+
 // The scale chip in the top bar and its "Dlaczego?" dialog (SPEC §5.11). The
 // dialog is not a native <dialog>: the top layer would ignore the --z-*
 // tokens, and the "Gotowe!" toast must stay above it (SPEC §4). So the focus
@@ -83,7 +92,7 @@ export function createScaleNotice(
   i18n: AppI18n,
   sourceLinks: SourceLinks,
   before?: Node | null,
-): { dispose(): void } {
+): ScaleNotice {
   const page = parent.ownerDocument.body;
 
   const root = document.createElement('div');
@@ -144,6 +153,16 @@ export function createScaleNotice(
     item.append(text);
     list.append(item);
   }
+  // Shown only with the gravity grid on (EMI-264).
+  const gravityPoint = document.createElement('li');
+  gravityPoint.setAttribute('data-testid', 'scale-gravity-point');
+  const gravityText = document.createElement('span');
+  const gravityTitle = document.createElement('strong');
+  gravityTitle.textContent = i18n.t('scaleNotice.gravity.title');
+  gravityText.append(gravityTitle, ` ${i18n.t('scaleNotice.gravity.body')}`);
+  gravityPoint.append(gravityText);
+  gravityPoint.hidden = true;
+  list.append(gravityPoint);
   const sources = createSources(i18n, sourceLinks);
   body.append(list, sources.section);
 
@@ -268,6 +287,12 @@ export function createScaleNotice(
   dialog.addEventListener('pointerdown', onPointerDown);
 
   return {
+    setGravity(on) {
+      if (disposed) {
+        return;
+      }
+      gravityPoint.hidden = !on;
+    },
     dispose() {
       if (disposed) {
         return;

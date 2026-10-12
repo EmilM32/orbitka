@@ -14,6 +14,7 @@ export type IconName =
   | 'minus'
   | 'system'
   | 'orbits'
+  | 'gravity'
   | 'chevron'
   | 'more'
   | 'check'
@@ -73,6 +74,11 @@ export const ICON_PATHS: Readonly<Record<IconName, readonly string[]>> = {
     'M21.818 10.1a10 10 0 0 1 0 3.8',
     'M3.721 6.391a10 10 0 0 1 2.7-2.69',
     'M6.391 20.279a10 10 0 0 1-2.69-2.7',
+  ],
+  // Not from Lucide: a ball in a funnel, drawn on the same grid and stroke.
+  gravity: [
+    'M2 7c5 0 6.5 1.5 8 6.5.5 1.7 1.2 2.5 2 2.5s1.5-.8 2-2.5C15.5 8.5 17 7 22 7',
+    circle(12, 11, 2),
   ],
   chevron: ['m6 9 6 6 6-6'],
   more: [circle(12, 12, 1), circle(19, 12, 1), circle(5, 12, 1)],

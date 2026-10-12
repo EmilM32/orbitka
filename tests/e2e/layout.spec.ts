@@ -317,7 +317,9 @@ test('drawer stays open when the tablet turns', async ({ page }) => {
   expect(box.y + box.height).toBeLessThanOrEqual(TABLET_LANDSCAPE.height);
 });
 
-test('orbits label is visible on every breakpoint', async ({ page }) => {
+test('orbits and gravity labels are visible on every breakpoint', async ({
+  page,
+}) => {
   for (const size of [
     TABLET_PORTRAIT,
     TABLET_LANDSCAPE,
@@ -338,6 +340,9 @@ test('orbits label is visible on every breakpoint', async ({ page }) => {
           .evaluate((el) => getComputedStyle(el).backgroundColor),
       )
       .toBe('rgb(116, 227, 181)');
+    const gravity = page.getByTestId('view-gravity');
+    await expect(gravity.getByText('Grawitacja')).toBeVisible();
+    await expect(gravity).toHaveAttribute('aria-pressed', 'false');
   }
 });
 
@@ -410,6 +415,7 @@ test('tab order', async ({ page }) => {
     'viewport',
     'view-reset',
     'view-orbits',
+    'view-gravity',
     'view-zoom-out',
     'view-zoom-in',
     'view-fullscreen',
@@ -426,6 +432,7 @@ test('tab order', async ({ page }) => {
     'viewport',
     'view-reset',
     'view-orbits',
+    'view-gravity',
     'view-zoom-out',
     'view-zoom-in',
     'view-fullscreen',

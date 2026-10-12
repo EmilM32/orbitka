@@ -1,0 +1,39 @@
+/* The chosen cutaway layer: a pill and a 1 px line, like the body labels. */
+#layer-label {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: var(--z-labels);
+  pointer-events: none;
+}
+
+#layer-label[hidden] {
+  display: none;
+}
+
+.layer-label__leader {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: visible;
+  stroke: rgba(255, 255, 255, 0.85);
+  stroke-width: 1;
+}
+
+.layer-label__pill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 0.5625rem;
+  color: var(--c-text);
+  font: var(--fw-strong) 13px / 1 var(--font-ui);
+  white-space: nowrap;
+  background: var(--c-label);
+  border-radius: var(--radius-pill);
+}

@@ -237,6 +237,8 @@ export function createBodyCard(
   const interiors = options.interiors ?? {};
   let cutaway = options.initialCutaway === true;
   let highlighted: string | null = null;
+  // A layer under the mouse shows in the scene until the pointer leaves.
+  let previewed: string | null = null;
   let shownId: string | null = null;
   let pendingId: string | null = null;
   let enterTimer: ReturnType<typeof setTimeout> | null = null;
@@ -267,6 +269,8 @@ export function createBodyCard(
   handle.addEventListener('pointercancel', onHandleCancel);
   element.addEventListener('keydown', onKeyDown);
   interiorList.addEventListener('click', onLayerClick);
+  interiorList.addEventListener('pointerover', onLayerOver);
+  interiorList.addEventListener('pointerleave', onLayerLeave);
   element.classList.toggle('is-sheet', sheet);
   handle.hidden = !sheet;
   setExpanded(false);
@@ -343,6 +347,7 @@ export function createBodyCard(
 
     if (shownId !== body.id) {
       highlighted = null;
+      previewed = null;
       // The rows wait for the values of the new body.
       setMotion(null);
     }
@@ -380,6 +385,7 @@ export function createBodyCard(
     pendingId = null;
     shownId = null;
     highlighted = null;
+    previewed = null;
     setMotion(null);
     renderInterior();
     element.hidden = true;
@@ -400,6 +406,8 @@ export function createBodyCard(
     close.removeEventListener('click', onCloseClick);
     cutawayButton.removeEventListener('click', onCutawayClick);
     interiorList.removeEventListener('click', onLayerClick);
+    interiorList.removeEventListener('pointerover', onLayerOver);
+    interiorList.removeEventListener('pointerleave', onLayerLeave);
     system.removeEventListener('click', onCloseClick);
     more.removeEventListener('click', onMoreClick);
     handle.removeEventListener('click', onHandleClick);
@@ -501,7 +509,7 @@ export function createBodyCard(
     options.onCutaway?.({
       active: cutaway,
       bodyId: shownId,
-      layerId: cutaway ? highlighted : null,
+      layerId: cutaway ? (previewed ?? highlighted) : null,
     });
   }
 
@@ -538,6 +546,7 @@ export function createBodyCard(
     interiorList.replaceChildren(
       ...entry.layers.map((layer) => layerItem(layer)),
     );
+    interiorList.classList.toggle('has-highlight', highlighted !== null);
   }
 
   function layerListMatches(layers: readonly BodyCardInteriorLayer[]): boolean {
@@ -551,6 +560,7 @@ export function createBodyCard(
   }
 
   function syncLayerPressed(): void {
+    interiorList.classList.toggle('has-highlight', highlighted !== null);
     for (const button of interiorList.querySelectorAll<HTMLButtonElement>(
       '[data-layer]',
     )) {
@@ -567,6 +577,7 @@ export function createBodyCard(
     button.type = 'button';
     button.setAttribute('data-testid', `interior-layer-${layer.id}`);
     button.setAttribute('data-layer', layer.id);
+    button.style.setProperty('--layer-color', layer.color);
     button.setAttribute(
       'aria-pressed',
       highlighted === layer.id ? 'true' : 'false',
@@ -598,6 +609,7 @@ export function createBodyCard(
     cutaway = !cutaway;
     if (!cutaway) {
       highlighted = null;
+      previewed = null;
     }
     renderInterior();
     publishCutaway();
@@ -618,6 +630,31 @@ export function createBodyCard(
     }
     highlighted = highlighted === layerId ? null : layerId;
     renderInterior();
+    publishCutaway();
+  }
+
+  function onLayerOver(event: PointerEvent): void {
+    if (disposed || event.pointerType !== 'mouse') {
+      return;
+    }
+    const target = event.target;
+    const button =
+      target instanceof Element
+        ? target.closest<HTMLButtonElement>('[data-layer]')
+        : null;
+    const next = button?.dataset['layer'] ?? null;
+    if (next === previewed) {
+      return;
+    }
+    previewed = next;
+    publishCutaway();
+  }
+
+  function onLayerLeave(): void {
+    if (disposed || previewed === null) {
+      return;
+    }
+    previewed = null;
     publishCutaway();
   }
 

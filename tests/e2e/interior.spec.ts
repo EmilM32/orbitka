@@ -68,8 +68,12 @@ test('earth cutaway shows the layers and keeps them for Jupiter', async ({
   await crust.focus();
   await page.keyboard.press('Enter');
   await expect(crust).toHaveAttribute('aria-pressed', 'true');
+  const layerLabel = page.getByTestId('layer-label');
+  await expect(layerLabel).toBeVisible();
+  await expect(layerLabel).toHaveText('Skorupa');
   await page.keyboard.press('Enter');
   await expect(crust).toHaveAttribute('aria-pressed', 'false');
+  await expect(layerLabel).toBeHidden();
 
   await select(page, 'jupiter');
   await expect(toggle).toHaveAttribute('aria-pressed', 'true');

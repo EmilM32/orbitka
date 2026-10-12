@@ -199,3 +199,30 @@ export function easeOutCubic(t: number): number {
   const remaining = 1 - clamped;
   return 1 - remaining * remaining * remaining;
 }
+
+// A highlighted layer eases in and out over this time (EMI-267).
+export const CUTAWAY_HIGHLIGHT_SECONDS = 0.15;
+
+/** Moves `current` toward `target` by at most `dtSeconds / seconds`. */
+export function stepToward(
+  current: number,
+  target: number,
+  dtSeconds: number,
+  seconds: number,
+): number {
+  if (!Number.isFinite(dtSeconds) || dtSeconds < 0) {
+    throw new RangeError(
+      `stepToward: parameter "dtSeconds" must be finite and >= 0, got ${dtSeconds}`,
+    );
+  }
+  if (!(seconds > 0) || !Number.isFinite(seconds)) {
+    throw new RangeError(
+      `stepToward: parameter "seconds" must be finite and > 0, got ${seconds}`,
+    );
+  }
+  const step = dtSeconds / seconds;
+  if (Math.abs(target - current) <= step) {
+    return target;
+  }
+  return current + Math.sign(target - current) * step;
+}

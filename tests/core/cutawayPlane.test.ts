@@ -5,6 +5,7 @@ import {
   easeOutCubic,
   layerReveal,
   signedDistance,
+  stepToward,
   wedgeAngle,
   wedgeClipNormals,
   type CutawayVec3,
@@ -149,4 +150,13 @@ test('cutawayPlane › easing', () => {
   expect(easeOutCubic(1)).toBe(1);
   expect(easeOutCubic(0.5)).toBeGreaterThan(0.5);
   expect(() => easeOutCubic(Number.NaN)).toThrow(RangeError);
+});
+
+test('cutawayPlane › stepToward eases a highlight without overshooting', () => {
+  expect(stepToward(0, 1, 0.05, 0.15)).toBeCloseTo(1 / 3);
+  expect(stepToward(0.9, 1, 0.05, 0.15)).toBe(1);
+  expect(stepToward(1, 0, 0.05, 0.15)).toBeCloseTo(2 / 3);
+  expect(stepToward(0.5, 0.5, 0, 0.15)).toBe(0.5);
+  expect(() => stepToward(0, 1, -1, 0.15)).toThrow(RangeError);
+  expect(() => stepToward(0, 1, 0.1, 0)).toThrow(RangeError);
 });

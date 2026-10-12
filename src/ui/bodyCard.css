@@ -376,7 +376,25 @@
 }
 
 .body-card-interior-button[aria-pressed='true'] {
-  background: rgba(140, 200, 255, 0.12);
+  background: color-mix(in srgb, var(--layer-color) 16%, transparent);
+  box-shadow: inset 3px 0 0 var(--layer-color);
+}
+
+/* The legend mirrors the scene: with a layer chosen, the others fade. */
+.body-card-interior-list.has-highlight
+  .body-card-interior-button[aria-pressed='false']
+  .body-card-interior-swatch {
+  opacity: 0.4;
+}
+
+.body-card-interior-swatch {
+  transition: opacity 150ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .body-card-interior-swatch {
+    transition: none;
+  }
 }
 
 .body-card-interior-swatch {

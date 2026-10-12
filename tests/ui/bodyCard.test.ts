@@ -675,6 +675,45 @@ test('cutaway legend follows the body and highlights a layer', () => {
   expect(states.at(-1)?.active).toBe(false);
 });
 
+function pointer(type: string, pointerType: string): Event {
+  const event = new Event(type, { bubbles: type === 'pointerover' });
+  Object.defineProperty(event, 'pointerType', { value: pointerType });
+  return event;
+}
+
+test('cutaway legend previews a layer under the mouse and marks the chosen one', () => {
+  const states: BodyCardCutawayState[] = [];
+  const { card } = setup({
+    interiors: INTERIORS,
+    onCutaway: (state) => {
+      states.push(state);
+    },
+  });
+  card.show('earth');
+  cutawayButton(card).click();
+  const list = card.element.querySelector<HTMLElement>(
+    '.body-card-interior-list',
+  );
+  const crust = card.element.querySelector<HTMLButtonElement>(
+    '[data-testid="interior-layer-crust"]',
+  );
+  expect(crust?.style.getPropertyValue('--layer-color')).not.toBe('');
+
+  crust?.dispatchEvent(pointer('pointerover', 'touch'));
+  expect(states.at(-1)?.layerId).toBeNull();
+  crust?.dispatchEvent(pointer('pointerover', 'mouse'));
+  expect(states.at(-1)?.layerId).toBe('crust');
+  expect(crust?.getAttribute('aria-pressed')).toBe('false');
+  list?.dispatchEvent(pointer('pointerleave', 'mouse'));
+  expect(states.at(-1)?.layerId).toBeNull();
+
+  crust?.click();
+  expect(list?.classList.contains('has-highlight')).toBe(true);
+  expect(states.at(-1)?.layerId).toBe('crust');
+  crust?.click();
+  expect(list?.classList.contains('has-highlight')).toBe(false);
+});
+
 test('cutaway stays on for a body that has no layers yet', () => {
   const { card } = setup({ interiors: INTERIORS });
   card.show('earth');

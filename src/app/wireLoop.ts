@@ -3,6 +3,7 @@ import type { CameraControllerState } from '@render/cameraController.ts';
 import type { CameraFlightSnapshot } from '@render/cameraDirector.ts';
 import { zoomLimitState } from '@core/zoomLimits.ts';
 import type { PlanetMotion } from '@render/forceArrows.ts';
+import type { CutawayLabelPoint } from '@render/interiorCutaway.ts';
 
 import type { DebugRig } from './wireDebug.ts';
 import type { IntroRig } from './wireIntro.ts';
@@ -64,6 +65,13 @@ export function wireLoop({
     targetZ: 0,
   };
   const zoomLimits = { atMin: false, atMax: false };
+  const layerPoint: CutawayLabelPoint = {
+    anchorX: 0,
+    anchorY: 0,
+    centerX: 0,
+    centerY: 0,
+    radiusPx: 0,
+  };
   const flightState: CameraFlightSnapshot = {
     active: 0,
     kind: 0,
@@ -134,6 +142,11 @@ export function wireLoop({
         projector.update(view.camera, size.width, size.height);
         labelProjector.update(view.camera, size.width, size.height);
         labels.update(size.width, size.height, simDt);
+        uiRig.layerLabel.update(
+          cutaway.readLabel(view.camera, size.width, size.height, layerPoint)
+            ? layerPoint
+            : null,
+        );
       }
       ring.update(simDt);
       debugRig.afterRender();

@@ -23,10 +23,12 @@ import {
 
 import {
   CUTAWAY_FACE_OFFSET,
+  CUTAWAY_HIGHLIGHT_SECONDS,
   CUTAWAY_OPEN_SECONDS,
   CUTAWAY_RIM_INSET,
   captureOctantFrame,
   layerReveal,
+  stepToward,
   wedgeAngle,
   wedgeClipNormals,
   type CutawayVec3,
@@ -36,7 +38,16 @@ import type { InteriorCatalog, InteriorEntry } from '@data/interiors.ts';
 
 const FACE_SEGMENTS = 48;
 const ARC_SEGMENTS = 48;
-const HIGHLIGHT_MIX = 0.45;
+// With a layer chosen, the others keep this much of their saturation and
+// brightness, so the chosen one keeps its legend color and still stands out.
+const DIM_SATURATION = 0.35;
+const DIM_BRIGHTNESS = 0.4;
+// The chosen layer's faces move this far toward the camera, in radii.
+const HIGHLIGHT_LIFT = 0.012;
+const OUTLINE_COLOR = 0xffffff;
+const OUTLINE_OPACITY = 0.9;
+// Where the label points: mid-radius on the fixed wall, halfway up.
+const LABEL_ANGLE = Math.PI / 4;
 // Fixed shading per face, so the opening reads as a solid on the night side
 // too. Order: the fixed wall, the swinging wall, the floor.
 const FACE_SHADES = [0.84, 0.7, 1] as const;
@@ -57,6 +68,16 @@ export type InteriorCutaway = {
   setBody(id: string | null): void;
   setHighlight(layerId: string | null): void;
   /**
+   * Screen position, CSS px, of the chosen layer and of the body it belongs
+   * to, for its label. False when no layer is shown.
+   */
+  readLabel(
+    camera: PerspectiveCamera,
+    width: number,
+    height: number,
+    out: CutawayLabelPoint,
+  ): boolean;
+  /**
    * Moves the planes with the body. While a camera flight is running the
    * planet stays whole; the cut is aimed when the flight ends, then frozen
    * so orbiting shows the surface beside the layers.
@@ -67,6 +88,14 @@ export type InteriorCutaway = {
     flightActive: boolean,
   ): void;
   dispose(): void;
+};
+
+export type CutawayLabelPoint = {
+  anchorX: number;
+  anchorY: number;
+  centerX: number;
+  centerY: number;
+  radiusPx: number;
 };
 
 export type InteriorCutawayOptions = {
@@ -83,9 +112,28 @@ export type InteriorCutawayOptions = {
 type LayerFaces = {
   id: string;
   base: Color;
+  /** Radii on the drawing, scene units. */
+  inner: number;
+  outer: number;
   /** One per face, in `FACE_SHADES` order. */
   materials: MeshBasicMaterial[];
+  /** Face plus outline, one per face; moved along `FACE_LIFT`. */
+  slots: Group[];
+  outlines: LineSegments[];
+  outlineMaterial: LineBasicMaterial;
+  /** 1 when this layer is the chosen one. */
+  emphasis: number;
+  /** 1 when another layer is the chosen one. */
+  dim: number;
 };
+
+// Unit direction from each face into the removed eighth, in the face
+// parent's frame. Same order as `FACE_SHADES`.
+const FACE_LIFT = [
+  [0, 1, 0],
+  [0, -1, 0],
+  [0, 0, 1],
+] as const;
 
 type SavedClip = { side: Side; clipIntersection: boolean };
 
@@ -154,6 +202,29 @@ function borderGeometry(
   return geometry;
 }
 
+/** One layer's edge: both arcs and the two straight sides, in XY. */
+function outlineGeometry(inner: number, outer: number): BufferGeometry {
+  const points: number[] = [];
+  for (const radius of inner === 0 ? [outer] : [inner, outer]) {
+    for (let step = 0; step < ARC_SEGMENTS; step += 1) {
+      const from = (step / ARC_SEGMENTS) * QUARTER;
+      const to = ((step + 1) / ARC_SEGMENTS) * QUARTER;
+      points.push(
+        Math.cos(from) * radius,
+        Math.sin(from) * radius,
+        0,
+        Math.cos(to) * radius,
+        Math.sin(to) * radius,
+        0,
+      );
+    }
+  }
+  points.push(inner, 0, 0, outer, 0, 0, 0, inner, 0, 0, outer, 0);
+  const geometry = new BufferGeometry();
+  geometry.setAttribute('position', new Float32BufferAttribute(points, 3));
+  return geometry;
+}
+
 export function createInteriorCutaway(
   options: InteriorCutawayOptions,
 ): InteriorCutaway {
@@ -179,8 +250,12 @@ export function createInteriorCutaway(
   const axisC = new Vector3();
   const normal = new Vector3();
   const dormant = new Color(DORMANT_COLOR);
-  const white = new Color(0xffffff);
   const scratch = new Color();
+  const gray = new Color();
+  const anchor = new Vector3();
+  const center = new Vector3();
+  const edge = new Vector3();
+  const cameraRight = new Vector3();
   const bodyTuple: CutawayVec3 = { x: 0, y: 0, z: 0 };
   const cameraTuple: CutawayVec3 = { x: 0, y: 0, z: 0 };
   const upTuple: CutawayVec3 = { x: 0, y: 1, z: 0 };
@@ -212,9 +287,10 @@ export function createInteriorCutaway(
   let captured = false;
   let progress = 0;
   let appliedId: string | null = null;
+  let sceneRadius = 0;
   let disposed = false;
 
-  return { setActive, setBody, setHighlight, update, dispose };
+  return { setActive, setBody, setHighlight, readLabel, update, dispose };
 
   function setActive(next: boolean): void {
     if (disposed || next === active) {
@@ -242,7 +318,78 @@ export function createInteriorCutaway(
       return;
     }
     highlight = layerId;
+    if (options.reducedMotion.matches) {
+      settleHighlight(Number.POSITIVE_INFINITY);
+    }
     paintLayers();
+  }
+
+  function readLabel(
+    camera: PerspectiveCamera,
+    width: number,
+    height: number,
+    out: CutawayLabelPoint,
+  ): boolean {
+    if (disposed || !group.visible || highlight === null || !captured) {
+      return false;
+    }
+    const layer = layers.find((entry) => entry.id === highlight);
+    if (layer === undefined) {
+      return false;
+    }
+    const mid = (layer.inner + layer.outer) / 2;
+    const lift =
+      (CUTAWAY_FACE_OFFSET + HIGHLIGHT_LIFT * layer.emphasis) * sceneRadius;
+    anchor.set(Math.cos(LABEL_ANGLE) * mid, lift, Math.sin(LABEL_ANGLE) * mid);
+    group.updateMatrixWorld();
+    anchor.applyMatrix4(group.matrixWorld);
+    center.copy(group.position);
+    camera.updateMatrixWorld();
+    cameraRight.setFromMatrixColumn(camera.matrixWorld, 0).normalize();
+    edge.copy(center).addScaledVector(cameraRight, sceneRadius);
+    anchor.project(camera);
+    center.project(camera);
+    edge.project(camera);
+    if (anchor.z > 1 || center.z > 1) {
+      return false;
+    }
+    out.anchorX = (anchor.x * 0.5 + 0.5) * width;
+    out.anchorY = (-anchor.y * 0.5 + 0.5) * height;
+    out.centerX = (center.x * 0.5 + 0.5) * width;
+    out.centerY = (-center.y * 0.5 + 0.5) * height;
+    const edgeX = (edge.x * 0.5 + 0.5) * width;
+    const edgeY = (-edge.y * 0.5 + 0.5) * height;
+    out.radiusPx = Math.hypot(edgeX - out.centerX, edgeY - out.centerY);
+    return true;
+  }
+
+  /**
+   * Moves every layer's emphasis and dim toward the current choice.
+   * An infinite step settles them at once. True when anything changed.
+   */
+  function settleHighlight(dtSeconds: number): boolean {
+    let moving = false;
+    for (const layer of layers) {
+      const chosen = highlight !== null && layer.id === highlight;
+      const dimmed = highlight !== null && !chosen;
+      const emphasis = settle(layer.emphasis, chosen ? 1 : 0, dtSeconds);
+      const dim = settle(layer.dim, dimmed ? 1 : 0, dtSeconds);
+      if (emphasis !== layer.emphasis || dim !== layer.dim) {
+        moving = true;
+      }
+      layer.emphasis = emphasis;
+      layer.dim = dim;
+    }
+    if (moving) {
+      placeSlots();
+    }
+    return moving;
+  }
+
+  function settle(current: number, target: number, dtSeconds: number): number {
+    return Number.isFinite(dtSeconds)
+      ? stepToward(current, target, dtSeconds, CUTAWAY_HIGHLIGHT_SECONDS)
+      : target;
   }
 
   function update(
@@ -296,9 +443,17 @@ export function createInteriorCutaway(
       hideExtras(bodyId);
     } else if (reduced) {
       progress = 1;
-    } else if (progress < 1) {
-      progress = Math.min(1, progress + dtSeconds / CUTAWAY_OPEN_SECONDS);
-      paintLayers();
+      if (settleHighlight(Number.POSITIVE_INFINITY)) {
+        paintLayers();
+      }
+    } else {
+      const opening = progress < 1;
+      if (opening) {
+        progress = Math.min(1, progress + dtSeconds / CUTAWAY_OPEN_SECONDS);
+      }
+      if (settleHighlight(dtSeconds) || opening) {
+        paintLayers();
+      }
     }
 
     const angle = wedgeAngle(progress);
@@ -348,64 +503,111 @@ export function createInteriorCutaway(
 
   function buildFaces(entry: InteriorEntry, radius: number): void {
     disposeFaces();
-    const offset = CUTAWAY_FACE_OFFSET * radius;
+    sceneRadius = radius;
+    const parents = [wallFixed, wallSwing, floor] as const;
+    const outlineShift = 0.5 * CUTAWAY_FACE_OFFSET * radius;
     for (let index = 0; index < entry.layers.length; index += 1) {
       const layer = entry.layers[index];
       if (layer === undefined) {
         continue;
       }
       const { inner, outer } = layerRadii(entry, index, radius);
-      // Walls stand in the XZ plane: turn the XY quarter up around X.
-      const wallGeometry = quarterGeometry(inner, outer).rotateX(QUARTER);
       const floorGeometry = quarterGeometry(inner, outer);
-      geometries.push(wallGeometry, floorGeometry);
-      const materials = FACE_SHADES.map(
-        () =>
-          new MeshBasicMaterial({
-            side: DoubleSide,
-            polygonOffset: true,
-            polygonOffsetFactor: -1,
-            polygonOffsetUnits: -1,
-          }),
-      );
-      const [fixedMaterial, swingMaterial, floorMaterial] = materials;
-      if (
-        fixedMaterial === undefined ||
-        swingMaterial === undefined ||
-        floorMaterial === undefined
-      ) {
-        throw new Error('interiorCutaway: missing face material');
+      // Walls stand in the XZ plane: turn the XY quarter up around X.
+      const wallGeometry = floorGeometry.clone().rotateX(QUARTER);
+      const floorOutline = outlineGeometry(inner, outer);
+      const wallOutline = floorOutline.clone().rotateX(QUARTER);
+      geometries.push(wallGeometry, floorGeometry, wallOutline, floorOutline);
+      const outlineMaterial = new LineBasicMaterial({
+        color: OUTLINE_COLOR,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+      });
+      const materials: MeshBasicMaterial[] = [];
+      const slots: Group[] = [];
+      const outlines: LineSegments[] = [];
+      for (let face = 0; face < parents.length; face += 1) {
+        const parent = parents[face];
+        const lift = FACE_LIFT[face];
+        if (parent === undefined || lift === undefined) {
+          continue;
+        }
+        const isFloor = parent === floor;
+        const material = new MeshBasicMaterial({
+          side: DoubleSide,
+          polygonOffset: true,
+          polygonOffsetFactor: -1,
+          polygonOffsetUnits: -1,
+        });
+        const mesh = new Mesh(isFloor ? floorGeometry : wallGeometry, material);
+        mesh.name = layer.id;
+        const outline = new LineSegments(
+          isFloor ? floorOutline : wallOutline,
+          outlineMaterial,
+        );
+        outline.name = 'interior-outline';
+        outline.visible = false;
+        outline.position.set(
+          lift[0] * outlineShift,
+          lift[1] * outlineShift,
+          lift[2] * outlineShift,
+        );
+        const slot = new Group();
+        slot.add(mesh, outline);
+        parent.add(slot);
+        materials.push(material);
+        slots.push(slot);
+        outlines.push(outline);
       }
-      addFace(wallFixed, wallGeometry, fixedMaterial, layer.id, 0, offset, 0);
-      // The swinging wall's removed side is local -Y once turned by its angle.
-      addFace(wallSwing, wallGeometry, swingMaterial, layer.id, 0, -offset, 0);
-      addFace(floor, floorGeometry, floorMaterial, layer.id, 0, 0, offset);
-      layers.push({ id: layer.id, base: new Color(layer.color), materials });
+      layers.push({
+        id: layer.id,
+        base: new Color(layer.color),
+        inner,
+        outer,
+        materials,
+        slots,
+        outlines,
+        outlineMaterial,
+        emphasis: 0,
+        dim: 0,
+      });
     }
 
     const borders = borderGeometry(entry, radius);
     const wallBorders = borders.clone().rotateX(QUARTER);
     geometries.push(borders, wallBorders);
-    const lineOffset = offset * 1.5;
+    const lineOffset = CUTAWAY_FACE_OFFSET * radius * 1.5;
     addBorder(wallFixed, wallBorders, 0, lineOffset, 0);
     addBorder(wallSwing, wallBorders, 0, -lineOffset, 0);
     addBorder(floor, borders, 0, 0, lineOffset);
+    settleHighlight(Number.POSITIVE_INFINITY);
+    placeSlots();
     paintLayers();
   }
 
-  function addFace(
-    parent: Group,
-    geometry: BufferGeometry,
-    material: MeshBasicMaterial,
-    name: string,
-    x: number,
-    y: number,
-    z: number,
-  ): void {
-    const mesh = new Mesh(geometry, material);
-    mesh.name = name;
-    mesh.position.set(x, y, z);
-    parent.add(mesh);
+  /** Puts each face at its offset plus the chosen layer's lift. */
+  function placeSlots(): void {
+    for (const layer of layers) {
+      const distance =
+        (CUTAWAY_FACE_OFFSET + HIGHLIGHT_LIFT * layer.emphasis) * sceneRadius;
+      for (let face = 0; face < layer.slots.length; face += 1) {
+        const slot = layer.slots[face];
+        const lift = FACE_LIFT[face];
+        if (slot === undefined || lift === undefined) {
+          continue;
+        }
+        slot.position.set(
+          lift[0] * distance,
+          lift[1] * distance,
+          lift[2] * distance,
+        );
+      }
+      layer.outlineMaterial.opacity = OUTLINE_OPACITY * layer.emphasis;
+      for (const outline of layer.outlines) {
+        outline.visible = layer.emphasis > 0;
+      }
+    }
   }
 
   function addBorder(
@@ -486,8 +688,12 @@ export function createInteriorCutaway(
       }
       const reveal = layerReveal(progress, index, layers.length);
       scratch.copy(dormant).lerp(layer.base, reveal);
-      if (layer.id === highlight) {
-        scratch.lerp(white, HIGHLIGHT_MIX);
+      if (layer.dim > 0) {
+        const luminance =
+          0.2126 * scratch.r + 0.7152 * scratch.g + 0.0722 * scratch.b;
+        gray.setRGB(luminance, luminance, luminance);
+        scratch.lerp(gray, layer.dim * (1 - DIM_SATURATION));
+        scratch.multiplyScalar(1 - layer.dim * (1 - DIM_BRIGHTNESS));
       }
       for (let face = 0; face < layer.materials.length; face += 1) {
         const material = layer.materials[face];
@@ -509,6 +715,7 @@ export function createInteriorCutaway(
       for (const material of layer.materials) {
         material.dispose();
       }
+      layer.outlineMaterial.dispose();
     }
     layers.length = 0;
   }

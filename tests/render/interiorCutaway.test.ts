@@ -110,6 +110,53 @@ test('interiorCutaway › a settled body opens toward the camera', () => {
   material.dispose();
 });
 
+test('interiorCutaway › a chosen layer keeps its color and gets a label point', () => {
+  const { scene, camera, cutaway } = setup();
+  cutaway.setActive(true);
+  cutaway.setBody('earth');
+  cutaway.update(0, camera, false);
+  const point = {
+    anchorX: 0,
+    anchorY: 0,
+    centerX: 0,
+    centerY: 0,
+    radiusPx: 0,
+  };
+  expect(cutaway.readLabel(camera, 800, 600, point)).toBe(false);
+
+  const colorOf = (name: string): string => {
+    const mesh = scene.getObjectByName(name);
+    if (
+      !(mesh instanceof Mesh) ||
+      !(mesh.material instanceof MeshBasicMaterial)
+    ) {
+      throw new Error(`missing face ${name}`);
+    }
+    return mesh.material.color.getHexString();
+  };
+  const crustBefore = colorOf('crust');
+  const coreBefore = colorOf('core');
+
+  cutaway.setHighlight('core');
+  cutaway.update(0, camera, false);
+  expect(colorOf('core')).toBe(coreBefore);
+  expect(colorOf('crust')).not.toBe(crustBefore);
+
+  expect(cutaway.readLabel(camera, 800, 600, point)).toBe(true);
+  expect(point.centerX).toBeCloseTo(400);
+  expect(point.centerY).toBeCloseTo(300);
+  expect(point.radiusPx).toBeGreaterThan(0);
+  expect(Math.hypot(point.anchorX - 400, point.anchorY - 300)).toBeLessThan(
+    point.radiusPx,
+  );
+
+  cutaway.setHighlight(null);
+  cutaway.update(0, camera, false);
+  expect(colorOf('crust')).toBe(crustBefore);
+  expect(cutaway.readLabel(camera, 800, 600, point)).toBe(false);
+  cutaway.dispose();
+});
+
 test('interiorCutaway › a flight keeps the body whole until the camera arrives', () => {
   const { camera, material, cutaway } = setup();
   cutaway.setActive(true);

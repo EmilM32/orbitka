@@ -2,11 +2,12 @@ import { expect, test } from 'vitest';
 import { build, type Rolldown } from 'vite';
 
 // EMI-235. Built in memory with the real vite.config.ts. The app chunk was
-// 167 kB at the split (9.10.2026) and 227 kB with the gravity grid (EMI-264,
-// raised from 220); the limit leaves room for M5 without letting it creep up
-// unnoticed. three.js sits in its own chunk under the
+// 167 kB at the split (9.10.2026), 227 kB with the gravity grid (EMI-264,
+// raised from 220) and 243 kB with the octant cutaway and its layer label
+// (EMI-266, EMI-267, raised from 240); the limit leaves room for M5 without
+// letting it creep up unnoticed. three.js sits in its own chunk under the
 // 700 kB chunkSizeWarningLimit, pinned with the dependency.
-const APP_CHUNK_LIMIT_KB = 240;
+const APP_CHUNK_LIMIT_KB = 250;
 const THREE_CHUNK_LIMIT_KB = 700;
 
 type Output = Rolldown.RolldownOutput;

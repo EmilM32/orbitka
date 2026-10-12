@@ -12,6 +12,7 @@ import {
   type BodyCard,
   type BodyCardInterior,
 } from '@ui/bodyCard.ts';
+import { createLayerLabel } from '@ui/layerLabel.ts';
 import { createPageHeader } from '@ui/pageHeader.ts';
 import { createScaleNotice } from '@ui/scaleNotice.ts';
 import { createGlobalShortcuts } from '@ui/globalShortcuts.ts';
@@ -192,6 +193,10 @@ export function wireUi({
     `(min-width: ${VIEW_CONFIG.tabletMinWidthPx}px) and (max-width: ${VIEW_CONFIG.tabletMaxWidthPx}px)`,
   );
   // After the canvas and before the view group in the Tab order (SPEC §8).
+  const layerLabel = createLayerLabel(document.body);
+  stack.add(() => {
+    layerLabel.dispose();
+  });
   const card = createBodyCard(document.body, {
     bodies,
     content: bodyContent,
@@ -208,6 +213,11 @@ export function wireUi({
       cutaway.setActive(state.active);
       cutaway.setBody(state.active ? state.bodyId : null);
       cutaway.setHighlight(state.layerId);
+      const layers =
+        state.bodyId === null ? undefined : interiors[state.bodyId]?.layers;
+      layerLabel.setText(
+        layers?.find((layer) => layer.id === state.layerId)?.name ?? null,
+      );
     },
   });
   bodyCard = card;
@@ -250,6 +260,7 @@ export function wireUi({
     bodiesDrawer: drawer,
     viewControls,
     bodyCard: card,
+    layerLabel,
     timeControls,
     tabletQuery,
     dispose: stack.disposeAll,

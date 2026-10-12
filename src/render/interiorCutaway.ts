@@ -1,12 +1,18 @@
 import {
+  BufferGeometry,
   CircleGeometry,
   Color,
   DoubleSide,
+  Float32BufferAttribute,
   FrontSide,
   Group,
+  LineBasicMaterial,
+  LineSegments,
+  Matrix4,
   Mesh,
   MeshBasicMaterial,
   Plane,
+  Quaternion,
   RingGeometry,
   Vector3,
   type Material,
@@ -16,18 +22,29 @@ import {
 } from 'three';
 
 import {
+  CUTAWAY_FACE_OFFSET,
   CUTAWAY_OPEN_SECONDS,
   CUTAWAY_RIM_INSET,
-  captureCutNormal,
-  cutPlanePoint,
-  easeOutCubic,
-  layerDiscOffset,
+  captureOctantFrame,
+  layerReveal,
+  wedgeAngle,
+  wedgeClipNormals,
   type CutawayVec3,
+  type OctantFrame,
 } from '@core/cutawayPlane.ts';
 import type { InteriorCatalog, InteriorEntry } from '@data/interiors.ts';
 
-const DISC_SEGMENTS = 64;
+const FACE_SEGMENTS = 48;
+const ARC_SEGMENTS = 48;
 const HIGHLIGHT_MIX = 0.45;
+// Fixed shading per face, so the opening reads as a solid on the night side
+// too. Order: the fixed wall, the swinging wall, the floor.
+const FACE_SHADES = [0.84, 0.7, 1] as const;
+// Faces wear this before their layer color comes in.
+const DORMANT_COLOR = 0x3b3f47;
+const LINE_COLOR = 0x0b0d12;
+const LINE_OPACITY = 0.55;
+const QUARTER = Math.PI / 2;
 
 type Hideable = { visible: boolean };
 
@@ -40,7 +57,7 @@ export type InteriorCutaway = {
   setBody(id: string | null): void;
   setHighlight(layerId: string | null): void;
   /**
-   * Moves the plane with the body. While a camera flight is running the
+   * Moves the planes with the body. While a camera flight is running the
    * planet stays whole; the cut is aimed when the flight ends, then frozen
    * so orbiting shows the surface beside the layers.
    */
@@ -63,11 +80,14 @@ export type InteriorCutawayOptions = {
   reducedMotion: { readonly matches: boolean };
 };
 
-type Disc = {
-  mesh: Mesh;
-  material: MeshBasicMaterial;
+type LayerFaces = {
+  id: string;
   base: Color;
+  /** One per face, in `FACE_SHADES` order. */
+  materials: MeshBasicMaterial[];
 };
+
+type SavedClip = { side: Side; clipIntersection: boolean };
 
 function singleMaterial(mesh: Mesh): Material {
   const material = mesh.material;
@@ -81,7 +101,7 @@ function singleMaterial(mesh: Mesh): Material {
   return material;
 }
 
-function discRadii(
+function layerRadii(
   entry: InteriorEntry,
   index: number,
   sceneRadius: number,
@@ -99,29 +119,91 @@ function discRadii(
   };
 }
 
+/** A quarter disc or ring in the XY plane, from +X toward +Y. */
+function quarterGeometry(inner: number, outer: number): BufferGeometry {
+  return inner === 0
+    ? new CircleGeometry(outer, FACE_SEGMENTS, 0, QUARTER)
+    : new RingGeometry(inner, outer, FACE_SEGMENTS, 1, 0, QUARTER);
+}
+
+/** Layer borders as quarter arcs plus the two straight edges, in XY. */
+function borderGeometry(
+  entry: InteriorEntry,
+  sceneRadius: number,
+): BufferGeometry {
+  const points: number[] = [];
+  for (let index = 0; index < entry.layers.length; index += 1) {
+    const { outer } = layerRadii(entry, index, sceneRadius);
+    for (let step = 0; step < ARC_SEGMENTS; step += 1) {
+      const from = (step / ARC_SEGMENTS) * QUARTER;
+      const to = ((step + 1) / ARC_SEGMENTS) * QUARTER;
+      points.push(
+        Math.cos(from) * outer,
+        Math.sin(from) * outer,
+        0,
+        Math.cos(to) * outer,
+        Math.sin(to) * outer,
+        0,
+      );
+    }
+  }
+  const rim = layerRadii(entry, 0, sceneRadius).outer;
+  points.push(0, 0, 0, rim, 0, 0, 0, 0, 0, 0, rim, 0);
+  const geometry = new BufferGeometry();
+  geometry.setAttribute('position', new Float32BufferAttribute(points, 3));
+  return geometry;
+}
+
 export function createInteriorCutaway(
   options: InteriorCutawayOptions,
 ): InteriorCutaway {
   const { scene, clipping, catalog, meshes, radii, rings, glow } = options;
-  const plane = new Plane();
+  const planes = [new Plane(), new Plane(), new Plane()] as const;
   const group = new Group();
   group.name = 'interior-cutaway';
   group.visible = false;
   scene.add(group);
+  // Local frame of `group`: x = a, y = b, z = c of the octant frame.
+  const wallFixed = new Group();
+  const wallSwing = new Group();
+  const floor = new Group();
+  group.add(wallFixed, wallSwing, floor);
 
   const bodyPosition = new Vector3();
   const cameraPosition = new Vector3();
+  const cameraUp = new Vector3();
+  const cameraQuaternion = new Quaternion();
+  const basis = new Matrix4();
+  const axisA = new Vector3();
+  const axisB = new Vector3();
+  const axisC = new Vector3();
   const normal = new Vector3();
-  const point = new Vector3();
-  const zAxis = new Vector3(0, 0, 1);
+  const dormant = new Color(DORMANT_COLOR);
   const white = new Color(0xffffff);
+  const scratch = new Color();
   const bodyTuple: CutawayVec3 = { x: 0, y: 0, z: 0 };
   const cameraTuple: CutawayVec3 = { x: 0, y: 0, z: 0 };
-  const normalTuple: CutawayVec3 = { x: 0, y: 0, z: 1 };
-  const pointTuple: CutawayVec3 = { x: 0, y: 0, z: 0 };
+  const upTuple: CutawayVec3 = { x: 0, y: 1, z: 0 };
+  const frame: OctantFrame = {
+    a: { x: 1, y: 0, z: 0 },
+    b: { x: 0, y: 1, z: 0 },
+    c: { x: 0, y: 0, z: 1 },
+  };
+  const normals: [CutawayVec3, CutawayVec3, CutawayVec3] = [
+    { x: 0, y: 0, z: 0 },
+    { x: 0, y: 0, z: 0 },
+    { x: 0, y: 0, z: 0 },
+  ];
 
-  const discs: Disc[] = [];
-  const savedSide = new WeakMap<Material, Side>();
+  const layers: LayerFaces[] = [];
+  const geometries: BufferGeometry[] = [];
+  const lineMaterial = new LineBasicMaterial({
+    color: LINE_COLOR,
+    transparent: true,
+    opacity: LINE_OPACITY,
+    depthWrite: false,
+  });
+  const saved = new WeakMap<Material, SavedClip>();
   const hidden: { object: Hideable; visible: boolean }[] = [];
 
   let active = false;
@@ -160,7 +242,7 @@ export function createInteriorCutaway(
       return;
     }
     highlight = layerId;
-    paintHighlight();
+    paintLayers();
   }
 
   function update(
@@ -197,38 +279,42 @@ export function createInteriorCutaway(
     }
 
     readPositions(mesh, camera);
+    const reduced = options.reducedMotion.matches;
     if (!captured) {
-      const ok = captureCutNormal(bodyTuple, cameraTuple, normalTuple);
-      if (!ok) {
+      if (!captureOctantFrame(bodyTuple, cameraTuple, upTuple, frame)) {
         return;
       }
-      normal.set(normalTuple.x, normalTuple.y, normalTuple.z);
       captured = true;
-      progress = options.reducedMotion.matches ? 1 : 0;
-      showDiscs(entry, radius);
+      progress = reduced ? 1 : 0;
+      axisA.set(frame.a.x, frame.a.y, frame.a.z);
+      axisB.set(frame.b.x, frame.b.y, frame.b.z);
+      axisC.set(frame.c.x, frame.c.y, frame.c.z);
+      basis.makeBasis(axisA, axisB, axisC);
+      group.quaternion.setFromRotationMatrix(basis);
+      buildFaces(entry, radius);
       applyShell(mesh, bodyId);
       hideExtras(bodyId);
-    } else if (!options.reducedMotion.matches && progress < 1) {
-      progress = Math.min(1, progress + dtSeconds / CUTAWAY_OPEN_SECONDS);
-    } else if (options.reducedMotion.matches) {
+    } else if (reduced) {
       progress = 1;
+    } else if (progress < 1) {
+      progress = Math.min(1, progress + dtSeconds / CUTAWAY_OPEN_SECONDS);
+      paintLayers();
     }
 
-    const eased = easeOutCubic(progress);
-    cutPlanePoint(bodyTuple, normalTuple, radius, eased, pointTuple);
-    point.set(pointTuple.x, pointTuple.y, pointTuple.z);
-    plane.setFromNormalAndCoplanarPoint(normal, point);
-    group.position.copy(bodyPosition);
-    group.quaternion.setFromUnitVectors(zAxis, normal);
-    group.visible = progress > 0;
-    const opening = progress < 1;
-    for (const disc of discs) {
-      disc.material.opacity = eased;
-      if (disc.material.transparent !== opening) {
-        disc.material.transparent = opening;
-        disc.material.needsUpdate = true;
+    const angle = wedgeAngle(progress);
+    wedgeClipNormals(frame, angle, normals);
+    for (let index = 0; index < planes.length; index += 1) {
+      const n = normals[index];
+      const plane = planes[index];
+      if (n === undefined || plane === undefined) {
+        continue;
       }
+      normal.set(n.x, n.y, n.z);
+      plane.setFromNormalAndCoplanarPoint(normal, bodyPosition);
     }
+    wallSwing.rotation.z = angle;
+    group.position.copy(bodyPosition);
+    group.visible = angle > 0;
   }
 
   function dispose(): void {
@@ -237,7 +323,8 @@ export function createInteriorCutaway(
     }
     disposed = true;
     clearCut();
-    disposeDiscs();
+    disposeFaces();
+    lineMaterial.dispose();
     scene.remove(group);
   }
 
@@ -246,49 +333,105 @@ export function createInteriorCutaway(
     camera.updateWorldMatrix(true, false);
     mesh.getWorldPosition(bodyPosition);
     camera.getWorldPosition(cameraPosition);
+    camera.getWorldQuaternion(cameraQuaternion);
+    cameraUp.set(0, 1, 0).applyQuaternion(cameraQuaternion);
     bodyTuple.x = bodyPosition.x;
     bodyTuple.y = bodyPosition.y;
     bodyTuple.z = bodyPosition.z;
     cameraTuple.x = cameraPosition.x;
     cameraTuple.y = cameraPosition.y;
     cameraTuple.z = cameraPosition.z;
+    upTuple.x = cameraUp.x;
+    upTuple.y = cameraUp.y;
+    upTuple.z = cameraUp.z;
   }
 
-  function showDiscs(entry: InteriorEntry, radius: number): void {
-    disposeDiscs();
+  function buildFaces(entry: InteriorEntry, radius: number): void {
+    disposeFaces();
+    const offset = CUTAWAY_FACE_OFFSET * radius;
     for (let index = 0; index < entry.layers.length; index += 1) {
       const layer = entry.layers[index];
       if (layer === undefined) {
         continue;
       }
-      const { inner, outer } = discRadii(entry, index, radius);
-      const geometry =
-        inner === 0
-          ? new CircleGeometry(outer, DISC_SEGMENTS)
-          : new RingGeometry(inner, outer, DISC_SEGMENTS);
-      const material = new MeshBasicMaterial({
-        color: layer.color,
-        side: DoubleSide,
-        polygonOffset: true,
-        polygonOffsetFactor: -1,
-        polygonOffsetUnits: -1,
-      });
-      const mesh = new Mesh(geometry, material);
-      mesh.name = layer.id;
-      mesh.position.z = layerDiscOffset(index, entry.layers.length, radius);
-      group.add(mesh);
-      discs.push({ mesh, material, base: new Color(layer.color) });
+      const { inner, outer } = layerRadii(entry, index, radius);
+      // Walls stand in the XZ plane: turn the XY quarter up around X.
+      const wallGeometry = quarterGeometry(inner, outer).rotateX(QUARTER);
+      const floorGeometry = quarterGeometry(inner, outer);
+      geometries.push(wallGeometry, floorGeometry);
+      const materials = FACE_SHADES.map(
+        () =>
+          new MeshBasicMaterial({
+            side: DoubleSide,
+            polygonOffset: true,
+            polygonOffsetFactor: -1,
+            polygonOffsetUnits: -1,
+          }),
+      );
+      const [fixedMaterial, swingMaterial, floorMaterial] = materials;
+      if (
+        fixedMaterial === undefined ||
+        swingMaterial === undefined ||
+        floorMaterial === undefined
+      ) {
+        throw new Error('interiorCutaway: missing face material');
+      }
+      addFace(wallFixed, wallGeometry, fixedMaterial, layer.id, 0, offset, 0);
+      // The swinging wall's removed side is local -Y once turned by its angle.
+      addFace(wallSwing, wallGeometry, swingMaterial, layer.id, 0, -offset, 0);
+      addFace(floor, floorGeometry, floorMaterial, layer.id, 0, 0, offset);
+      layers.push({ id: layer.id, base: new Color(layer.color), materials });
     }
-    paintHighlight();
+
+    const borders = borderGeometry(entry, radius);
+    const wallBorders = borders.clone().rotateX(QUARTER);
+    geometries.push(borders, wallBorders);
+    const lineOffset = offset * 1.5;
+    addBorder(wallFixed, wallBorders, 0, lineOffset, 0);
+    addBorder(wallSwing, wallBorders, 0, -lineOffset, 0);
+    addBorder(floor, borders, 0, 0, lineOffset);
+    paintLayers();
+  }
+
+  function addFace(
+    parent: Group,
+    geometry: BufferGeometry,
+    material: MeshBasicMaterial,
+    name: string,
+    x: number,
+    y: number,
+    z: number,
+  ): void {
+    const mesh = new Mesh(geometry, material);
+    mesh.name = name;
+    mesh.position.set(x, y, z);
+    parent.add(mesh);
+  }
+
+  function addBorder(
+    parent: Group,
+    geometry: BufferGeometry,
+    x: number,
+    y: number,
+    z: number,
+  ): void {
+    const line = new LineSegments(geometry, lineMaterial);
+    line.name = 'interior-borders';
+    line.position.set(x, y, z);
+    parent.add(line);
   }
 
   function applyShell(mesh: Mesh, id: string): void {
     const material = singleMaterial(mesh);
-    if (!savedSide.has(material)) {
-      savedSide.set(material, material.side);
+    if (!saved.has(material)) {
+      saved.set(material, {
+        side: material.side,
+        clipIntersection: material.clipIntersection,
+      });
     }
     material.side = DoubleSide;
-    material.clippingPlanes = [plane];
+    material.clippingPlanes = [...planes];
+    material.clipIntersection = true;
     material.needsUpdate = true;
     clipping.localClippingEnabled = true;
     appliedId = id;
@@ -312,8 +455,10 @@ export function createInteriorCutaway(
       const mesh = meshes.get(appliedId);
       if (mesh !== undefined) {
         const material = singleMaterial(mesh);
+        const before = saved.get(material);
         material.clippingPlanes = null;
-        material.side = savedSide.get(material) ?? FrontSide;
+        material.side = before?.side ?? FrontSide;
+        material.clipIntersection = before?.clipIntersection ?? false;
         material.needsUpdate = true;
       }
       appliedId = null;
@@ -333,22 +478,38 @@ export function createInteriorCutaway(
     hidden.length = 0;
   }
 
-  function paintHighlight(): void {
-    for (const disc of discs) {
-      if (disc.mesh.name === highlight) {
-        disc.material.color.copy(disc.base).lerp(white, HIGHLIGHT_MIX);
-      } else {
-        disc.material.color.copy(disc.base);
+  function paintLayers(): void {
+    for (let index = 0; index < layers.length; index += 1) {
+      const layer = layers[index];
+      if (layer === undefined) {
+        continue;
+      }
+      const reveal = layerReveal(progress, index, layers.length);
+      scratch.copy(dormant).lerp(layer.base, reveal);
+      if (layer.id === highlight) {
+        scratch.lerp(white, HIGHLIGHT_MIX);
+      }
+      for (let face = 0; face < layer.materials.length; face += 1) {
+        const material = layer.materials[face];
+        const shade = FACE_SHADES[face] ?? 1;
+        material?.color.copy(scratch).multiplyScalar(shade);
       }
     }
   }
 
-  function disposeDiscs(): void {
-    for (const disc of discs) {
-      group.remove(disc.mesh);
-      disc.mesh.geometry.dispose();
-      disc.material.dispose();
+  function disposeFaces(): void {
+    for (const parent of [wallFixed, wallSwing, floor]) {
+      parent.clear();
     }
-    discs.length = 0;
+    for (const geometry of geometries) {
+      geometry.dispose();
+    }
+    geometries.length = 0;
+    for (const layer of layers) {
+      for (const material of layer.materials) {
+        material.dispose();
+      }
+    }
+    layers.length = 0;
   }
 }

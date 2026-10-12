@@ -8,7 +8,11 @@ import type {
   MoonOrbitDef,
   OrbitDef,
 } from '@data/types.ts';
-import { bodyPositionAu, solveKepler } from '@sim/kepler.ts';
+import {
+  bodyPositionAu,
+  bodyVelocityAuPerDay,
+  solveKepler,
+} from '@sim/kepler.ts';
 
 const PLANETS = [
   'mercury',
@@ -468,3 +472,81 @@ test.each([
     expect(call).toThrow(String(value));
   },
 );
+
+function velocity(
+  def: BodyDef,
+  days: number,
+): { x: number; y: number; z: number } {
+  return bodyVelocityAuPerDay(def, days, { x: 0, y: 0, z: 0 });
+}
+
+test.each(PLANETS)(
+  'bodyVelocityAuPerDay › %s matches the change of position',
+  (id) => {
+    const def = getBody(id);
+    const step = 0.01;
+    for (const days of [0, 123.4, -5000, 20000]) {
+      const before = position(def, days - step);
+      const after = position(def, days + step);
+      const actual = velocity(def, days);
+      const speed = Math.hypot(actual.x, actual.y, actual.z);
+      expect(
+        Math.hypot(
+          actual.x - (after.x - before.x) / (2 * step),
+          actual.y - (after.y - before.y) / (2 * step),
+          actual.z - (after.z - before.z) / (2 * step),
+        ),
+      ).toBeLessThan(speed * 1e-6);
+    }
+  },
+);
+
+test('bodyVelocityAuPerDay › a circular orbit at constant speed', () => {
+  const def = body('planet', 'ring', orbit({ inclinationDeg: 30 }));
+  const expected = (2 * Math.PI) / 365.25;
+  for (const days of [0, 50, 100, 200]) {
+    const place = position(def, days);
+    const actual = velocity(def, days);
+    expect(Math.hypot(actual.x, actual.y, actual.z)).toBeCloseTo(expected, 12);
+    expect(
+      place.x * actual.x + place.y * actual.y + place.z * actual.z,
+    ).toBeCloseTo(0, 12);
+  }
+});
+
+test('bodyVelocityAuPerDay › a moon is in km per day', () => {
+  const def = body(
+    'moon',
+    'moonlet',
+    moonOrbit({ semiMajorAxisKm: 1000, periodDays: 10 }),
+  );
+  const actual = velocity(def, 3);
+  expect(Math.hypot(actual.x, actual.y, actual.z)).toBeCloseTo(
+    (2 * Math.PI * 1000) / 10,
+    9,
+  );
+});
+
+test('bodyVelocityAuPerDay › a star and a belt stand still', () => {
+  const out = { x: 1, y: 1, z: 1 };
+  expect(bodyVelocityAuPerDay(getBody('sun'), 10, out)).toEqual({
+    x: 0,
+    y: 0,
+    z: 0,
+  });
+  expect(velocity(body('belt', 'belt', undefined), 10)).toEqual({
+    x: 0,
+    y: 0,
+    z: 0,
+  });
+});
+
+test('bodyVelocityAuPerDay › checks its input like bodyPositionAu', () => {
+  expect(() => velocity(getBody('earth'), Number.NaN)).toThrow(RangeError);
+  expect(() => velocity(body('planet', 'lost', undefined), 0)).toThrow(
+    'has no orbit',
+  );
+  expect(() =>
+    velocity(body('planet', 'flat', orbit({ eccentricity: 1 })), 0),
+  ).toThrow('orbit.eccentricity');
+});

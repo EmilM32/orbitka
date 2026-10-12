@@ -322,6 +322,24 @@ test('scaleNotice › the gravity grid adds a point to the dialog', () => {
     'Siatka grawitacji to porównanie, nie zdjęcie.',
   );
 
+  const legend = point?.querySelector('[data-testid="gravity-legend"]');
+  expect(
+    [...(legend?.querySelectorAll('li') ?? [])].map((item) => item.textContent),
+  ).toEqual(['przyciąganie Słońca', 'prędkość planety']);
+  // Not by color alone: the velocity arrow is dashed, the force arrow solid.
+  const shafts = [...(legend?.querySelectorAll('line') ?? [])];
+  expect(shafts.map((line) => line.getAttribute('stroke-dasharray'))).toEqual([
+    null,
+    '5 3',
+  ]);
+  expect(shafts.map((line) => line.getAttribute('stroke'))).toEqual([
+    '#e69f00',
+    '#56b4e9',
+  ]);
+  expect(legend?.querySelector('.gravity-legend-note')?.textContent).toContain(
+    'uproszczone',
+  );
+
   view.notice.setGravity(false);
   expect(badge?.textContent).toBe('Skala uproszczona');
   expect(point?.hidden).toBe(true);

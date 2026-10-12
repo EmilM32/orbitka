@@ -2,6 +2,7 @@ import { createLoop } from '@core/loop.ts';
 import type { CameraControllerState } from '@render/cameraController.ts';
 import type { CameraFlightSnapshot } from '@render/cameraDirector.ts';
 import { zoomLimitState } from '@core/zoomLimits.ts';
+import type { PlanetMotion } from '@render/forceArrows.ts';
 
 import type { DebugRig } from './wireDebug.ts';
 import type { IntroRig } from './wireIntro.ts';
@@ -11,6 +12,8 @@ import type { SelectionRig } from './wireSelection.ts';
 import type { TimeRig } from './wireTime.ts';
 import type { UiRig } from './wireUi.ts';
 import type { ViewRig } from './wireView.ts';
+
+const MOTION_REFRESH_SECONDS = 0.25;
 
 export type LoopInputs = {
   /** The body a link asks for; it is selected once the first frame is drawn. */
@@ -39,10 +42,14 @@ export function wireLoop({
 }: LoopInputs) {
   const { view, frameRenderer, cameraController, size } = viewRig;
   const { quality, starfield, orbitLines, textureStore, cutaway } = sceneRig;
-  const { gravityGrid } = sceneRig;
+  const { gravityGrid, forceArrows } = sceneRig;
   const { director, viewOffset, projector, ring, gap } = selectionRig;
   const { announcer, labelProjector, labels } = overlayRig;
   let simDt = 0;
+  // The pull and speed rows of the card change a few times a second, not
+  // every frame (EMI-265).
+  let motionWait = 0;
+  const motion: PlanetMotion = { accelerationMs2: 0, speedKms: 0 };
   let timeReady = false;
   // Shared per-frame objects: the loop reads the zoom limits without
   // allocating.
@@ -81,6 +88,18 @@ export function wireLoop({
         director.getFlightState(flightState).active !== 0,
       );
       viewOffset.update(dtSeconds);
+      // After the camera moved: the arrow width follows its distance.
+      forceArrows.update(timeRig.clock.days, view.camera, size.height);
+      motionWait -= dtSeconds;
+      if (motionWait <= 0) {
+        motionWait = MOTION_REFRESH_SECONDS;
+        const shownId = uiRig.bodyCard.shownBodyId();
+        uiRig.bodyCard.setMotion(
+          shownId !== null && forceArrows.readMotion(shownId, motion)
+            ? motion
+            : null,
+        );
+      }
       starfield.update(view.camera);
       orbitLines.setGap(gap.mesh?.position ?? null, gap.radius, view.camera);
       cameraController.getState(zoomCamera);

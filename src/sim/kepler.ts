@@ -138,28 +138,22 @@ function requireOrbitNumber(
   );
 }
 
+// Semi-major axis and eccentric anomaly of the last sampled orbit, shared by
+// bodyPositionAu and bodyVelocityAuPerDay so neither allocates.
+const sample = { semiMajor: 0, eccentricAnomaly: 0 };
+
 /**
- * Position of a body on a Keplerian orbit.
- * Planets, dwarf planets, and belts: `orbit.semiMajorAxisAu`, result in AU
- * relative to the Sun.
- * A moon (`type === 'moon'`): `orbit.semiMajorAxisKm`, result in kilometers
- * relative to the parent body (no unit conversion).
- * Writes the result into `out`.
+ * Checks the orbit of `def` and solves Kepler's equation at `daysSinceJ2000`
+ * into `sample`. Returns null for a star or a belt without an orbit (it stays
+ * at the origin).
  */
-export function bodyPositionAu(
-  def: BodyDef,
-  daysSinceJ2000: number,
-  out: Vec3,
-): Vec3 {
+function sampleOrbit(def: BodyDef, daysSinceJ2000: number): OrbitDef | null {
   requireDays(def, daysSinceJ2000);
 
   const orbit = def.orbit;
   if (orbit === undefined) {
     if (def.type === 'star' || def.type === 'belt') {
-      out.x = 0;
-      out.y = 0;
-      out.z = 0;
-      return out;
+      return null;
     }
 
     throw new RangeError(
@@ -210,13 +204,18 @@ export function bodyPositionAu(
   const meanAnomaly =
     radians(orbit.meanAnomalyAtEpochDeg) +
     (TWO_PI * daysSinceJ2000) / orbit.periodDays;
-  const eccentricAnomaly = solveKepler(meanAnomaly, orbit.eccentricity);
-  const cosE = Math.cos(eccentricAnomaly);
-  const sinE = Math.sin(eccentricAnomaly);
-  const eccentricity = orbit.eccentricity;
-  const xPrime = semiMajor * (cosE - eccentricity);
-  const yPrime = semiMajor * Math.sqrt(1 - eccentricity * eccentricity) * sinE;
+  sample.semiMajor = semiMajor;
+  sample.eccentricAnomaly = solveKepler(meanAnomaly, orbit.eccentricity);
+  return orbit;
+}
 
+// Turns a vector in the orbit plane (x' towards periapsis) into the ecliptic.
+function rotateToEcliptic(
+  orbit: OrbitDef,
+  xPrime: number,
+  yPrime: number,
+  out: Vec3,
+): Vec3 {
   const omega = radians(orbit.argumentPeriapsisDeg);
   const node = radians(orbit.longitudeAscendingNodeDeg);
   const inclination = radians(orbit.inclinationDeg);
@@ -235,4 +234,66 @@ export function bodyPositionAu(
     (-sinOmega * sinNode + cosOmega * cosNode * cosInc) * yPrime;
   out.z = sinOmega * sinInc * xPrime + cosOmega * sinInc * yPrime;
   return out;
+}
+
+function setZero(out: Vec3): Vec3 {
+  out.x = 0;
+  out.y = 0;
+  out.z = 0;
+  return out;
+}
+
+/**
+ * Position of a body on a Keplerian orbit.
+ * Planets, dwarf planets, and belts: `orbit.semiMajorAxisAu`, result in AU
+ * relative to the Sun.
+ * A moon (`type === 'moon'`): `orbit.semiMajorAxisKm`, result in kilometers
+ * relative to the parent body (no unit conversion).
+ * Writes the result into `out`.
+ */
+export function bodyPositionAu(
+  def: BodyDef,
+  daysSinceJ2000: number,
+  out: Vec3,
+): Vec3 {
+  const orbit = sampleOrbit(def, daysSinceJ2000);
+  if (orbit === null) {
+    return setZero(out);
+  }
+
+  const { semiMajor, eccentricAnomaly } = sample;
+  const eccentricity = orbit.eccentricity;
+  const xPrime = semiMajor * (Math.cos(eccentricAnomaly) - eccentricity);
+  const yPrime =
+    semiMajor *
+    Math.sqrt(1 - eccentricity * eccentricity) *
+    Math.sin(eccentricAnomaly);
+  return rotateToEcliptic(orbit, xPrime, yPrime, out);
+}
+
+/**
+ * Velocity of a body on a Keplerian orbit: the exact time derivative of
+ * `bodyPositionAu`, in the same length unit per day (AU/day for a planet,
+ * km/day for a moon relative to its parent). Zero for a star or a belt.
+ * Writes the result into `out`.
+ */
+export function bodyVelocityAuPerDay(
+  def: BodyDef,
+  daysSinceJ2000: number,
+  out: Vec3,
+): Vec3 {
+  const orbit = sampleOrbit(def, daysSinceJ2000);
+  if (orbit === null) {
+    return setZero(out);
+  }
+
+  const { semiMajor, eccentricAnomaly } = sample;
+  const eccentricity = orbit.eccentricity;
+  const cosE = Math.cos(eccentricAnomaly);
+  // dE/dt from M = E − e·sin E with dM/dt = 2π / period.
+  const anomalyRate = TWO_PI / orbit.periodDays / (1 - eccentricity * cosE);
+  const vxPrime = -semiMajor * Math.sin(eccentricAnomaly) * anomalyRate;
+  const vyPrime =
+    semiMajor * Math.sqrt(1 - eccentricity * eccentricity) * cosE * anomalyRate;
+  return rotateToEcliptic(orbit, vxPrime, vyPrime, out);
 }

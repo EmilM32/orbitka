@@ -8,7 +8,6 @@ import {
 } from 'three';
 import { expect, test } from 'vitest';
 
-import { signedDistance } from '@core/cutawayPlane.ts';
 import type { InteriorCatalog, InteriorEntry } from '@data/interiors.ts';
 import { createInteriorCutaway } from '@render/interiorCutaway.ts';
 
@@ -70,25 +69,24 @@ test('interiorCutaway › a settled body opens toward the camera', () => {
   cutaway.update(0, camera, false);
 
   expect(clipping.localClippingEnabled).toBe(true);
-  expect(material.clippingPlanes).toHaveLength(1);
+  expect(material.clippingPlanes).toHaveLength(3);
+  expect(material.clipIntersection).toBe(true);
   expect(ring.visible).toBe(false);
-  const plane = material.clippingPlanes?.[0];
+  const planes = material.clippingPlanes ?? [];
+  const plane = planes[0];
   if (plane === undefined) {
     throw new Error('missing clipping plane');
   }
   const center = new Vector3();
   mesh.getWorldPosition(center);
-  expect(plane.distanceToPoint(center)).toBeCloseTo(0);
-  expect(plane.distanceToPoint(camera.position)).toBeLessThan(0);
-
-  const far = center.clone().add(plane.normal);
-  expect(
-    signedDistance(
-      { x: plane.normal.x, y: plane.normal.y, z: plane.normal.z },
-      { x: center.x, y: center.y, z: center.z },
-      { x: far.x, y: far.y, z: far.z },
-    ),
-  ).toBeGreaterThan(0);
+  for (const each of planes) {
+    expect(each.distanceToPoint(center)).toBeCloseTo(0);
+    // The camera looks into the removed eighth.
+    expect(each.distanceToPoint(camera.position)).toBeLessThan(0);
+  }
+  // Behind the body nothing is removed.
+  const behind = center.clone().sub(camera.position);
+  expect(planes.some((each) => each.distanceToPoint(behind) > 0)).toBe(true);
 
   // Orbiting does not retarget the cut.
   const normal = plane.normal.clone();
@@ -104,6 +102,7 @@ test('interiorCutaway › a settled body opens toward the camera', () => {
   cutaway.setActive(false);
   cutaway.update(0, camera, false);
   expect(material.clippingPlanes).toBeNull();
+  expect(material.clipIntersection).toBe(false);
   expect(ring.visible).toBe(true);
   expect(clipping.localClippingEnabled).toBe(false);
   cutaway.dispose();
@@ -118,7 +117,7 @@ test('interiorCutaway › a flight keeps the body whole until the camera arrives
   cutaway.update(0.1, camera, true);
   expect(material.clippingPlanes).toBeNull();
   cutaway.update(0, camera, false);
-  expect(material.clippingPlanes).toHaveLength(1);
+  expect(material.clippingPlanes).toHaveLength(3);
   cutaway.dispose();
 });
 

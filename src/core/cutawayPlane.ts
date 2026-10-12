@@ -1,6 +1,7 @@
-// The cutaway plane (EMI-263). Pure: no three.js. The normal points from the
-// camera through the body, so the camera side is the half that is removed.
-// After the cut opens, the normal stays put and only the point follows the body.
+// The octant cutaway (EMI-263, EMI-266). Pure: no three.js. One eighth of
+// the body is removed. The frame axes `a`, `b`, `c` bound that eighth; its
+// corner direction (a + b + c) points at the camera when the cut opens.
+// After that the frame stays put and only follows the body.
 
 export type CutawayVec3 = {
   x: number;
@@ -8,60 +9,171 @@ export type CutawayVec3 = {
   z: number;
 };
 
-// How long the opening sweep takes when motion is allowed.
-export const CUTAWAY_OPEN_SECONDS = 0.45;
-// The outer disc sits this far inside the shell so the limb stays visible.
-export const CUTAWAY_RIM_INSET = 0.008;
-// Disc stack toward the camera, in fractions of the scene radius.
-export const CUTAWAY_DISC_OFFSET = 0.004;
-export const CUTAWAY_DISC_STEP = 0.001;
+export type OctantFrame = {
+  a: CutawayVec3;
+  b: CutawayVec3;
+  c: CutawayVec3;
+};
 
-export function captureCutNormal(
+// The whole opening when motion is allowed: the wedge, then the layers.
+export const CUTAWAY_OPEN_SECONDS = 1.1;
+// Share of the opening spent on swinging the wedge to 90°.
+export const CUTAWAY_WEDGE_SHARE = 0.6;
+// Layer colors come in from the outside one after another.
+export const CUTAWAY_LAYER_START = 0.35;
+export const CUTAWAY_LAYER_SHARE = 0.3;
+// The outer face sits this far inside the shell so the limb stays visible.
+export const CUTAWAY_RIM_INSET = 0.008;
+// Faces sit this far into the removed eighth, in fractions of the radius,
+// so the shell's back faces do not show through at the cut.
+export const CUTAWAY_FACE_OFFSET = 0.003;
+
+const INV_SQRT2 = 1 / Math.SQRT2;
+const INV_SQRT3 = 1 / Math.sqrt(3);
+const INV_SQRT6 = 1 / Math.sqrt(6);
+const SQRT_TWO_THIRDS = Math.sqrt(2 / 3);
+
+function normalize(v: CutawayVec3): number {
+  const length = Math.hypot(v.x, v.y, v.z);
+  if (!(length > 0) || !Number.isFinite(length)) {
+    return 0;
+  }
+  v.x /= length;
+  v.y /= length;
+  v.z /= length;
+  return length;
+}
+
+function dot(p: CutawayVec3, q: CutawayVec3): number {
+  return p.x * q.x + p.y * q.y + p.z * q.z;
+}
+
+function combine(
+  out: CutawayVec3,
+  r: CutawayVec3,
+  u: CutawayVec3,
+  v: CutawayVec3,
+  kr: number,
+  ku: number,
+  kv: number,
+): void {
+  out.x = kr * r.x + ku * u.x + kv * v.x;
+  out.y = kr * r.y + ku * u.y + kv * v.y;
+  out.z = kr * r.z + ku * u.z + kv * v.z;
+}
+
+/**
+ * Aims the removed eighth at the camera. `c` leans toward the camera's up,
+ * so the bottom face of the opening is seen from above. Returns false when
+ * the camera sits on the body or looks along its own up vector.
+ */
+export function captureOctantFrame(
   body: CutawayVec3,
   camera: CutawayVec3,
-  out: CutawayVec3,
+  cameraUp: CutawayVec3,
+  out: OctantFrame,
 ): boolean {
-  const x = body.x - camera.x;
-  const y = body.y - camera.y;
-  const z = body.z - camera.z;
-  const length = Math.hypot(x, y, z);
-  if (!(length > 0) || !Number.isFinite(length)) {
+  const view = {
+    x: camera.x - body.x,
+    y: camera.y - body.y,
+    z: camera.z - body.z,
+  };
+  if (normalize(view) === 0) {
     return false;
   }
+  const along = dot(cameraUp, view);
+  const up = {
+    x: cameraUp.x - view.x * along,
+    y: cameraUp.y - view.y * along,
+    z: cameraUp.z - view.z * along,
+  };
+  if (normalize(up) < 1e-6) {
+    return false;
+  }
+  const right = {
+    x: up.y * view.z - up.z * view.y,
+    y: up.z * view.x - up.x * view.z,
+    z: up.x * view.y - up.y * view.x,
+  };
 
-  out.x = x / length;
-  out.y = y / length;
-  out.z = z / length;
+  combine(out.a, right, up, view, -INV_SQRT2, -INV_SQRT6, INV_SQRT3);
+  combine(out.b, right, up, view, INV_SQRT2, -INV_SQRT6, INV_SQRT3);
+  combine(out.c, right, up, view, 0, SQRT_TWO_THIRDS, INV_SQRT3);
   return true;
 }
 
 /**
- * A point on the plane. `progress` 0 is the tangent on the camera side
- * (the whole body stays). `progress` 1 runs through the center.
+ * The wedge angle around `c`, from 0 (whole body) to π/2 (one eighth gone).
+ * `progress` runs over the whole opening.
  */
-export function cutPlanePoint(
-  body: CutawayVec3,
-  normal: CutawayVec3,
-  radius: number,
-  progress: number,
-  out: CutawayVec3,
-): void {
-  if (!Number.isFinite(radius) || radius <= 0) {
-    throw new RangeError(
-      `cutPlanePoint: parameter "radius" must be finite and > 0, got ${radius}`,
-    );
-  }
+export function wedgeAngle(progress: number): number {
   if (!Number.isFinite(progress)) {
     throw new RangeError(
-      `cutPlanePoint: parameter "progress" must be finite, got ${progress}`,
+      `wedgeAngle: parameter "progress" must be finite, got ${progress}`,
     );
   }
+  return (Math.PI / 2) * easeOutCubic(progress / CUTAWAY_WEDGE_SHARE);
+}
 
-  const t = Math.min(1, Math.max(0, progress));
-  const shift = radius * (1 - t);
-  out.x = body.x - normal.x * shift;
-  out.y = body.y - normal.y * shift;
-  out.z = body.z - normal.z * shift;
+/** How far layer `index` (0 is the outside) has taken its color, 0 to 1. */
+export function layerReveal(
+  progress: number,
+  index: number,
+  count: number,
+): number {
+  if (!Number.isFinite(progress)) {
+    throw new RangeError(
+      `layerReveal: parameter "progress" must be finite, got ${progress}`,
+    );
+  }
+  if (!Number.isInteger(count) || count < 1) {
+    throw new RangeError(
+      `layerReveal: parameter "count" must be an integer >= 1, got ${count}`,
+    );
+  }
+  if (!Number.isInteger(index) || index < 0 || index >= count) {
+    throw new RangeError(
+      `layerReveal: parameter "index" must be an integer in [0, ${count}), got ${index}`,
+    );
+  }
+  const step =
+    count === 1
+      ? 0
+      : (1 - CUTAWAY_LAYER_START - CUTAWAY_LAYER_SHARE) / (count - 1);
+  const start = CUTAWAY_LAYER_START + index * step;
+  return easeOutCubic((progress - start) / CUTAWAY_LAYER_SHARE);
+}
+
+/**
+ * Normals of the three clipping planes through the body center, in the
+ * convention where the negative side is clipped. With the planes clipping
+ * only where all three agree, the removed part is the wedge from azimuth 0
+ * (along `a`) to `angle` around `c`, on the `c` side of the `a`-`b` plane.
+ */
+export function wedgeClipNormals(
+  frame: OctantFrame,
+  angle: number,
+  out: [CutawayVec3, CutawayVec3, CutawayVec3],
+): void {
+  if (!Number.isFinite(angle) || angle < 0 || angle > Math.PI / 2) {
+    throw new RangeError(
+      `wedgeClipNormals: parameter "angle" must be in [0, π/2], got ${angle}`,
+    );
+  }
+  const { a, b, c } = frame;
+  const sin = Math.sin(angle);
+  const cos = Math.cos(angle);
+  const [first, second, third] = out;
+  // Removed where x·b ≥ 0, x·(sin·a − cos·b) ≥ 0 and x·c ≥ 0.
+  first.x = -b.x;
+  first.y = -b.y;
+  first.z = -b.z;
+  second.x = -(sin * a.x - cos * b.x);
+  second.y = -(sin * a.y - cos * b.y);
+  second.z = -(sin * a.z - cos * b.z);
+  third.x = -c.x;
+  third.y = -c.y;
+  third.z = -c.z;
 }
 
 /** Signed distance from the plane. Negative is the clipped side. */
@@ -86,34 +198,4 @@ export function easeOutCubic(t: number): number {
   const clamped = Math.min(1, Math.max(0, t));
   const remaining = 1 - clamped;
   return 1 - remaining * remaining * remaining;
-}
-
-/**
- * Local Z of a disc when the group's +Z is the keep normal.
- * Negative is toward the camera. Outer layers sit in front of inner ones.
- */
-export function layerDiscOffset(
-  index: number,
-  count: number,
-  radius: number,
-): number {
-  if (!Number.isInteger(count) || count < 1) {
-    throw new RangeError(
-      `layerDiscOffset: parameter "count" must be an integer >= 1, got ${count}`,
-    );
-  }
-  if (!Number.isInteger(index) || index < 0 || index >= count) {
-    throw new RangeError(
-      `layerDiscOffset: parameter "index" must be an integer in [0, ${count}), got ${index}`,
-    );
-  }
-  if (!Number.isFinite(radius) || radius <= 0) {
-    throw new RangeError(
-      `layerDiscOffset: parameter "radius" must be finite and > 0, got ${radius}`,
-    );
-  }
-
-  return (
-    -(CUTAWAY_DISC_OFFSET + (count - 1 - index) * CUTAWAY_DISC_STEP) * radius
-  );
 }

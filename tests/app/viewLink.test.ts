@@ -11,6 +11,7 @@ test('viewLink › a link carries the body, the date and the speed', () => {
       days: 11_000,
       paused: false,
       presetId: 'month',
+      cutaway: false,
     }),
   ).toBe(
     'https://orbitka.example/orbitka/?body=saturn&date=2030-02-12&speed=month',
@@ -24,6 +25,7 @@ test('viewLink › nothing to say gives the plain address', () => {
       days: Number.NaN,
       paused: false,
       presetId: null,
+      cutaway: true,
     }),
   ).toBe('https://orbitka.example/orbitka/');
 });
@@ -35,9 +37,24 @@ test('viewLink › paused is a link too', () => {
       days: 0,
       paused: true,
       presetId: 'day',
+      cutaway: false,
     }),
   ).toBe(
     'https://orbitka.example/orbitka/?body=earth&date=2000-01-01&paused=1',
+  );
+});
+
+test('viewLink › an open cutaway is the last parameter', () => {
+  expect(
+    buildViewLink(LOCATION, {
+      bodyId: 'earth',
+      days: 0,
+      paused: true,
+      presetId: 'day',
+      cutaway: true,
+    }),
+  ).toBe(
+    'https://orbitka.example/orbitka/?body=earth&date=2000-01-01&paused=1&cutaway=1',
   );
 });
 

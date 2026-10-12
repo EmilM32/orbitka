@@ -1,0 +1,166 @@
+{
+  "sun": {
+    "layers": {
+      "convective": {
+        "name": "Strefa konwekcji",
+        "text": "Gorący gaz unosi się tu ku powierzchni i opada z powrotem."
+      },
+      "radiative": {
+        "name": "Strefa promieniowania",
+        "text": "Energia ze środka wędruje tu bardzo powoli, jako światło."
+      },
+      "core": {
+        "name": "Jądro",
+        "text": "Tu wodór zamienia się w hel i powstaje światło oraz ciepło."
+      }
+    }
+  },
+  "mercury": {
+    "layers": {
+      "crust": {
+        "name": "Skorupa",
+        "text": "Cienka, skalista warstwa na wierzchu."
+      },
+      "mantle": {
+        "name": "Płaszcz",
+        "text": "Gruba warstwa skał pod skorupą."
+      },
+      "core": {
+        "name": "Jądro",
+        "text": "Ogromne, metalowe jądro zajmuje większość Merkurego."
+      }
+    }
+  },
+  "venus": {
+    "layers": {
+      "crust": {
+        "name": "Skorupa",
+        "text": "Skalista warstwa na wierzchu, a jej grubość znamy tylko w przybliżeniu."
+      },
+      "mantle": {
+        "name": "Płaszcz",
+        "text": "Gorące skały pod skorupą."
+      },
+      "core": {
+        "name": "Jądro",
+        "text": "Metalowe jądro w środku, a jego rozmiar jest szacunkiem."
+      }
+    }
+  },
+  "earth": {
+    "layers": {
+      "crust": {
+        "name": "Skorupa",
+        "text": "Cienka skalista warstwa, na której stoimy, cieńsza pod oceanem niż pod lądami."
+      },
+      "mantle": {
+        "name": "Płaszcz",
+        "text": "Najgrubsza warstwa Ziemi, a skały są tu tak gorące, że potrafią powoli płynąć."
+      },
+      "outer-core": {
+        "name": "Jądro zewnętrzne",
+        "text": "Płynne żelazo i nikiel, a ruch tej warstwy tworzy pole magnetyczne Ziemi."
+      },
+      "inner-core": {
+        "name": "Jądro wewnętrzne",
+        "text": "Stała kulka z żelaza i niklu, bo ciśnienie w środku jest ogromne."
+      }
+    }
+  },
+  "moon": {
+    "layers": {
+      "crust": {
+        "name": "Skorupa",
+        "text": "Jasna skalista warstwa, grubsza po drugiej stronie Księżyca."
+      },
+      "mantle": {
+        "name": "Płaszcz",
+        "text": "Skały pod skorupą, z których zbudowana jest większość Księżyca."
+      },
+      "core": {
+        "name": "Jądro",
+        "text": "Małe metalowe jądro w samym środku."
+      }
+    }
+  },
+  "mars": {
+    "layers": {
+      "crust": {
+        "name": "Skorupa",
+        "text": "Skalista warstwa, grubsza niż skorupa Ziemi."
+      },
+      "mantle": {
+        "name": "Płaszcz",
+        "text": "Warstwa skał między skorupą a jądrem."
+      },
+      "core": {
+        "name": "Jądro",
+        "text": "Duże metalowe jądro, częściowo płynne, zmierzone przez sondę InSight."
+      }
+    }
+  },
+  "jupiter": {
+    "layers": {
+      "molecular": {
+        "name": "Wodór gazowy",
+        "text": "Gruba warstwa gazu, bez twardego gruntu, na którym dałoby się stanąć."
+      },
+      "metallic": {
+        "name": "Wodór metaliczny",
+        "text": "Wodór ściśnięty tak mocno, że przewodzi prąd jak metal."
+      },
+      "core": {
+        "name": "Jądro",
+        "text": "Mieszanka skał i zamrożonej wody, a granica tej warstwy jest rozmyta."
+      }
+    }
+  },
+  "saturn": {
+    "layers": {
+      "molecular": {
+        "name": "Wodór gazowy",
+        "text": "Gazowa warstwa na zewnątrz, bez twardej powierzchni."
+      },
+      "metallic": {
+        "name": "Wodór metaliczny",
+        "text": "Wodór ściśnięty tak mocno, że zachowuje się jak metal."
+      },
+      "core": {
+        "name": "Jądro",
+        "text": "Jądro ze skał i zamrożonej wody, a jego rozmiar znamy w przybliżeniu."
+      }
+    }
+  },
+  "uranus": {
+    "layers": {
+      "atmosphere": {
+        "name": "Atmosfera",
+        "text": "Wodór, hel i metan, a metan nadaje Uranowi niebieski kolor."
+      },
+      "mantle": {
+        "name": "Płaszcz lodowy",
+        "text": "Gorąca mieszanka wody i gazów, a mimo nazwy nie jest to twardy lód."
+      },
+      "core": {
+        "name": "Jądro",
+        "text": "Skaliste jądro w środku, a jego rozmiar jest szacunkiem."
+      }
+    }
+  },
+  "neptune": {
+    "layers": {
+      "atmosphere": {
+        "name": "Atmosfera",
+        "text": "Wodór, hel i metan, a metan zabarwia Neptuna na niebiesko."
+      },
+      "mantle": {
+        "name": "Płaszcz lodowy",
+        "text": "Głęboka warstwa wody i gazów pod ogromnym ciśnieniem."
+      },
+      "core": {
+        "name": "Jądro",
+        "text": "Skaliste jądro, znane z modeli, a nie z bezpośredniego pomiaru."
+      }
+    }
+  }
+}

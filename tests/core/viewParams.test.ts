@@ -18,6 +18,7 @@ test('viewParams › nothing in the address', () => {
     days: null,
     presetId: null,
     paused: false,
+    cutaway: false,
     ignored: [],
   });
   expect(parseViewParams('?', IDS).ignored).toEqual([]);
@@ -31,6 +32,7 @@ test('viewParams › a full view', () => {
     days: noon(2030, 1, 1),
     presetId: 'month',
     paused: false,
+    cutaway: false,
     ignored: [],
   });
   const paused = parseViewParams('body=saturn&date=2030-01-01&paused=1', IDS);
@@ -62,6 +64,7 @@ test.each([
   expect(result.days).toBeNull();
   expect(result.presetId).toBeNull();
   expect(result.paused).toBe(false);
+  expect(result.cutaway).toBe(false);
 });
 
 test('viewParams › the leap day and the ends of the range', () => {
@@ -88,6 +91,7 @@ test('viewParams › unrelated and debug parameters are left alone', () => {
     days: null,
     presetId: null,
     paused: false,
+    cutaway: false,
     ignored: [],
   });
 });
@@ -98,6 +102,7 @@ test('buildViewQuery › a link restores the same view', () => {
     days: noon(2030, 1, 1),
     paused: false,
     presetId: 'year',
+    cutaway: false,
   });
   expect(query).toBe('body=saturn&date=2030-01-01&speed=year');
   const parsed = parseViewParams(query, IDS);
@@ -114,6 +119,7 @@ test('buildViewQuery › paused wins over a speed; no body, no custom speed', ()
       days: noon(2026, 10, 14),
       paused: true,
       presetId: 'day',
+      cutaway: false,
     }),
   ).toBe('date=2026-10-14&paused=1');
   expect(
@@ -122,6 +128,7 @@ test('buildViewQuery › paused wins over a speed; no body, no custom speed', ()
       days: noon(2026, 10, 14),
       paused: false,
       presetId: null,
+      cutaway: false,
     }),
   ).toBe('date=2026-10-14');
   expect(
@@ -130,6 +137,7 @@ test('buildViewQuery › paused wins over a speed; no body, no custom speed', ()
       days: noon(2026, 10, 14),
       paused: false,
       presetId: 'pause',
+      cutaway: false,
     }),
   ).toBe('body=sun&date=2026-10-14');
 });
@@ -141,6 +149,7 @@ test('buildViewQuery › a date the format cannot carry is left out', () => {
       days: -DAYS_LIMIT,
       paused: true,
       presetId: null,
+      cutaway: false,
     }),
   ).toBe('paused=1');
   expect(
@@ -149,6 +158,7 @@ test('buildViewQuery › a date the format cannot carry is left out', () => {
       days: Number.NaN,
       paused: true,
       presetId: null,
+      cutaway: true,
     }),
   ).toBe('paused=1');
   // Years before 1 CE cannot be written as YYYY-MM-DD here.
@@ -158,6 +168,64 @@ test('buildViewQuery › a date the format cannot carry is left out', () => {
       days: noon(1, 1, 1) - 400,
       paused: false,
       presetId: null,
+      cutaway: false,
     }),
   ).toBe('');
+});
+
+const WITH_INTERIOR = ['earth', 'jupiter', 'saturn'];
+
+test('viewParams › cutaway opens only for a body that has an interior', () => {
+  expect(
+    parseViewParams('?body=earth&cutaway=1', IDS, WITH_INTERIOR),
+  ).toMatchObject({
+    bodyId: 'earth',
+    cutaway: true,
+    ignored: [],
+  });
+  const missingCatalog = parseViewParams('?body=earth&cutaway=1', IDS);
+  expect(missingCatalog.cutaway).toBe(false);
+  expect(missingCatalog.ignored).toEqual(['cutaway']);
+  expect(parseViewParams('?cutaway=1', IDS, WITH_INTERIOR).ignored).toEqual([
+    'cutaway',
+  ]);
+  const saturn = parseViewParams('?body=saturn&cutaway=1', IDS, ['earth']);
+  expect(saturn.bodyId).toBe('saturn');
+  expect(saturn.cutaway).toBe(false);
+  expect(saturn.ignored).toEqual(['cutaway']);
+  expect(
+    parseViewParams('?body=earth&cutaway=yes', IDS, WITH_INTERIOR).ignored,
+  ).toEqual(['cutaway']);
+  const unknownBody = parseViewParams(
+    '?body=pluto&cutaway=1',
+    IDS,
+    WITH_INTERIOR,
+  );
+  expect(unknownBody.bodyId).toBeNull();
+  expect(unknownBody.cutaway).toBe(false);
+  expect(unknownBody.ignored).toEqual(['body', 'cutaway']);
+});
+
+test('buildViewQuery › cutaway is last and only with a body', () => {
+  const query = buildViewQuery({
+    bodyId: 'earth',
+    days: noon(2000, 1, 1),
+    paused: true,
+    presetId: 'day',
+    cutaway: true,
+  });
+  expect(query).toBe('body=earth&date=2000-01-01&paused=1&cutaway=1');
+  const parsed = parseViewParams(query, IDS, WITH_INTERIOR);
+  expect(parsed.bodyId).toBe('earth');
+  expect(parsed.cutaway).toBe(true);
+  expect(parsed.ignored).toEqual([]);
+  expect(
+    buildViewQuery({
+      bodyId: null,
+      days: noon(2000, 1, 1),
+      paused: false,
+      presetId: null,
+      cutaway: true,
+    }),
+  ).toBe('date=2000-01-01');
 });

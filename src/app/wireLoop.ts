@@ -1,5 +1,6 @@
 import { createLoop } from '@core/loop.ts';
 import type { CameraControllerState } from '@render/cameraController.ts';
+import type { CameraFlightSnapshot } from '@render/cameraDirector.ts';
 import { zoomLimitState } from '@core/zoomLimits.ts';
 
 import type { DebugRig } from './wireDebug.ts';
@@ -37,7 +38,7 @@ export function wireLoop({
   debugRig,
 }: LoopInputs) {
   const { view, frameRenderer, cameraController, size } = viewRig;
-  const { quality, starfield, orbitLines, textureStore } = sceneRig;
+  const { quality, starfield, orbitLines, textureStore, cutaway } = sceneRig;
   const { director, viewOffset, projector, ring, gap } = selectionRig;
   const { announcer, labelProjector, labels } = overlayRig;
   let simDt = 0;
@@ -55,6 +56,11 @@ export function wireLoop({
     targetZ: 0,
   };
   const zoomLimits = { atMin: false, atMax: false };
+  const flightState: CameraFlightSnapshot = {
+    active: 0,
+    kind: 0,
+    progress: 0,
+  };
 
   const loop = createLoop({
     update(dtSeconds) {
@@ -66,6 +72,11 @@ export function wireLoop({
       timeRig.update(dtSeconds);
       director.update(dtSeconds);
       cameraController.update(dtSeconds);
+      cutaway.update(
+        dtSeconds,
+        view.camera,
+        director.getFlightState(flightState).active !== 0,
+      );
       viewOffset.update(dtSeconds);
       starfield.update(view.camera);
       orbitLines.setGap(gap.mesh?.position ?? null, gap.radius, view.camera);

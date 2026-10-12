@@ -1,0 +1,288 @@
+[
+  {
+    "id": "sun",
+    "source": {
+      "name": "NASA Marshall Solar Physics",
+      "url": "https://solarscience.msfc.nasa.gov/interior.shtml"
+    },
+    "atmosphere": false,
+    "layers": [
+      {
+        "id": "convective",
+        "outerRadiusKm": 695700,
+        "displayFraction": 1,
+        "color": "#E07A2F"
+      },
+      {
+        "id": "radiative",
+        "outerRadiusKm": 486990,
+        "displayFraction": 0.7,
+        "color": "#F0B429"
+      },
+      {
+        "id": "core",
+        "outerRadiusKm": 173925,
+        "displayFraction": 0.25,
+        "color": "#FFF1A8"
+      }
+    ]
+  },
+  {
+    "id": "mercury",
+    "source": {
+      "name": "NASA Science: Mercury",
+      "url": "https://science.nasa.gov/mercury/"
+    },
+    "atmosphere": false,
+    "layers": [
+      {
+        "id": "crust",
+        "outerRadiusKm": 2439.7,
+        "displayFraction": 1,
+        "color": "#B7B1A8"
+      },
+      {
+        "id": "mantle",
+        "outerRadiusKm": 2404.7,
+        "displayFraction": 0.92,
+        "color": "#8C6A4A"
+      },
+      {
+        "id": "core",
+        "outerRadiusKm": 2073.7,
+        "displayFraction": 0.84,
+        "color": "#C9A227"
+      }
+    ]
+  },
+  {
+    "id": "venus",
+    "source": {
+      "name": "NASA Science: Venus",
+      "url": "https://science.nasa.gov/venus/"
+    },
+    "atmosphere": false,
+    "layers": [
+      {
+        "id": "crust",
+        "outerRadiusKm": 6051.8,
+        "displayFraction": 1,
+        "color": "#D4B483"
+      },
+      {
+        "id": "mantle",
+        "outerRadiusKm": 6001.8,
+        "displayFraction": 0.92,
+        "color": "#C46B3A"
+      },
+      {
+        "id": "core",
+        "outerRadiusKm": 3000,
+        "displayFraction": 0.5,
+        "color": "#E0B000"
+      }
+    ]
+  },
+  {
+    "id": "earth",
+    "source": {
+      "name": "USGS: Inside the Earth",
+      "url": "https://pubs.usgs.gov/gip/dynamic/inside.html"
+    },
+    "atmosphere": false,
+    "layers": [
+      {
+        "id": "crust",
+        "outerRadiusKm": 6371,
+        "displayFraction": 1,
+        "color": "#C4A574"
+      },
+      {
+        "id": "mantle",
+        "outerRadiusKm": 6336,
+        "displayFraction": 0.92,
+        "color": "#C45C26"
+      },
+      {
+        "id": "outer-core",
+        "outerRadiusKm": 3481,
+        "displayFraction": 0.55,
+        "color": "#E8A317"
+      },
+      {
+        "id": "inner-core",
+        "outerRadiusKm": 1221,
+        "displayFraction": 0.19,
+        "color": "#F2E24B"
+      }
+    ]
+  },
+  {
+    "id": "moon",
+    "source": {
+      "name": "NASA Science: Moon",
+      "url": "https://science.nasa.gov/moon/"
+    },
+    "atmosphere": false,
+    "layers": [
+      {
+        "id": "crust",
+        "outerRadiusKm": 1737.4,
+        "displayFraction": 1,
+        "color": "#C8C4BC"
+      },
+      {
+        "id": "mantle",
+        "outerRadiusKm": 1697.4,
+        "displayFraction": 0.9,
+        "color": "#8E8478"
+      },
+      {
+        "id": "core",
+        "outerRadiusKm": 350,
+        "displayFraction": 0.2,
+        "color": "#C9A24A"
+      }
+    ]
+  },
+  {
+    "id": "mars",
+    "source": {
+      "name": "NASA JPL: InSight",
+      "url": "https://www.jpl.nasa.gov/news/nasas-insight-reveals-the-deep-interior-of-mars"
+    },
+    "atmosphere": false,
+    "layers": [
+      {
+        "id": "crust",
+        "outerRadiusKm": 3389.5,
+        "displayFraction": 1,
+        "color": "#C4704B"
+      },
+      {
+        "id": "mantle",
+        "outerRadiusKm": 3339.5,
+        "displayFraction": 0.92,
+        "color": "#A34A2E"
+      },
+      {
+        "id": "core",
+        "outerRadiusKm": 1830,
+        "displayFraction": 0.54,
+        "color": "#E2B13C"
+      }
+    ]
+  },
+  {
+    "id": "jupiter",
+    "source": {
+      "name": "NASA Science: Jupiter",
+      "url": "https://science.nasa.gov/jupiter/"
+    },
+    "atmosphere": true,
+    "layers": [
+      {
+        "id": "molecular",
+        "outerRadiusKm": 69911,
+        "displayFraction": 1,
+        "color": "#E3C07A"
+      },
+      {
+        "id": "metallic",
+        "outerRadiusKm": 55929,
+        "displayFraction": 0.8,
+        "color": "#C47B4A"
+      },
+      {
+        "id": "core",
+        "outerRadiusKm": 13982,
+        "displayFraction": 0.2,
+        "color": "#8C6B4F"
+      }
+    ]
+  },
+  {
+    "id": "saturn",
+    "source": {
+      "name": "NASA Science: Saturn",
+      "url": "https://science.nasa.gov/saturn/"
+    },
+    "atmosphere": true,
+    "layers": [
+      {
+        "id": "molecular",
+        "outerRadiusKm": 58232,
+        "displayFraction": 1,
+        "color": "#F0D9A0"
+      },
+      {
+        "id": "metallic",
+        "outerRadiusKm": 37851,
+        "displayFraction": 0.65,
+        "color": "#D4A15A"
+      },
+      {
+        "id": "core",
+        "outerRadiusKm": 14558,
+        "displayFraction": 0.25,
+        "color": "#A4846A"
+      }
+    ]
+  },
+  {
+    "id": "uranus",
+    "source": {
+      "name": "NASA Science: Uranus",
+      "url": "https://science.nasa.gov/uranus/"
+    },
+    "atmosphere": true,
+    "layers": [
+      {
+        "id": "atmosphere",
+        "outerRadiusKm": 25362,
+        "displayFraction": 1,
+        "color": "#D6F3F4"
+      },
+      {
+        "id": "mantle",
+        "outerRadiusKm": 20290,
+        "displayFraction": 0.8,
+        "color": "#7EB8C9"
+      },
+      {
+        "id": "core",
+        "outerRadiusKm": 5072,
+        "displayFraction": 0.2,
+        "color": "#8C7A62"
+      }
+    ]
+  },
+  {
+    "id": "neptune",
+    "source": {
+      "name": "NASA Science: Neptune",
+      "url": "https://science.nasa.gov/neptune/"
+    },
+    "atmosphere": true,
+    "layers": [
+      {
+        "id": "atmosphere",
+        "outerRadiusKm": 24622,
+        "displayFraction": 1,
+        "color": "#9EC4F0"
+      },
+      {
+        "id": "mantle",
+        "outerRadiusKm": 19698,
+        "displayFraction": 0.8,
+        "color": "#4E7CA8"
+      },
+      {
+        "id": "core",
+        "outerRadiusKm": 4924,
+        "displayFraction": 0.2,
+        "color": "#8A7560"
+      }
+    ]
+  }
+]

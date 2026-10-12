@@ -253,6 +253,8 @@
 #body-card.is-sheet:not(.is-expanded) .body-card-facts,
 #body-card.is-sheet:not(.is-expanded) .body-card-fun,
 #body-card.is-sheet:not(.is-expanded) .body-card-description,
+#body-card.is-sheet:not(.is-expanded) .body-card-interior,
+#body-card.is-sheet:not(.is-expanded) .body-card-interior-missing,
 #body-card.is-sheet:not(.is-expanded) .gauge-caption,
 #body-card.is-sheet:not(.is-expanded) .gauge-km {
   display: none;
@@ -298,7 +300,9 @@
 }
 
 #body-card.is-sheet.is-expanded .body-card-fun,
-#body-card.is-sheet.is-expanded .body-card-description {
+#body-card.is-sheet.is-expanded .body-card-description,
+#body-card.is-sheet.is-expanded .body-card-interior,
+#body-card.is-sheet.is-expanded .body-card-interior-missing {
   grid-column: 1 / -1;
 }
 
@@ -321,6 +325,85 @@
   #body-card.is-sheet {
     transition: none;
   }
+}
+
+/* Interior legend: names, true kilometers, and one sentence per layer. */
+.body-card-interior {
+  margin: 0;
+  padding: 0.625rem 0 0;
+  border-top: var(--border);
+}
+
+.body-card-interior[hidden],
+.body-card-interior-missing[hidden] {
+  display: none;
+}
+
+.body-card-interior-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.body-card-interior-layer {
+  border-bottom: var(--border);
+}
+
+.body-card-interior-button {
+  display: grid;
+  grid-template-areas:
+    'swatch name'
+    'swatch measure';
+  grid-template-columns: 0.75rem minmax(0, 1fr);
+  gap: 0.125rem var(--s-2);
+  align-items: center;
+  width: 100%;
+  min-height: var(--hit);
+  margin: 0;
+  padding: 0.375rem 0.25rem;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-control);
+}
+
+.body-card-interior-button[aria-pressed='true'] {
+  background: rgba(140, 200, 255, 0.12);
+}
+
+.body-card-interior-swatch {
+  grid-area: swatch;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+}
+
+.body-card-interior-name {
+  grid-area: name;
+  font-weight: var(--fw-strong);
+}
+
+.body-card-interior-measure {
+  grid-area: measure;
+  color: var(--c-text-2);
+  font-size: var(--fs-sm);
+}
+
+.body-card-interior-text {
+  margin: 0 0 0.625rem;
+  padding: 0 0.25rem;
+  color: var(--c-text-2);
+  font-size: var(--fs-sm);
+}
+
+.body-card-interior-notice,
+.body-card-interior-missing {
+  margin: var(--s-2) 0 0;
+  color: var(--c-text-2);
+  font-size: var(--fs-sm);
 }
 
 /* Last, so it beats the display of the desktop card and of the sheet. */

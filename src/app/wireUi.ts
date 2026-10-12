@@ -155,8 +155,11 @@ export function wireUi({
     },
     onGravityChange: (visible) => {
       gravityGrid.setVisible(visible);
-      forceArrows.setVisible(visible);
       scaleNotice.setGravity(visible);
+    },
+    onGravityArrowsChange: (visible) => {
+      forceArrows.setVisible(visible);
+      scaleNotice.setGravityArrows(visible);
     },
     gravityFromLink: initialGravity,
     onQualityChange: (level) => {

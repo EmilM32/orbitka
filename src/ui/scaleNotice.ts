@@ -133,6 +133,8 @@ export type ScaleNotice = {
    * keeps its text: a longer one would not fit beside the view group.
    */
   setGravity(on: boolean): void;
+  /** The arrow legend shows only while the arrows are on (EMI-265). */
+  setGravityArrows(on: boolean): void;
   dispose(): void;
 };
 
@@ -210,13 +212,15 @@ export function createScaleNotice(
   // Shown only with the gravity grid on (EMI-264).
   const gravityPoint = document.createElement('li');
   gravityPoint.setAttribute('data-testid', 'scale-gravity-point');
+  const gravityLegend = createGravityLegend(i18n);
+  gravityLegend.hidden = true;
   const gravityText = document.createElement('div');
   const gravityTitle = document.createElement('strong');
   gravityTitle.textContent = i18n.t('scaleNotice.gravity.title');
   gravityText.append(
     gravityTitle,
     ` ${i18n.t('scaleNotice.gravity.body')}`,
-    createGravityLegend(i18n),
+    gravityLegend,
   );
   gravityPoint.append(gravityText);
   gravityPoint.hidden = true;
@@ -350,6 +354,12 @@ export function createScaleNotice(
         return;
       }
       gravityPoint.hidden = !on;
+    },
+    setGravityArrows(on) {
+      if (disposed) {
+        return;
+      }
+      gravityLegend.hidden = !on;
     },
     dispose() {
       if (disposed) {

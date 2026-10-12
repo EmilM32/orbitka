@@ -4,7 +4,12 @@ import { CAMERA_CONFIG } from '@core/cameraConfig.ts';
 import { parseQualityLevel, type QualityLevel } from '@core/quality.ts';
 import { type Selection } from '@core/selection.ts';
 
-import { loadGravityVisible, saveGravityVisible } from './gravityPreference.ts';
+import {
+  loadGravityArrowsVisible,
+  loadGravityVisible,
+  saveGravityArrowsVisible,
+  saveGravityVisible,
+} from './gravityPreference.ts';
 import { type Dictionary, type I18n } from './i18n.ts';
 import { createIcon } from './icons.ts';
 import {
@@ -22,6 +27,8 @@ export type ViewControls = {
   element: HTMLElement;
   isOrbitsVisible(): boolean;
   isGravityVisible(): boolean;
+  /** The arrows are on screen: the grid is on and the arrow switch too. */
+  isGravityArrowsVisible(): boolean;
   /** Full screen on or off, as the button does; nothing where the browser has none. */
   toggleFullscreen(): void;
   /**
@@ -42,6 +49,11 @@ export type ViewControlsOptions = {
   onGravityChange: (visible: boolean) => void;
   /** A link asked for the gravity grid: on at the start, not saved. */
   gravityFromLink?: boolean;
+  /**
+   * The force and velocity arrows show or hide (EMI-265). Called with false
+   * whenever the grid is off, whatever the arrow switch says.
+   */
+  onGravityArrowsChange: (visible: boolean) => void;
   /** `null` = automatic. */
   onQualityChange: (level: QualityLevel | null) => void;
   /** The saved manual level; `null` = automatic. */
@@ -64,6 +76,7 @@ export function createViewControls(
   let visible = loadOrbitsVisible(storage);
   let gravityVisible =
     options.gravityFromLink === true || loadGravityVisible(storage);
+  let arrowsOn = loadGravityArrowsVisible(storage);
   let disposed = false;
   let atMin = false;
   let atMax = false;
@@ -151,6 +164,23 @@ export function createViewControls(
     select.append(option);
   }
   select.value = options.qualityValue ?? 'auto';
+  // In the panel, not the top bar: the bar is full (EMI-265). It works only
+  // with the grid on and says so while it is off.
+  const arrows = button('view-gravity-arrows');
+  arrows.classList.add('o-toggle', 'view-gravity-arrows');
+  arrows.setAttribute('aria-pressed', arrowsOn ? 'true' : 'false');
+  const arrowsSwitch = document.createElement('span');
+  arrowsSwitch.className = 'o-toggle__switch';
+  arrowsSwitch.setAttribute('aria-hidden', 'true');
+  arrows.append(
+    createIcon('vectors'),
+    label(i18n.t('view.gravityArrows.text')),
+    arrowsSwitch,
+  );
+  const arrowsHint = document.createElement('p');
+  arrowsHint.id = 'view-gravity-arrows-hint';
+  arrowsHint.className = 'view-quality-hint view-gravity-arrows-hint';
+  arrowsHint.textContent = i18n.t('view.gravityArrows.hint');
   const shortcuts = document.createElement('button');
   shortcuts.type = 'button';
   shortcuts.className = 'o-btn o-btn--outline view-shortcuts';
@@ -170,7 +200,15 @@ export function createViewControls(
   // aria-live, not role="status": the announcer owns the one status region.
   copyStatus.setAttribute('aria-live', 'polite');
   copyStatus.setAttribute('data-testid', 'view-copy-status');
-  panel.append(selectLabel, select, copyLink, copyStatus, shortcuts);
+  panel.append(
+    selectLabel,
+    select,
+    arrows,
+    arrowsHint,
+    copyLink,
+    copyStatus,
+    shortcuts,
+  );
   if (options.qualityLocked) {
     const hint = document.createElement('p');
     hint.id = 'view-quality-hint';
@@ -206,6 +244,18 @@ export function createViewControls(
   }
   onOrbitsChange(visible);
   options.onGravityChange(gravityVisible);
+  syncArrows();
+
+  function syncArrows(): void {
+    setDisabled(arrows, !gravityVisible);
+    arrowsHint.hidden = gravityVisible;
+    if (gravityVisible) {
+      arrows.removeAttribute('aria-describedby');
+    } else {
+      arrows.setAttribute('aria-describedby', arrowsHint.id);
+    }
+    options.onGravityArrowsChange(gravityVisible && arrowsOn);
+  }
 
   function setPanelOpen(open: boolean, restoreFocus: boolean): void {
     if (panelOpen === open) {
@@ -342,6 +392,14 @@ export function createViewControls(
       gravity.setAttribute('aria-pressed', gravityVisible ? 'true' : 'false');
       options.onGravityChange(gravityVisible);
       saveGravityVisible(storage, gravityVisible);
+      syncArrows();
+      return;
+    }
+    if (testId === 'view-gravity-arrows') {
+      arrowsOn = !arrowsOn;
+      arrows.setAttribute('aria-pressed', arrowsOn ? 'true' : 'false');
+      saveGravityArrowsVisible(storage, arrowsOn);
+      syncArrows();
       return;
     }
     if (testId !== 'view-orbits') {
@@ -360,6 +418,9 @@ export function createViewControls(
     },
     isGravityVisible(): boolean {
       return gravityVisible;
+    },
+    isGravityArrowsVisible(): boolean {
+      return gravityVisible && arrowsOn;
     },
     toggleFullscreen,
     setZoomLimits(nextAtMin: boolean, nextAtMax: boolean): void {

@@ -322,7 +322,13 @@ test('scaleNotice › the gravity grid adds a point to the dialog', () => {
     'Siatka grawitacji to porównanie, nie zdjęcie.',
   );
 
-  const legend = point?.querySelector('[data-testid="gravity-legend"]');
+  const legend = point?.querySelector<HTMLElement>(
+    '[data-testid="gravity-legend"]',
+  );
+  // The legend waits for the arrows.
+  expect(legend?.hidden).toBe(true);
+  view.notice.setGravityArrows(true);
+  expect(legend?.hidden).toBe(false);
   expect(
     [...(legend?.querySelectorAll('li') ?? [])].map((item) => item.textContent),
   ).toEqual(['przyciąganie Słońca', 'prędkość planety']);
@@ -343,6 +349,11 @@ test('scaleNotice › the gravity grid adds a point to the dialog', () => {
   view.notice.setGravity(false);
   expect(badge?.textContent).toBe('Skala uproszczona');
   expect(point?.hidden).toBe(true);
+  view.notice.setGravityArrows(false);
+  expect(legend?.hidden).toBe(true);
   view.notice.dispose();
   expect(() => view.notice.setGravity(true)).not.toThrow();
+  expect(() => {
+    view.notice.setGravityArrows(true);
+  }).not.toThrow();
 });

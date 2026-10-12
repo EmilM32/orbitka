@@ -125,6 +125,24 @@
   color: var(--c-text-2);
 }
 
+/* The arrow switch: text on the left, the switch on the right. */
+#view-controls .view-gravity-arrows {
+  justify-content: space-between;
+  margin-top: var(--s-2);
+}
+
+#view-controls .view-gravity-arrows[aria-pressed='true'] {
+  background: transparent;
+}
+
+#view-controls .view-gravity-arrows[aria-disabled='true'] {
+  color: var(--c-text-disabled);
+}
+
+#view-controls .view-gravity-arrows[aria-disabled='true'] .o-toggle__switch {
+  opacity: 0.5;
+}
+
 #view-controls .view-shortcuts,
 #view-controls .view-copy-link {
   justify-content: flex-start;

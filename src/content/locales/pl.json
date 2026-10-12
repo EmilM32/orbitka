@@ -38,6 +38,8 @@
   "view.orbits.title": "Pokaż lub ukryj linie orbit",
   "view.gravity.text": "Grawitacja",
   "view.gravity.title": "Pokaż lub ukryj siatkę grawitacji",
+  "view.gravityArrows.text": "Strzałki siły i prędkości",
+  "view.gravityArrows.hint": "Działa po włączeniu Grawitacji.",
   "view.zoomIn.ariaLabel": "Przybliż",
   "view.zoomOut.ariaLabel": "Oddal",
   "view.settings.ariaLabel": "Ustawienia widoku",

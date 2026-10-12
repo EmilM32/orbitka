@@ -44,6 +44,7 @@ function mount(storage: OrbitsStorage | null = null) {
     onZoom: vi.fn<(factor: number) => void>(),
     onOrbitsChange,
     onGravityChange: vi.fn(),
+    onGravityArrowsChange: vi.fn(),
     onQualityChange: vi.fn(),
     qualityValue: null,
     qualityLocked: false,
@@ -206,6 +207,7 @@ test('tab order inside group', () => {
     'view-zoom-in',
     'view-fullscreen',
     'view-settings',
+    'view-gravity-arrows',
     'view-copy-link',
     'view-shortcuts',
   ]);
@@ -223,6 +225,7 @@ test('dispose cleans up', () => {
     onZoom,
     onOrbitsChange,
     onGravityChange: vi.fn(),
+    onGravityArrowsChange: vi.fn(),
     onQualityChange: vi.fn(),
     qualityValue: null,
     qualityLocked: false,

@@ -37,6 +37,10 @@ const ENTRIES: Readonly<Record<string, Entry>> = {
   gravity: {
     isValid: (value) => value === 'true' || value === 'false',
   },
+  // The force and velocity arrows of the gravity view (EMI-265).
+  gravityArrows: {
+    isValid: (value) => value === 'true' || value === 'false',
+  },
   'quality.auto': {
     legacyKey: 'orbitka.quality.auto',
     isValid: (value) => parseQualityLevel(value) !== null,

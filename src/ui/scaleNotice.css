@@ -136,6 +136,10 @@
   margin-top: var(--s-2);
 }
 
+.gravity-legend[hidden] {
+  display: none;
+}
+
 .gravity-legend-list {
   display: flex;
   flex-wrap: wrap;

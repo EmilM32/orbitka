@@ -17,12 +17,12 @@ test('timeControlsCss › rules', () => {
   expect(css).toContain('max-width: calc(100vw - 2 * var(--edge))');
   expect(css).toContain('z-index: var(--z-dock)');
   // Fixed text blocks, so the panel keeps its width.
-  expect(css).toMatch(/#sim-date\s*\{[^}]*min-width:\s*11ch/u);
+  expect(css).toMatch(/#sim-date\s*\{[^}]*min-width:\s*20ch/u);
   expect(css).toMatch(
     /#sim-date\s*\{[^}]*font-variant-numeric:\s*tabular-nums/u,
   );
   expect(css).toMatch(/#sim-date\s*\{[^}]*var\(--font-display\)/u);
-  expect(css).toMatch(/#sim-speed\s*\{[^}]*min-width:\s*16ch/u);
+  expect(css).toMatch(/#sim-speed\s*\{[^}]*min-width:\s*26ch/u);
   // Focus is the blue ring (on the slider thumb), never yellow.
   expect(css).not.toContain('#ffd54a');
   expect(css).toMatch(

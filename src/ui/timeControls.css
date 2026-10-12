@@ -47,19 +47,19 @@
 .time-readout {
   position: relative;
   flex: none;
-  width: 11rem;
+  width: 13.5rem;
 }
 
 #sim-date {
   display: block;
-  min-width: 11ch;
-  font: var(--fw-display) var(--fs-lg) / 1.2 var(--font-display);
+  min-width: 20ch;
+  font: var(--fw-display) var(--fs-md) / 1.2 var(--font-display);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
 #sim-speed {
-  min-width: 16ch;
+  min-width: 26ch;
   margin: 0;
   color: var(--c-text-2);
   font-size: 0.8125rem;

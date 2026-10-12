@@ -103,6 +103,17 @@
     "many": "{count} lat",
     "other": "{count} roku"
   },
+  "time.units.months": {
+    "one": "{count} miesiąc",
+    "few": "{count} miesiące",
+    "many": "{count} miesięcy",
+    "other": "{count} miesiąca"
+  },
+  "time.distance.today": "dziś",
+  "time.distance.future": "za {span}",
+  "time.distance.past": "{span} temu",
+  "time.distance.join": "{first} i {second}",
+  "time.date.bce": "{day} {month} {year} p.n.e.",
   "time.presets.setSpeed": "Ustaw prędkość: {speed}",
   "time.presets.day.spoken": "1 dzień na sekundę",
   "time.presets.ten-days.spoken": "10 dni na sekundę",

@@ -9,12 +9,14 @@ import {
   createClock,
   DAYS_LIMIT,
   daysToUtcDate,
+  J2000_UTC_MS,
+  MS_PER_DAY,
   SPEED_MAX,
   type Clock,
   type ClockState,
 } from '@core/clock.ts';
 import { sliderToSpeed, speedToSlider } from '@core/speedSlider.ts';
-import { formatDate, formatDateTimeAttr } from '@ui/formatDate.ts';
+import { formatDateTimeAttr, formatDateWords } from '@ui/formatDate.ts';
 import { formatSpeedSpoken } from '@ui/formatSpeed.ts';
 import { createI18n } from '@ui/i18n.ts';
 import { createTimeControls } from '@ui/timeControls.ts';
@@ -30,11 +32,25 @@ const BUTTON_IDS = [
   'time-reverse',
 ] as const;
 
+// The panel's "today": 14 October 2026, noon UTC.
+const TODAY_MS = Date.UTC(2026, 9, 14, 12);
+const TODAY_DAYS = (TODAY_MS - J2000_UTC_MS) / MS_PER_DAY;
+
 function setup(options: Parameters<typeof createClock>[0] = {}, ready = true) {
   const parent = document.createElement('div');
   document.body.append(parent);
-  const clock = createClock({ nowMs: () => 0, ...options });
-  const controls = createTimeControls(parent, clock, i18n);
+  const clock = createClock({
+    nowMs: () => 0,
+    startDays: TODAY_DAYS,
+    ...options,
+  });
+  const controls = createTimeControls(
+    parent,
+    clock,
+    i18n,
+    null,
+    () => TODAY_MS,
+  );
   if (ready) {
     controls.setReady(true);
   }
@@ -59,7 +75,7 @@ function button(parent: ParentNode, testId: string): HTMLButtonElement {
   return found;
 }
 
-function speedText(parent: ParentNode): string {
+function statusText(parent: ParentNode): string {
   return parent.querySelector('#sim-speed')?.textContent ?? '';
 }
 
@@ -164,17 +180,17 @@ test('timeControls › clicks', () => {
 
   pause.click();
   expect(view.clock.paused).toBe(true);
-  expect(speedText(view.parent)).toBe('Pauza');
+  expect(statusText(view.parent)).toBe('dziś');
   expect(year.getAttribute('aria-checked')).toBe('false');
 
   reverse.click();
   expect(view.clock.reversed).toBe(true);
   expect(view.clock.paused).toBe(true);
-  expect(speedText(view.parent)).toBe('Pauza');
+  expect(statusText(view.parent)).toBe('dziś');
 
   pause.click();
   expect(view.clock.paused).toBe(false);
-  expect(speedText(view.parent)).toBe('Wstecz · 1 rok/s');
+  expect(statusText(view.parent)).toBe('dziś');
 
   pause.click();
   year.click();
@@ -189,11 +205,11 @@ test('timeControls › date and speed', () => {
   const date = view.parent.querySelector('#sim-date');
 
   view.clock.setDays(366);
-  expect(date?.textContent).toBe('01.01.2001');
+  expect(date?.textContent).toBe('1 stycznia 2001');
   expect(date?.getAttribute('datetime')).toBe('2001-01-01');
 
   view.clock.setSpeed(123);
-  expect(speedText(view.parent)).toBe('123 dni/s');
+  expect(statusText(view.parent)).toBe('25 lat i 9 miesięcy temu');
   for (const testId of BUTTON_IDS) {
     if (!testId.startsWith('time-preset-')) {
       continue;
@@ -204,7 +220,7 @@ test('timeControls › date and speed', () => {
   }
 
   view.clock.applyPreset('month');
-  expect(speedText(view.parent)).toBe('1 miesiąc/s');
+  expect(statusText(view.parent)).toBe('25 lat i 9 miesięcy temu');
 
   view.cleanup();
 });
@@ -221,11 +237,11 @@ test('timeControls › date limit', () => {
   expect(() => view.clock.tick(0.1)).not.toThrow();
   expect(view.clock.days).toBe(DAYS_LIMIT);
   expect(view.clock.paused).toBe(true);
-  expect(speedText(view.parent)).toBe('Pauza');
+  expect(statusText(view.parent)).toBe('za 9973 lata i 5 miesięcy');
 
   const date = view.parent.querySelector('#sim-date');
   const atLimit = daysToUtcDate(DAYS_LIMIT);
-  expect(date?.textContent).toBe(formatDate(atLimit));
+  expect(date?.textContent).toBe(formatDateWords(atLimit, i18n));
   expect(date?.getAttribute('datetime')).toBe(formatDateTimeAttr(atLimit));
   view.cleanup();
 
@@ -356,12 +372,12 @@ test('timeControls › approximate chip', () => {
   // The bounds are inclusive, as in orbitalElementsAreApproximate.
   view.clock.setDays(-73048.5);
   expect(chip.hidden).toBe(true);
-  expect(date?.textContent).toBe('01.01.1800');
+  expect(date?.textContent).toBe('1 stycznia 1800');
   view.clock.setDays(18627);
   expect(chip.hidden).toBe(true);
   view.clock.setDays(18627.5);
   expect(chip.hidden).toBe(false);
-  expect(date?.textContent).toBe('01.01.2051');
+  expect(date?.textContent).toBe('1 stycznia 2051');
 
   view.cleanup();
   expect(document.getElementById(tipId)).toBeNull();
@@ -500,12 +516,12 @@ test('timeControls › slider pause', () => {
   fireInput(slider, '500');
   expect(view.clock.speed).not.toBe(speedBefore);
   expect(view.clock.paused).toBe(true);
-  expect(speedText(view.parent)).toBe('Pauza');
+  expect(statusText(view.parent)).toBe('dziś');
 
   fireInput(slider, '219');
   expect(view.clock.speed).toBe(1);
   expect(view.clock.paused).toBe(true);
-  expect(speedText(view.parent)).toBe('Pauza');
+  expect(statusText(view.parent)).toBe('dziś');
 
   view.cleanup();
 });
@@ -578,7 +594,7 @@ test.each([
   const frozen = slider.value;
   view.clock.setSpeed(5);
   expect(slider.value).toBe(frozen);
-  expect(speedText(view.parent)).toBe('5 dni/s');
+  expect(statusText(view.parent)).toBe('dziś');
   expect(slider.getAttribute('aria-valuetext')).toBe('5 dni na sekundę');
 
   slider.dispatchEvent(new Event(type, { bubbles: true }));
@@ -707,16 +723,20 @@ test('timeControls › slider invalid value', () => {
 test('timeControls › status text per state', () => {
   const view = setup({}, false);
 
-  expect(speedText(view.parent)).toBe('Ładowanie sceny…');
+  expect(statusText(view.parent)).toBe('Ładowanie sceny…');
   view.controls.setReady(true);
-  expect(speedText(view.parent)).toBe('1 dzień/s');
+  expect(statusText(view.parent)).toBe('dziś');
 
+  // Pause and reverse stay on their own buttons; the status is the distance.
   view.clock.applyPreset('year');
   view.clock.setReversed(true);
-  expect(speedText(view.parent)).toBe('Wstecz · 1 rok/s');
-
   view.clock.pause();
-  expect(speedText(view.parent)).toBe('Pauza');
+  expect(statusText(view.parent)).toBe('dziś');
+
+  view.clock.setDays(TODAY_DAYS + 400);
+  expect(statusText(view.parent)).toBe('za 1 rok i 1 miesiąc');
+  view.clock.setDays(TODAY_DAYS - 150);
+  expect(statusText(view.parent)).toBe('4 miesiące i 27 dni temu');
 
   view.cleanup();
 });

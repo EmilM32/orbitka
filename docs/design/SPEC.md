@@ -147,7 +147,7 @@ Każdy komponent interaktywny ma stany: domyślny, hover, fokus, aktywny (wciśn
 ### 5.8 Panel czasu (`<section aria-label="Sterowanie czasem">`)
 
 - **▶/⏸:** okrągły, 52 px, żółty (akcja główna). Etykieta „Pauza”/„Start”. Wciśnięcie: `--c-accent-pressed` i skala 0,96.
-- **Data:** Space Grotesk 20/700, `aria-live="off"`. Status pod datą, np. „1 dzień/s”, „Wstecz · 1 rok/s”, „Pauza”.
+- **Data:** Space Grotesk 16/700, słownie („14 października 2026”), `aria-live="off"`. Status pod datą to odległość od dzisiejszej daty („dziś”, „za 3 lata i 2 miesiące”, „5 miesięcy temu”, najwyżej dwie jednostki). Pauza i „Wstecz” są widoczne na własnych przyciskach (ikona Start, wciśnięte „Wstecz”).
 - **Presety:** `role="radiogroup"`. Aktywny ma biel 16% i obrys biel 70%, **bez żółci**. Gdy prędkość ustawiono suwakiem i nie pasuje do presetu, żaden preset nie jest aktywny.
 - **„Wstecz”:** przełącznik `aria-pressed`, aktywny = biel 16%.
 - **Suwak:** `role="slider"` z `aria-valuetext` (np. „10 lat na sekundę”). Wypełnienie w kolorze tekstu 2 (`#b3bcd1`), uchwyt biały, fokus na uchwycie.

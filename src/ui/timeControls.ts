@@ -3,10 +3,13 @@ import './timeControls.css';
 import {
   DAYS_LIMIT,
   daysToUtcDate,
+  J2000_UTC_MS,
+  MS_PER_DAY,
   SPEED_PRESETS,
   type Clock,
   type ClockState,
 } from '@core/clock.ts';
+import { dateDistance } from '@core/dateDistance.ts';
 import {
   SLIDER_STEPS,
   sliderToSpeed,
@@ -14,8 +17,9 @@ import {
 } from '@core/speedSlider.ts';
 import { orbitalElementsAreApproximate } from '@data/elementValidity.ts';
 
-import { formatDate, formatDateTimeAttr } from './formatDate.ts';
-import { formatSpeed, formatSpeedSpoken } from './formatSpeed.ts';
+import { formatDateTimeAttr, formatDateWords } from './formatDate.ts';
+import { formatDistance } from './formatDistance.ts';
+import { formatSpeedSpoken } from './formatSpeed.ts';
 import { type Dictionary, type I18n } from './i18n.ts';
 import { createIcon } from './icons.ts';
 import { createTooltip } from './tooltip.ts';
@@ -83,6 +87,7 @@ export function createTimeControls(
   clock: Clock,
   i18n: AppI18n,
   before?: Node | null,
+  nowMs: () => number = Date.now,
 ): TimeControls {
   function copyFor(
     visibleKey:
@@ -298,7 +303,7 @@ export function createTimeControls(
   let lastDateTime: string | null = null;
   let lastApproximate: boolean | null = null;
   let lastState: ClockState | null = null;
-  let lastSpeedText = '';
+  let lastStatusText = '';
   let lastPresetId: string | null | undefined;
   let lastAnnouncement = '';
   let announce = false;
@@ -423,24 +428,39 @@ export function createTimeControls(
     slider.addEventListener(type, listener);
   }
 
-  function speedText(state: ClockState): string {
+  // The distance only changes with the calendar day of the simulation or of
+  // the real clock, so it is computed once per pair of days.
+  let distanceKey = '';
+  let distanceText = '';
+
+  function distanceFromToday(state: ClockState): string {
+    if (!inRange(state.days)) {
+      return i18n.t('time.date.missing');
+    }
+
+    const simDay = Math.floor(state.days);
+    const today = Math.floor((nowMs() - J2000_UTC_MS) / MS_PER_DAY);
+    const key = `${simDay}:${today}`;
+    if (key !== distanceKey) {
+      const todayDate = new Date(nowMs());
+      distanceText = formatDistance(
+        dateDistance(todayDate, daysToUtcDate(state.days)),
+        i18n,
+      );
+      distanceKey = key;
+    }
+
+    return distanceText;
+  }
+
+  function statusText(state: ClockState): string {
     if (!ready) {
       return i18n.t('time.status.loading');
     }
 
-    if (state.paused) {
-      return i18n.t('time.status.paused');
-    }
-
-    const preset = activePreset(state);
-    const value =
-      preset === null
-        ? formatSpeed(state.speed, i18n)
-        : presetCopy[preset].visible;
-    const key = state.reversed
-      ? 'time.status.speedReversed'
-      : 'time.status.speed';
-    return i18n.t(key, { speed: value });
+    // Pause and reverse stay readable on their own buttons (the play icon and
+    // the pressed "Wstecz"), so the status keeps room for the distance.
+    return distanceFromToday(state);
   }
 
   function announcement(state: ClockState): string {
@@ -506,7 +526,7 @@ export function createTimeControls(
     let dateTime: string | null = null;
     if (inRange(state.days)) {
       const date = daysToUtcDate(state.days);
-      dateText = formatDate(date);
+      dateText = formatDateWords(date, i18n);
       dateTime = formatDateTimeAttr(date);
     }
     lastDateText = setText(simDate, dateText, lastDateText);
@@ -530,7 +550,7 @@ export function createTimeControls(
       lastApproximate = approximate;
     }
 
-    lastSpeedText = setText(simSpeed, speedText(state), lastSpeedText);
+    lastStatusText = setText(simSpeed, statusText(state), lastStatusText);
 
     const valueText = formatSpeedSpoken(
       state.speed,
@@ -588,7 +608,11 @@ export function createTimeControls(
       ready = next;
       applyReady();
       if (lastState !== null) {
-        lastSpeedText = setText(simSpeed, speedText(lastState), lastSpeedText);
+        lastStatusText = setText(
+          simSpeed,
+          statusText(lastState),
+          lastStatusText,
+        );
       }
     },
     dispose() {

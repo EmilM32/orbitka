@@ -1,3 +1,5 @@
+import type { Dictionary, I18n } from './i18n.ts';
+
 // Astronomical year numbering: year 0 is 1 BCE. The calendar is the proleptic
 // Gregorian calendar, the same rules JavaScript's Date uses.
 
@@ -47,4 +49,38 @@ export function formatDateTimeAttr(date: Date): string | null {
   }
 
   return `${formatYear(parts.year)}-${parts.month}-${parts.day}`;
+}
+
+// Intl gives the month name in the genitive (as in a full date) only together
+// with the day, so the day and the month are formatted as a pair.
+const DAY_MONTH = new Intl.DateTimeFormat('pl', {
+  day: 'numeric',
+  month: 'long',
+  timeZone: 'UTC',
+});
+
+/**
+ * Day, month name and year, e.g. 14 October 2026 in Polish. Years before 1 CE use the astronomical number
+ * minus one and the "p.n.e." suffix from the dictionary (year 0 is 1 BCE),
+ * because `Intl` shows such years without an era.
+ */
+export function formatDateWords(date: Date, i18n: I18n<Dictionary>): string {
+  if (!isValidDate(date)) {
+    return MISSING_DATE;
+  }
+
+  const parts = utcParts(date);
+  const reference = new Date(0);
+  reference.setUTCFullYear(2000, date.getUTCMonth(), date.getUTCDate());
+  const dayMonth = DAY_MONTH.format(reference);
+  if (parts.year >= 1) {
+    return `${dayMonth} ${parts.year}`;
+  }
+
+  const [day = '', ...month] = dayMonth.split(' ');
+  return i18n.t('time.date.bce', {
+    day,
+    month: month.join(' '),
+    year: 1 - parts.year,
+  });
 }

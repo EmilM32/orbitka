@@ -19,6 +19,12 @@ export const VIEW_CONFIG = {
   labelKeepMaxMovePx: 24,
   orbitsStorageKey: 'orbits',
   gravityStorageKey: 'gravity',
+  gravityArrowsStorageKey: 'gravityArrows',
+  // Force and velocity arrows of the gravity view (EMI-265), Okabe–Ito
+  // orange and sky blue: told apart with every common color vision type.
+  // The scene arrows and the legend swatches share them.
+  forceArrowColor: '#e69f00',
+  velocityArrowColor: '#56b4e9',
   tabletMaxWidthPx: 1024,
   tabletMinWidthPx: 768,
   drawerWidthPx: 300,

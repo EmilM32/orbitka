@@ -1,5 +1,7 @@
 import './scaleNotice.css';
 
+import { VIEW_CONFIG } from '@core/viewConfig.ts';
+
 import { createFocusTrap } from './focusTrap.ts';
 import { type Dictionary, type I18n } from './i18n.ts';
 import { createIcon } from './icons.ts';
@@ -12,6 +14,58 @@ const POINTS = [1, 2, 3, 4] as const;
 export type SourceLinks = {
   textures: { name: string; url: string; licenseUrl: string };
 };
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+// A small arrow like the ones in the scene: a solid or a dashed shaft and a
+// head, so the legend does not rely on color alone (EMI-265).
+function legendArrow(color: string, dashed: boolean): SVGSVGElement {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('class', 'gravity-legend-arrow');
+  svg.setAttribute('viewBox', '0 0 40 12');
+  svg.setAttribute('width', '40');
+  svg.setAttribute('height', '12');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  const shaft = document.createElementNS(SVG_NS, 'line');
+  shaft.setAttribute('x1', '1');
+  shaft.setAttribute('y1', '6');
+  shaft.setAttribute('x2', '30');
+  shaft.setAttribute('y2', '6');
+  shaft.setAttribute('stroke', color);
+  shaft.setAttribute('stroke-width', '3');
+  if (dashed) {
+    shaft.setAttribute('stroke-dasharray', '5 3');
+  }
+  const head = document.createElementNS(SVG_NS, 'path');
+  head.setAttribute('d', 'M29 1 L39 6 L29 11 Z');
+  head.setAttribute('fill', color);
+  svg.append(shaft, head);
+  return svg;
+}
+
+function createGravityLegend(i18n: AppI18n): HTMLElement {
+  const legend = document.createElement('div');
+  legend.className = 'gravity-legend';
+  legend.setAttribute('data-testid', 'gravity-legend');
+  const list = document.createElement('ul');
+  list.className = 'gravity-legend-list';
+  for (const [color, dashed, key] of [
+    [VIEW_CONFIG.forceArrowColor, false, 'gravity.legend.force'],
+    [VIEW_CONFIG.velocityArrowColor, true, 'gravity.legend.velocity'],
+  ] as const) {
+    const item = document.createElement('li');
+    const label = document.createElement('span');
+    label.textContent = i18n.t(key);
+    item.append(legendArrow(color, dashed), label);
+    list.append(item);
+  }
+  const note = document.createElement('p');
+  note.className = 'gravity-legend-note';
+  note.textContent = i18n.t('gravity.legend.note');
+  legend.append(list, note);
+  return legend;
+}
 
 function externalLink(href: string, text: string): HTMLAnchorElement {
   const link = document.createElement('a');
@@ -79,6 +133,8 @@ export type ScaleNotice = {
    * keeps its text: a longer one would not fit beside the view group.
    */
   setGravity(on: boolean): void;
+  /** The arrow legend shows only while the arrows are on (EMI-265). */
+  setGravityArrows(on: boolean): void;
   dispose(): void;
 };
 
@@ -156,10 +212,16 @@ export function createScaleNotice(
   // Shown only with the gravity grid on (EMI-264).
   const gravityPoint = document.createElement('li');
   gravityPoint.setAttribute('data-testid', 'scale-gravity-point');
-  const gravityText = document.createElement('span');
+  const gravityLegend = createGravityLegend(i18n);
+  gravityLegend.hidden = true;
+  const gravityText = document.createElement('div');
   const gravityTitle = document.createElement('strong');
   gravityTitle.textContent = i18n.t('scaleNotice.gravity.title');
-  gravityText.append(gravityTitle, ` ${i18n.t('scaleNotice.gravity.body')}`);
+  gravityText.append(
+    gravityTitle,
+    ` ${i18n.t('scaleNotice.gravity.body')}`,
+    gravityLegend,
+  );
   gravityPoint.append(gravityText);
   gravityPoint.hidden = true;
   list.append(gravityPoint);
@@ -292,6 +354,12 @@ export function createScaleNotice(
         return;
       }
       gravityPoint.hidden = !on;
+    },
+    setGravityArrows(on) {
+      if (disposed) {
+        return;
+      }
+      gravityLegend.hidden = !on;
     },
     dispose() {
       if (disposed) {

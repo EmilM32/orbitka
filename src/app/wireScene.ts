@@ -10,6 +10,7 @@ import { bodies } from '@data/bodies.ts';
 import { interiors } from '@data/interiors.ts';
 import { applyQualityLevel } from '@render/applyQuality.ts';
 import { createBodies } from '@render/bodies.ts';
+import { createForceArrows } from '@render/forceArrows.ts';
 import { createGravityGrid } from '@render/gravityGrid.ts';
 import { createInteriorCutaway } from '@render/interiorCutaway.ts';
 import { createLights } from '@render/lights.ts';
@@ -31,8 +32,8 @@ export type SceneInputs = {
 };
 
 /**
- * The scene content: stars, bodies, textures, orbit lines, the gravity grid,
- * quality level.
+ * The scene content: stars, bodies, textures, orbit lines, the gravity grid
+ * and its arrows, quality level.
  */
 export function wireScene({ viewRig, storage, search }: SceneInputs) {
   const { view, textureMemory } = viewRig;
@@ -120,6 +121,16 @@ export function wireScene({ viewRig, storage, search }: SceneInputs) {
       gravityGrid.setQuality(level);
     }),
   );
+  // Shown and hidden with the grid (EMI-265).
+  const forceArrows = createForceArrows(
+    bodies,
+    bodyView.meshes,
+    bodyView.radii,
+  );
+  view.scene.add(forceArrows.group);
+  stack.add(() => {
+    forceArrows.dispose();
+  });
   view.scene.add(createLights());
 
   return {
@@ -129,6 +140,7 @@ export function wireScene({ viewRig, storage, search }: SceneInputs) {
     textureStore,
     orbitLines,
     gravityGrid,
+    forceArrows,
     cutaway,
     dispose: stack.disposeAll,
   };

@@ -4,6 +4,7 @@ import { getBody } from '@data/bodies.ts';
 import {
   compressMoonOffsetKm,
   compressPositionAu,
+  compressVelocityAu,
   distanceToScene,
   moonDistanceToScene,
   moonRadiiToScene,
@@ -836,4 +837,80 @@ test.each([
         : 'must be finite and > 0'
     }, got NaN`,
   );
+});
+
+test('compressVelocityAu › is the change of the compressed position', () => {
+  const cases: [Vec3, Vec3][] = [
+    [
+      { x: 1, y: 0, z: 0 },
+      { x: 0, y: 0.0172, z: 0 },
+    ],
+    [
+      { x: 0.3, y: -0.2, z: 0.05 },
+      { x: 0.01, y: 0.02, z: -0.003 },
+    ],
+    [
+      { x: -20, y: 25, z: 1 },
+      { x: -0.002, y: -0.001, z: 0.0001 },
+    ],
+  ];
+  const step = 1e-3;
+  for (const [place, motion] of cases) {
+    const before = compressPositionAu(
+      place.x - motion.x * step,
+      place.y - motion.y * step,
+      place.z - motion.z * step,
+      { x: 0, y: 0, z: 0 },
+    );
+    const after = compressPositionAu(
+      place.x + motion.x * step,
+      place.y + motion.y * step,
+      place.z + motion.z * step,
+      { x: 0, y: 0, z: 0 },
+    );
+    const actual = compressVelocityAu(place, motion, { x: 0, y: 0, z: 0 });
+    const size = Math.hypot(actual.x, actual.y, actual.z);
+    expect(
+      Math.hypot(
+        actual.x - (after.x - before.x) / (2 * step),
+        actual.y - (after.y - before.y) / (2 * step),
+        actual.z - (after.z - before.z) / (2 * step),
+      ),
+    ).toBeLessThan(size * 1e-5);
+  }
+});
+
+test('compressVelocityAu › keeps a tangential direction', () => {
+  const out = compressVelocityAu(
+    { x: 4, y: 0, z: 0 },
+    { x: 0, y: 1, z: 0 },
+    { x: 0, y: 0, z: 0 },
+  );
+  expect(out.x).toBe(0);
+  expect(out.y).toBeCloseTo(distanceToScene(4) / 4, 12);
+  expect(out.z).toBe(0);
+});
+
+test('compressVelocityAu › zero at the origin, finite input only', () => {
+  expect(
+    compressVelocityAu(
+      { x: 0, y: 0, z: 0 },
+      { x: 1, y: 1, z: 1 },
+      { x: 9, y: 9, z: 9 },
+    ),
+  ).toEqual({ x: 0, y: 0, z: 0 });
+  expect(() =>
+    compressVelocityAu(
+      { x: Number.NaN, y: 0, z: 0 },
+      { x: 0, y: 0, z: 0 },
+      { x: 0, y: 0, z: 0 },
+    ),
+  ).toThrow('positionAu.x');
+  expect(() =>
+    compressVelocityAu(
+      { x: 1, y: 0, z: 0 },
+      { x: 0, y: 0, z: Number.POSITIVE_INFINITY },
+      { x: 0, y: 0, z: 0 },
+    ),
+  ).toThrow('velocityAu.z');
 });

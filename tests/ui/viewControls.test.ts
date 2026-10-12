@@ -42,6 +42,7 @@ function mount(
     onZoom?: (factor: number) => void;
     onOrbitsChange?: (visible: boolean) => void;
     onGravityChange?: (visible: boolean) => void;
+    onGravityArrowsChange?: (visible: boolean) => void;
     gravityFromLink?: boolean;
     onQualityChange?: (level: QualityLevel | null) => void;
     qualityValue?: QualityLevel | null;
@@ -56,6 +57,8 @@ function mount(
     options.onOrbitsChange ?? vi.fn<(visible: boolean) => void>();
   const onGravityChange =
     options.onGravityChange ?? vi.fn<(visible: boolean) => void>();
+  const onGravityArrowsChange =
+    options.onGravityArrowsChange ?? vi.fn<(visible: boolean) => void>();
   const onQualityChange =
     options.onQualityChange ?? vi.fn<(level: QualityLevel | null) => void>();
   const onCopyLink =
@@ -71,6 +74,7 @@ function mount(
     onZoom,
     onOrbitsChange,
     onGravityChange,
+    onGravityArrowsChange,
     ...(options.gravityFromLink === undefined
       ? {}
       : { gravityFromLink: options.gravityFromLink }),
@@ -86,6 +90,7 @@ function mount(
     onZoom,
     onOrbitsChange,
     onGravityChange,
+    onGravityArrowsChange,
     onQualityChange,
     onCopyLink,
     onShowShortcuts,
@@ -122,6 +127,7 @@ test('group structure', () => {
       'view-zoom-in',
       'view-fullscreen',
       'view-settings',
+      'view-gravity-arrows',
       'view-copy-link',
       'view-shortcuts',
     ],
@@ -617,4 +623,59 @@ test('gravity toggle: off by default, saved, and on from a link', () => {
   expect(fromLink.onGravityChange).toHaveBeenCalledExactlyOnceWith(true);
   expect(fromLink.storage?.getItem('gravity')).toBeNull();
   fromLink.controls.dispose();
+});
+
+test('gravity arrows: a switch in the panel, on by default, only with the grid', () => {
+  resetDocument();
+  const first = mount();
+  const arrows = button('view-gravity-arrows');
+  const hint = document.querySelector<HTMLElement>('#view-gravity-arrows-hint');
+  expect(arrows.closest('#view-settings-panel')).not.toBeNull();
+  expect(arrows.textContent).toBe('Strzałki siły i prędkości');
+  expect(arrows.getAttribute('aria-pressed')).toBe('true');
+  // The grid is off: the switch is inactive and says why.
+  expect(arrows.getAttribute('aria-disabled')).toBe('true');
+  expect(arrows.getAttribute('aria-describedby')).toBe(hint?.id);
+  expect(hint?.hidden).toBe(false);
+  expect(hint?.textContent).toBe('Działa po włączeniu Grawitacji.');
+  expect(first.onGravityArrowsChange).toHaveBeenLastCalledWith(false);
+  arrows.click();
+  expect(arrows.getAttribute('aria-pressed')).toBe('true');
+
+  // The grid on: the arrows follow.
+  button('view-gravity').click();
+  expect(arrows.hasAttribute('aria-disabled')).toBe(false);
+  expect(arrows.hasAttribute('aria-describedby')).toBe(false);
+  expect(hint?.hidden).toBe(true);
+  expect(first.onGravityArrowsChange).toHaveBeenLastCalledWith(true);
+  expect(first.controls.isGravityArrowsVisible()).toBe(true);
+
+  // Off with the switch, saved; the grid stays.
+  arrows.click();
+  expect(arrows.getAttribute('aria-pressed')).toBe('false');
+  expect(first.onGravityArrowsChange).toHaveBeenLastCalledWith(false);
+  expect(first.storage?.getItem('gravityArrows')).toBe('false');
+  expect(first.controls.isGravityArrowsVisible()).toBe(false);
+  expect(first.controls.isGravityVisible()).toBe(true);
+  first.controls.dispose();
+
+  // Restored: the grid on, the arrows off.
+  const restored = mount({ storage: first.storage });
+  expect(button('view-gravity-arrows').getAttribute('aria-pressed')).toBe(
+    'false',
+  );
+  expect(restored.onGravityArrowsChange).toHaveBeenCalledExactlyOnceWith(false);
+  button('view-gravity-arrows').click();
+  expect(restored.onGravityArrowsChange).toHaveBeenLastCalledWith(true);
+  // Grid off hides them whatever the switch says.
+  button('view-gravity').click();
+  expect(restored.onGravityArrowsChange).toHaveBeenLastCalledWith(false);
+  restored.controls.dispose();
+});
+
+test('gravity arrows: without storage they are on', () => {
+  resetDocument();
+  const view = mount({ storage: null, gravityFromLink: true });
+  expect(view.onGravityArrowsChange).toHaveBeenCalledExactlyOnceWith(true);
+  view.controls.dispose();
 });

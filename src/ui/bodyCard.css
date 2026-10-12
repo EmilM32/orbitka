@@ -111,6 +111,11 @@
   border-bottom: var(--border);
 }
 
+/* The pull and speed rows wait hidden outside the gravity view. */
+.body-card-fact[hidden] {
+  display: none;
+}
+
 .body-card-fact dt {
   color: var(--c-text-2);
   font-size: var(--fs-sm);

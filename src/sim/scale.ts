@@ -150,6 +150,43 @@ export function compressPositionAu(
   return out;
 }
 
+// Velocity in the scene of a body at `positionAu` moving at `velocityAu` (AU
+// per unit time): the exact time derivative of compressPositionAu, in scene
+// units per the same unit time. With d = k·r^0.5 it is
+// (d / r) · (v − ½ (r̂·v) r̂): the radial part shrinks twice as much as the
+// tangential one. Zero at the origin. Writes into out.
+export function compressVelocityAu(
+  positionAu: Vec3,
+  velocityAu: Vec3,
+  out: Vec3,
+): Vec3 {
+  requireFinite('compressVelocityAu', 'positionAu.x', positionAu.x);
+  requireFinite('compressVelocityAu', 'positionAu.y', positionAu.y);
+  requireFinite('compressVelocityAu', 'positionAu.z', positionAu.z);
+  requireFinite('compressVelocityAu', 'velocityAu.x', velocityAu.x);
+  requireFinite('compressVelocityAu', 'velocityAu.y', velocityAu.y);
+  requireFinite('compressVelocityAu', 'velocityAu.z', velocityAu.z);
+
+  const lengthAu = Math.hypot(positionAu.x, positionAu.y, positionAu.z);
+  if (lengthAu === 0) {
+    out.x = 0;
+    out.y = 0;
+    out.z = 0;
+    return out;
+  }
+
+  const factor = distanceToScene(lengthAu) / lengthAu;
+  const radial =
+    (positionAu.x * velocityAu.x +
+      positionAu.y * velocityAu.y +
+      positionAu.z * velocityAu.z) /
+    (lengthAu * lengthAu);
+  out.x = factor * (velocityAu.x - 0.5 * radial * positionAu.x);
+  out.y = factor * (velocityAu.y - 0.5 * radial * positionAu.y);
+  out.z = factor * (velocityAu.z - 0.5 * radial * positionAu.z);
+  return out;
+}
+
 // Keeps the direction of a moon's offset from its parent (kilometers) and
 // replaces the length with moonDistanceToScene. Math.hypot avoids x*x overflow.
 // Writes into out so a later render loop does not allocate.

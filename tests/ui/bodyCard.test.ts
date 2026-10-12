@@ -11,6 +11,7 @@ import { bodies } from '@data/bodies.ts';
 import {
   CARD_ENTER_DELAY_MS,
   createBodyCard,
+  formatAcceleration,
   type BodyCard,
   type BodyCardCutawayState,
   type BodyCardInterior,
@@ -109,6 +110,9 @@ function factValues(card: BodyCard): Record<string, string> {
   for (const row of card.element.querySelectorAll<HTMLElement>(
     '.body-card-fact',
   )) {
+    if (row.hidden) {
+      continue;
+    }
     values[row.querySelector('dt')?.textContent ?? ''] =
       row.querySelector('dd')?.textContent ?? '';
   }
@@ -705,4 +709,51 @@ test('a shared link opens the cutaway, and a tablet sheet expands', () => {
     )?.hidden,
   ).toBe(false);
   expect(card.element.classList.contains('is-expanded')).toBe(true);
+});
+
+test('bodyCard › the gravity view adds the pull and the speed', () => {
+  const { card } = setup();
+  card.show('earth');
+  expect(card.shownBodyId()).toBe('earth');
+  const acceleration = card.element.querySelector<HTMLElement>(
+    '[data-testid="body-card-acceleration"]',
+  );
+  const speed = card.element.querySelector<HTMLElement>(
+    '[data-testid="body-card-speed"]',
+  );
+  expect(acceleration?.hidden).toBe(true);
+  expect(speed?.hidden).toBe(true);
+
+  card.setMotion({ accelerationMs2: 0.005931, speedKms: 29.784 });
+  expect(factValues(card)).toEqual({
+    'Rok trwa': '1 rok',
+    'Obrót wokół osi': '23 h 56 min',
+    'Przyciąganie Słońca': '0,0059 m/s²',
+    'Prędkość na orbicie': '29,8 km/s',
+  });
+
+  // Another body: the rows wait for its values.
+  card.show('mars');
+  expect(acceleration?.hidden).toBe(true);
+  card.setMotion({ accelerationMs2: 0.00258, speedKms: 24.07 });
+  expect(speed?.hidden).toBe(false);
+  card.setMotion(null);
+  expect(speed?.hidden).toBe(true);
+
+  card.hide();
+  expect(card.shownBodyId()).toBeNull();
+  card.dispose();
+  expect(() => {
+    card.setMotion({ accelerationMs2: 1, speedKms: 1 });
+  }).not.toThrow();
+});
+
+test('bodyCard › formatAcceleration keeps two significant digits', () => {
+  expect(formatAcceleration(0.0627, i18n)).toBe('0,063');
+  expect(formatAcceleration(0.005931, i18n)).toBe('0,0059');
+  expect(formatAcceleration(6.67e-6, i18n)).toBe('0,0000067');
+  expect(formatAcceleration(9.81, i18n)).toBe('9,8');
+  expect(formatAcceleration(274, i18n)).toBe('274');
+  expect(() => formatAcceleration(0, i18n)).toThrow(RangeError);
+  expect(() => formatAcceleration(Number.NaN, i18n)).toThrow(RangeError);
 });

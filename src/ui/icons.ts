@@ -15,6 +15,7 @@ export type IconName =
   | 'system'
   | 'orbits'
   | 'gravity'
+  | 'vectors'
   | 'chevron'
   | 'more'
   | 'check'
@@ -79,6 +80,15 @@ export const ICON_PATHS: Readonly<Record<IconName, readonly string[]>> = {
   gravity: [
     'M2 7c5 0 6.5 1.5 8 6.5.5 1.7 1.2 2.5 2 2.5s1.5-.8 2-2.5C15.5 8.5 17 7 22 7',
     circle(12, 11, 2),
+  ],
+  // Lucide "move-up-right" and a second arrow from the same point: the force
+  // and velocity arrows of the gravity view.
+  vectors: [
+    circle(5, 19, 2),
+    'M6.5 17.5 18 6',
+    'M12 6h6v6',
+    'M7 19h14',
+    'm18 16 3 3-3 3',
   ],
   chevron: ['m6 9 6 6 6-6'],
   more: [circle(12, 12, 1), circle(19, 12, 1), circle(5, 12, 1)],

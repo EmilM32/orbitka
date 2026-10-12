@@ -47,6 +47,12 @@ export type BodyCardCutawayState = {
   layerId: string | null;
 };
 
+/** A planet's pull from the Sun and orbital speed, for the gravity view. */
+export type BodyCardMotion = {
+  accelerationMs2: number;
+  speedKms: number;
+};
+
 export type BodyCardOptions = {
   bodies: readonly BodyCardBody[];
   content: BodyContentCatalog;
@@ -71,6 +77,13 @@ export type BodyCard = {
   show(id: string): void;
   hide(): void;
   isCutawayOpen(): boolean;
+  /** The body whose content is on the card, or null when it is closed. */
+  shownBodyId(): string | null;
+  /**
+   * The pull and speed rows of the shown planet (EMI-265); null hides them.
+   * The text is rewritten only when the rounded value changes.
+   */
+  setMotion(motion: BodyCardMotion | null): void;
   dispose(): void;
 };
 
@@ -145,6 +158,14 @@ export function createBodyCard(
   const yearRow = factRow(i18n.t('card.facts.year'));
   const rotationRow = factRow(i18n.t('card.facts.rotation'));
   facts.append(yearRow.row, rotationRow.row);
+  // Shown only in the gravity view (EMI-265).
+  const accelerationRow = factRow(i18n.t('card.motion.acceleration'));
+  accelerationRow.row.setAttribute('data-testid', 'body-card-acceleration');
+  const speedRow = factRow(i18n.t('card.motion.speed'));
+  speedRow.row.setAttribute('data-testid', 'body-card-speed');
+  accelerationRow.row.hidden = true;
+  speedRow.row.hidden = true;
+  facts.append(accelerationRow.row, speedRow.row);
   const funFact = create('div', 'body-card-fun');
   const funText = create('p', 'body-card-fun-text');
   const source = create('a', 'body-card-source');
@@ -250,7 +271,15 @@ export function createBodyCard(
   handle.hidden = !sheet;
   setExpanded(false);
 
-  return { element, show, hide, isCutawayOpen, dispose };
+  return {
+    element,
+    show,
+    hide,
+    isCutawayOpen,
+    shownBodyId,
+    setMotion,
+    dispose,
+  };
 
   function show(id: string): void {
     if (disposed) {
@@ -314,6 +343,8 @@ export function createBodyCard(
 
     if (shownId !== body.id) {
       highlighted = null;
+      // The rows wait for the values of the new body.
+      setMotion(null);
     }
     shownId = body.id;
     renderInterior();
@@ -349,6 +380,7 @@ export function createBodyCard(
     pendingId = null;
     shownId = null;
     highlighted = null;
+    setMotion(null);
     renderInterior();
     element.hidden = true;
     publishCutaway();
@@ -436,6 +468,33 @@ export function createBodyCard(
 
   function isCutawayOpen(): boolean {
     return cutaway;
+  }
+
+  function shownBodyId(): string | null {
+    return shownId;
+  }
+
+  function setMotion(motion: BodyCardMotion | null): void {
+    if (disposed) {
+      return;
+    }
+    accelerationRow.row.hidden = motion === null;
+    speedRow.row.hidden = motion === null;
+    if (motion === null) {
+      return;
+    }
+    writeText(
+      accelerationRow.value,
+      i18n.t('card.motion.accelerationValue', {
+        value: formatAcceleration(motion.accelerationMs2, i18n),
+      }),
+    );
+    writeText(
+      speedRow.value,
+      i18n.t('card.motion.speedValue', {
+        value: i18n.formatNumber(motion.speedKms, 1),
+      }),
+    );
   }
 
   function publishCutaway(): void {
@@ -683,6 +742,23 @@ export function createBodyCard(
       right: Math.max(0, window.innerWidth - element.offsetLeft + CARD_GAP_PX),
       bottom: 0,
     });
+  }
+}
+
+/** An acceleration to two significant digits ("0,0059", "0,0000067"). */
+export function formatAcceleration(value: number, i18n: AppI18n): string {
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new RangeError(
+      `formatAcceleration: parameter "value" must be finite and > 0, got ${value}`,
+    );
+  }
+  const digits = Math.max(0, 1 - Math.floor(Math.log10(value)));
+  return i18n.formatNumber(value, digits);
+}
+
+function writeText(element: HTMLElement, text: string): void {
+  if (element.textContent !== text) {
+    element.textContent = text;
   }
 }
 

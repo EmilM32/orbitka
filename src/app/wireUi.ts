@@ -137,7 +137,7 @@ export function wireUi({
     tabletListQuery.removeEventListener('change', updateListMode);
     railWidthQuery.removeEventListener('change', updateListMode);
   });
-  const { quality, orbitLines, gravityGrid, cutaway } = sceneRig;
+  const { quality, orbitLines, gravityGrid, forceArrows, cutaway } = sceneRig;
   let bodyCard: BodyCard | null = null;
   const shortcutsDialog = createShortcutsDialog(document.body, i18n);
   stack.add(() => {
@@ -156,6 +156,10 @@ export function wireUi({
     onGravityChange: (visible) => {
       gravityGrid.setVisible(visible);
       scaleNotice.setGravity(visible);
+    },
+    onGravityArrowsChange: (visible) => {
+      forceArrows.setVisible(visible);
+      scaleNotice.setGravityArrows(visible);
     },
     gravityFromLink: initialGravity,
     onQualityChange: (level) => {

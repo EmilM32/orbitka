@@ -308,3 +308,56 @@ test('gravity grid: a link with gravity=1 turns it on', async ({ page }) => {
     'true',
   );
 });
+
+test('gravity arrows: on with the grid, values on the card, budget kept', async ({
+  page,
+}) => {
+  const DRAW_CALL_BUDGET = 28;
+  const errors: string[] = [];
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      errors.push(message.text());
+    }
+  });
+  page.on('pageerror', (error) => {
+    errors.push(error.message);
+  });
+
+  await openApp(page, '/?debug=1&days=0&paused=1&gravity=1&body=earth');
+  await waitForBodies(page);
+  const card = page.getByTestId('body-card');
+  await expect(card).toBeVisible();
+  await expect(page.getByTestId('body-card-acceleration')).toContainText(
+    'm/s²',
+  );
+  await expect(page.getByTestId('body-card-speed')).toContainText('km/s');
+  await page.locator('#scale-why').click();
+  await expect(page.getByTestId('gravity-legend')).toBeVisible();
+  await expect(page.getByTestId('gravity-legend')).toContainText(
+    'prędkość planety',
+  );
+  await page.locator('#scale-close').click();
+  await waitForFrames(page, 3);
+  const stats = await page.evaluate(() => window.__orbitka?.getRenderStats());
+  expect(stats?.drawCalls ?? 0).toBeLessThanOrEqual(DRAW_CALL_BUDGET);
+
+  // Off with their own switch in the settings panel: the grid stays.
+  await page.getByTestId('view-settings').click();
+  const arrows = page.getByTestId('view-gravity-arrows');
+  await expect(arrows).toHaveAttribute('aria-pressed', 'true');
+  await arrows.click();
+  await expect(arrows).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByTestId('body-card-speed')).toBeHidden();
+  await expect(page.getByTestId('view-gravity')).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await arrows.click();
+  await expect(page.getByTestId('body-card-speed')).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  // Off with the grid: the card rows go too.
+  await page.getByTestId('view-gravity').click();
+  await expect(page.getByTestId('body-card-speed')).toBeHidden();
+  expect(errors).toEqual([]);
+});

@@ -52,6 +52,9 @@ test('holds the brief values', () => {
   expect(VIEW_CONFIG.labelKeepMaxMovePx).toBe(24);
   expect(VIEW_CONFIG.orbitsStorageKey).toBe('orbits');
   expect(VIEW_CONFIG.gravityStorageKey).toBe('gravity');
+  expect(VIEW_CONFIG.gravityArrowsStorageKey).toBe('gravityArrows');
+  expect(VIEW_CONFIG.forceArrowColor).toBe('#e69f00');
+  expect(VIEW_CONFIG.velocityArrowColor).toBe('#56b4e9');
   expect(VIEW_CONFIG.tabletMaxWidthPx).toBe(1024);
   expect(VIEW_CONFIG.tabletMinWidthPx).toBe(768);
   expect(VIEW_CONFIG.drawerWidthPx).toBe(300);
@@ -74,6 +77,9 @@ test('holds the brief values', () => {
     'labelKeepMaxMovePx',
     'orbitsStorageKey',
     'gravityStorageKey',
+    'gravityArrowsStorageKey',
+    'forceArrowColor',
+    'velocityArrowColor',
     'tabletMaxWidthPx',
     'tabletMinWidthPx',
     'drawerWidthPx',

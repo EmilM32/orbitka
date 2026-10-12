@@ -131,6 +131,46 @@
   display: none;
 }
 
+/* Force and velocity arrows of the gravity view (EMI-265). */
+.gravity-legend {
+  margin-top: var(--s-2);
+}
+
+.gravity-legend[hidden] {
+  display: none;
+}
+
+.gravity-legend-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Not a numbered point: the counter and the grid stay with .scale-points. */
+.scale-points .gravity-legend-list li {
+  counter-increment: none;
+  display: flex;
+  gap: var(--s-2);
+  align-items: center;
+}
+
+.scale-points .gravity-legend-list li::before {
+  content: none;
+}
+
+.gravity-legend-arrow {
+  flex: none;
+}
+
+.gravity-legend-note {
+  margin: var(--s-2) 0 0;
+  color: var(--c-text-2);
+  font-size: var(--fs-sm);
+}
+
 .scale-points li::before {
   display: grid;
   place-items: center;

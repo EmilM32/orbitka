@@ -323,3 +323,41 @@ test('card scrolls at a low window', async ({ page }) => {
     expect(box.y + box.height, id).toBeLessThanOrEqual(600);
   }
 });
+
+// EMI-251: the gauge bars grow from zero and end at the width the gauge
+// computed; changing the body does not move the card.
+test('gauge bars end at their width and the card stays put on a body change', async ({
+  page,
+}) => {
+  await open(page, { width: 1280, height: 720 });
+  await select(page, 'jupiter');
+  const before = await boxOf(page, '#body-card');
+
+  const widths = async (): Promise<number[]> =>
+    page.locator('.gauge-bar').evaluateAll((bars) =>
+      bars.map((bar) => {
+        const track = bar.parentElement?.getBoundingClientRect().width ?? 0;
+        const fraction =
+          Number.parseFloat((bar as HTMLElement).style.width) / 100;
+        return Math.abs(bar.getBoundingClientRect().width - track * fraction);
+      }),
+    );
+
+  await page.waitForTimeout(800);
+  for (const difference of await widths()) {
+    expect(difference).toBeLessThanOrEqual(1);
+  }
+
+  await page.getByTestId('body-item-mars').click();
+  await expect(page.locator('#body-card h2')).toHaveText('Mars');
+  const during = await boxOf(page, '#body-card');
+  expect(Math.abs(during.x - before.x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(during.y - before.y)).toBeLessThanOrEqual(1);
+  await page.waitForTimeout(800);
+  for (const difference of await widths()) {
+    expect(difference).toBeLessThanOrEqual(1);
+  }
+  const after = await boxOf(page, '#body-card');
+  expect(Math.abs(after.x - during.x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(after.y - during.y)).toBeLessThanOrEqual(1);
+});

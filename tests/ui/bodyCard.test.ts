@@ -464,3 +464,52 @@ test('the description follows the mode when the window is resized', () => {
   view.setTablet(true);
   expect(description.hidden).toBe(false);
 });
+
+test('an open card fades the new content in; a closed one does not', () => {
+  const animate = vi.fn();
+  const proto = HTMLElement.prototype as unknown as { animate?: unknown };
+  const original = proto.animate;
+  proto.animate = animate;
+  try {
+    const { card } = setup();
+    card.show('jupiter');
+    // First open: the card's own entrance, no swap fade.
+    expect(animate).not.toHaveBeenCalled();
+    card.show('mars');
+    expect(animate).toHaveBeenCalledTimes(2);
+    const targets = animate.mock.contexts.map(
+      (context) => (context as HTMLElement).className,
+    );
+    expect(targets).toEqual(['body-card-head', 'body-card-scroll']);
+    expect(animate.mock.calls[0]?.[0]).toEqual([
+      { opacity: 0 },
+      { opacity: 1 },
+    ]);
+    expect(animate.mock.calls[0]?.[1]).toMatchObject({ duration: 220 });
+
+    // The same body again is not a change.
+    card.show('mars');
+    expect(animate).toHaveBeenCalledTimes(2);
+
+    card.hide();
+    card.show('venus');
+    expect(animate).toHaveBeenCalledTimes(2);
+  } finally {
+    proto.animate = original;
+  }
+});
+
+test('reduced motion shortens the swap fade to 150 ms', () => {
+  const animate = vi.fn();
+  const proto = HTMLElement.prototype as unknown as { animate?: unknown };
+  const original = proto.animate;
+  proto.animate = animate;
+  try {
+    const { card } = setup({ reducedMotion: true });
+    card.show('jupiter');
+    card.show('mars');
+    expect(animate.mock.calls[0]?.[1]).toMatchObject({ duration: 150 });
+  } finally {
+    proto.animate = original;
+  }
+});

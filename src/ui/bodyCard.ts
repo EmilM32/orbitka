@@ -53,6 +53,10 @@ export const CARD_ENTER_DELAY_MS =
 const CARD_GAP_PX = 16;
 // A handle drag shorter than this is a tap.
 const TAP_SLOP_PX = 6;
+// Content of an open card fades in when the body changes: --dur (220 ms),
+// 150 ms with reduced motion. The card itself does not move.
+const SWAP_FADE_MS = 220;
+const SWAP_FADE_REDUCED_MS = 150;
 
 function create<K extends keyof HTMLElementTagNameMap>(
   tag: K,
@@ -193,6 +197,7 @@ export function createBodyCard(
       );
     }
 
+    const swapping = !element.hidden && shownId !== null && shownId !== id;
     const bodyFacts = computeBodyFacts(body, earthBody);
     title.textContent = i18n.t(`bodies.${body.id}.name`);
     kindText.textContent = entry.kind;
@@ -238,6 +243,25 @@ export function createBodyCard(
     shownId = body.id;
     element.hidden = false;
     writeInsets();
+    if (swapping) {
+      fadeInContent();
+    }
+  }
+
+  function fadeInContent(): void {
+    const duration =
+      options.reducedMotion?.matches === true
+        ? SWAP_FADE_REDUCED_MS
+        : SWAP_FADE_MS;
+    for (const part of [head, scroll]) {
+      // jsdom has no Web Animations API; the content simply changes there.
+      if (typeof part.animate === 'function') {
+        part.animate([{ opacity: 0 }, { opacity: 1 }], {
+          duration,
+          easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+        });
+      }
+    }
   }
 
   function hide(): void {

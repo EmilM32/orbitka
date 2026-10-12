@@ -16,7 +16,7 @@ export function wireTime(sceneRig: SceneRig, search: string) {
   if (isStartPaused(search)) {
     clock.pause();
   }
-  const animator = createBodyAnimator(bodies, meshes);
+  const animator = createBodyAnimator(bodies, meshes, sceneRig.orbitLines);
   const moonAnimator = createMoonAnimator(bodies, meshes);
   const rotationAnimator = createRotationAnimator(bodies, meshes);
   const placeBodies = (): void => {

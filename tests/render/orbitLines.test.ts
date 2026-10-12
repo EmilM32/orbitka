@@ -20,10 +20,14 @@ import {
   ORBIT_GAP_RADIUS_FACTOR,
   ORBIT_OPACITY,
   ORBIT_SEGMENTS,
+  ORBIT_TRAIL_LENGTH,
   addOrbitLines,
   computeOrbitPoints,
   createOrbitLines,
+  fillTrailWeights,
   patchOrbitGap,
+  patchOrbitTrail,
+  trailWeight,
 } from '@render/orbitLines.ts';
 import { eclipticToScene } from '@render/coords.ts';
 import { bodyPositionAu } from '@sim/kepler.ts';
@@ -655,4 +659,103 @@ test('orbitLines › setGap does not allocate', () => {
   expect(spy).not.toHaveBeenCalled();
   spy.mockRestore();
   lines.dispose();
+});
+
+test('orbitLines › trail weight: 1 behind the body, 0 beyond the length and ahead', () => {
+  expect(ORBIT_TRAIL_LENGTH).toBeCloseTo(105 / 360, 12);
+  expect(trailWeight(0)).toBe(1);
+  expect(trailWeight(ORBIT_TRAIL_LENGTH)).toBe(0);
+  expect(trailWeight(ORBIT_TRAIL_LENGTH + 0.1)).toBe(0);
+  expect(trailWeight(0.5)).toBe(0);
+  expect(trailWeight(Number.NaN)).toBe(0);
+  expect(trailWeight(-0.01)).toBe(0);
+  // Falls off steadily.
+  let previous = 1;
+  for (let step = 1; step <= 20; step += 1) {
+    const weight = trailWeight((step / 20) * ORBIT_TRAIL_LENGTH);
+    expect(weight).toBeLessThanOrEqual(previous);
+    previous = weight;
+  }
+  expect(trailWeight(ORBIT_TRAIL_LENGTH / 2)).toBeCloseTo(0.5, 12);
+});
+
+test('orbitLines › fillTrailWeights brightens points behind the body only', () => {
+  const weights = new Float32Array(256);
+  fillTrailWeights(weights, 0.5, 1);
+  // The point at the body and the ones just behind it are strongest.
+  expect(weights[128]).toBe(1);
+  expect(weights[120]).toBeGreaterThan(0.9);
+  expect(weights[127]).toBeGreaterThan(weights[100] ?? 1);
+  // 105° is 74.67 points: past that, and ahead of the body, nothing.
+  expect(weights[128 - 76]).toBe(0);
+  expect(weights[129]).toBe(0);
+  expect(weights[200]).toBe(0);
+  fillTrailWeights(weights, 0.5, 0);
+  expect(weights.every((weight) => weight === 0)).toBe(true);
+});
+
+test('orbitLines › the trail continues across the 360° to 0° seam', () => {
+  const weights = new Float32Array(256);
+  // The body just past the start of the line: its trail is the end of it.
+  fillTrailWeights(weights, 2 / 256, 1);
+  expect(weights[2]).toBe(1);
+  expect(weights[0]).toBeGreaterThan(0.98);
+  expect(weights[255]).toBeGreaterThan(0.95);
+  expect(weights[250]).toBeGreaterThan(0.8);
+  expect(weights[3]).toBe(0);
+});
+
+test('orbitLines › setBodyTrail fills the vertex attribute', () => {
+  const lines = createOrbitLines(bodies);
+  const earth = lines.group.children.find(
+    (child) => child.name === 'orbit-earth',
+  );
+  if (!(earth instanceof LineLoop)) {
+    throw new Error('missing Earth orbit');
+  }
+  const attribute = earth.geometry.getAttribute('aTrail');
+  expect(attribute.count).toBe(ORBIT_SEGMENTS);
+  expect((attribute.array as Float32Array).every((value) => value === 0)).toBe(
+    true,
+  );
+
+  const version = attribute.version;
+  lines.setBodyTrail('earth', 0.25, 1);
+  expect(attribute.version).toBeGreaterThan(version);
+  expect(attribute.getX(64)).toBe(1);
+  expect(attribute.getX(65)).toBe(0);
+
+  // Same values: no new upload.
+  const upToDate = attribute.version;
+  lines.setBodyTrail('earth', 0.25, 1);
+  expect(attribute.version).toBe(upToDate);
+
+  // A body without an orbit line, and a disposed set, are ignored.
+  expect(() => lines.setBodyTrail('moon', 0.5, 1)).not.toThrow();
+  lines.dispose();
+  expect(() => lines.setBodyTrail('earth', 0.5, 1)).not.toThrow();
+});
+
+test('orbitLines › trail patch keeps the gap patch and reads the attribute', () => {
+  const lines = createOrbitLines(bodies);
+  for (const material of gapMaterials(lines)) {
+    const shader = compile(material);
+    expect(shader.vertexShader).toContain('attribute float aTrail;');
+    expect(shader.vertexShader).toContain('vTrail = aTrail;');
+    expect(shader.vertexShader).toContain('vGapViewPosition = mvPosition.xyz;');
+    expect(shader.fragmentShader).toContain('varying float vTrail;');
+    expect(shader.fragmentShader).toContain('diffuseColor.a = min(');
+    expect(shader.fragmentShader).toContain('discard');
+  }
+  lines.dispose();
+});
+
+test('orbitLines › patchOrbitTrail fails loudly on an unknown shader', () => {
+  expect(() =>
+    patchOrbitTrail({
+      vertexShader: 'void main() {}',
+      fragmentShader: 'void main() {}',
+      uniforms: {},
+    } as unknown as Parameters<typeof patchOrbitTrail>[0]),
+  ).toThrow('orbit gap patch: shader has no "#include <project_vertex>"');
 });

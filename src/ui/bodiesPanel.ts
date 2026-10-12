@@ -159,6 +159,9 @@ export function createBodiesPanel(
   nav.addEventListener('click', onClick);
   nav.addEventListener('keydown', onKeyDown);
   nav.addEventListener('focusin', onFocusIn);
+  nav.addEventListener('focusout', onFocusOut);
+  nav.addEventListener('pointerover', onPointerOver);
+  nav.addEventListener('pointerleave', onPointerLeave);
   parent.insertBefore(nav, options.before ?? null);
 
   let mode: BodiesPanelMode = 'list';
@@ -380,7 +383,46 @@ export function createBodiesPanel(
     if (view !== null) {
       tabStop = view;
       applyTabStop();
+      // The keyboard lights the body in the scene like the mouse does. A tap
+      // or a click focuses the row too, but that is not a hover.
+      if (event.target instanceof Element && isFocusVisible(event.target)) {
+        selection.setHovered(view.id);
+      }
     }
+  }
+
+  function onFocusOut(event: FocusEvent): void {
+    const view = itemFromTarget(event.target);
+    if (view !== null && selection.getHoveredId() === view.id) {
+      selection.setHovered(null);
+    }
+  }
+
+  // A mouse or pen over a row (or a rail dot) lights that body in the scene.
+  // Touch has no hover.
+  function onPointerOver(event: PointerEvent): void {
+    if (
+      disposed ||
+      (event.pointerType !== 'mouse' && event.pointerType !== 'pen')
+    ) {
+      return;
+    }
+    const view = itemFromTarget(
+      event.target instanceof Element
+        ? event.target.closest('[data-body-id]')
+        : null,
+    );
+    selection.setHovered(view === null ? null : view.id);
+  }
+
+  function onPointerLeave(event: PointerEvent): void {
+    if (
+      disposed ||
+      (event.pointerType !== 'mouse' && event.pointerType !== 'pen')
+    ) {
+      return;
+    }
+    selection.setHovered(null);
   }
 
   function onOutsidePointerDown(event: PointerEvent): void {
@@ -478,6 +520,9 @@ export function createBodiesPanel(
     nav.removeEventListener('click', onClick);
     nav.removeEventListener('keydown', onKeyDown);
     nav.removeEventListener('focusin', onFocusIn);
+    nav.removeEventListener('focusout', onFocusOut);
+    nav.removeEventListener('pointerover', onPointerOver);
+    nav.removeEventListener('pointerleave', onPointerLeave);
     document.removeEventListener('pointerdown', onOutsidePointerDown, true);
     auTip.dispose();
     for (const view of items) {
@@ -506,4 +551,13 @@ function isShown(element: HTMLElement): boolean {
     current = current.parentElement;
   }
   return element.isConnected;
+}
+
+function isFocusVisible(element: Element): boolean {
+  try {
+    return element.matches(':focus-visible');
+  } catch {
+    // An engine without :focus-visible: no keyboard hover.
+    return false;
+  }
 }

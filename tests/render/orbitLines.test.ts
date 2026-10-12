@@ -17,8 +17,10 @@ import { bodies, getBody } from '@data/bodies.ts';
 import type { BodyDef, OrbitDef } from '@data/types.ts';
 import {
   ORBIT_COLOR,
+  ORBIT_COLOR_HOVERED,
   ORBIT_GAP_RADIUS_FACTOR,
   ORBIT_OPACITY,
+  ORBIT_OPACITY_HOVERED,
   ORBIT_SEGMENTS,
   ORBIT_TRAIL_LENGTH,
   addOrbitLines,
@@ -482,7 +484,7 @@ test('setOrbitLinesVisible toggles group', () => {
   view.dispose();
 });
 
-test('dispose frees three materials once', () => {
+test('dispose frees the four materials once', () => {
   const view = createOrbitLines(bodies);
   const geometrySpy = vi.spyOn(BufferGeometry.prototype, 'dispose');
   const materialSpy = vi.spyOn(LineBasicMaterial.prototype, 'dispose');
@@ -492,10 +494,10 @@ test('dispose frees three materials once', () => {
   try {
     view.dispose();
     expect(geometrySpy).toHaveBeenCalledTimes(8);
-    expect(materialSpy).toHaveBeenCalledTimes(3);
+    expect(materialSpy).toHaveBeenCalledTimes(4);
     view.dispose();
     expect(geometrySpy).toHaveBeenCalledTimes(8);
-    expect(materialSpy).toHaveBeenCalledTimes(3);
+    expect(materialSpy).toHaveBeenCalledTimes(4);
   } finally {
     geometrySpy.mockRestore();
     materialSpy.mockRestore();
@@ -758,4 +760,103 @@ test('orbitLines › patchOrbitTrail fails loudly on an unknown shader', () => {
       uniforms: {},
     } as unknown as Parameters<typeof patchOrbitTrail>[0]),
   ).toThrow('orbit gap patch: shader has no "#include <project_vertex>"');
+});
+
+function lineOf(
+  lines: ReturnType<typeof createOrbitLines>,
+  id: string,
+): LineLoop {
+  const found = lines.group.children.find(
+    (child) => child.name === `orbit-${id}`,
+  );
+  if (!(found instanceof LineLoop)) {
+    throw new Error(`missing orbit line ${id}`);
+  }
+  return found;
+}
+
+function opacityOf(line: LineLoop): number {
+  if (!(line.material instanceof LineBasicMaterial)) {
+    throw new Error('not a line material');
+  }
+  return line.material.opacity;
+}
+
+test('orbitLines › hover lights one orbit and never the yellow of selection', () => {
+  expect(ORBIT_OPACITY_HOVERED).toBeGreaterThan(ORBIT_OPACITY);
+  const lines = createOrbitLines(bodies);
+  lines.setHoveredBody('saturn');
+  const saturn = lineOf(lines, 'saturn');
+  expect(opacityOf(saturn)).toBe(ORBIT_OPACITY_HOVERED);
+  expect((saturn.material as LineBasicMaterial).color.getHex()).toBe(
+    ORBIT_COLOR_HOVERED,
+  );
+  expect(opacityOf(lineOf(lines, 'earth'))).toBe(ORBIT_OPACITY);
+
+  lines.setHoveredBody(null);
+  expect(opacityOf(saturn)).toBe(ORBIT_OPACITY);
+  lines.dispose();
+});
+
+test('orbitLines › hover with a selection: the selected orbit keeps its look, others light up from dimmed', () => {
+  const lines = createOrbitLines(bodies);
+  lines.setSelectedBody('jupiter');
+  expect(opacityOf(lineOf(lines, 'saturn'))).toBe(
+    CAMERA_CONFIG.orbitOpacityDimmed,
+  );
+
+  lines.setHoveredBody('saturn');
+  expect(opacityOf(lineOf(lines, 'saturn'))).toBe(ORBIT_OPACITY_HOVERED);
+  expect(opacityOf(lineOf(lines, 'jupiter'))).toBe(
+    CAMERA_CONFIG.orbitOpacitySelected,
+  );
+  expect(opacityOf(lineOf(lines, 'mars'))).toBe(
+    CAMERA_CONFIG.orbitOpacityDimmed,
+  );
+
+  // Hovering the selected body changes nothing.
+  lines.setHoveredBody('jupiter');
+  expect(opacityOf(lineOf(lines, 'jupiter'))).toBe(
+    CAMERA_CONFIG.orbitOpacitySelected,
+  );
+  expect(opacityOf(lineOf(lines, 'saturn'))).toBe(
+    CAMERA_CONFIG.orbitOpacityDimmed,
+  );
+
+  // Selecting what is hovered, and back to the system view.
+  lines.setHoveredBody('saturn');
+  lines.setSelectedBody('saturn');
+  expect(opacityOf(lineOf(lines, 'saturn'))).toBe(
+    CAMERA_CONFIG.orbitOpacitySelected,
+  );
+  lines.setSelectedBody(null);
+  expect(opacityOf(lineOf(lines, 'saturn'))).toBe(ORBIT_OPACITY_HOVERED);
+  expect(opacityOf(lineOf(lines, 'earth'))).toBe(ORBIT_OPACITY);
+  lines.dispose();
+});
+
+test('orbitLines › hover on bodies without an orbit line changes nothing', () => {
+  const lines = createOrbitLines(bodies);
+  for (const id of ['sun', 'moon', 'io']) {
+    lines.setHoveredBody(id);
+    for (const line of lines.group.children) {
+      if (line instanceof LineLoop) {
+        expect(opacityOf(line)).toBe(ORBIT_OPACITY);
+      }
+    }
+  }
+  lines.dispose();
+  expect(() => lines.setHoveredBody('earth')).not.toThrow();
+});
+
+test('orbitLines › the hovered material carries the gap and trail patches and is disposed', () => {
+  const lines = createOrbitLines(bodies);
+  lines.setHoveredBody('earth');
+  const material = lineOf(lines, 'earth').material as LineBasicMaterial;
+  const shader = compile(material);
+  expect(shader.fragmentShader).toContain('discard');
+  expect(shader.vertexShader).toContain('vTrail = aTrail;');
+  const dispose = vi.spyOn(material, 'dispose');
+  lines.dispose();
+  expect(dispose).toHaveBeenCalled();
 });

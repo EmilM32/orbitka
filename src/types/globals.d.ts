@@ -55,6 +55,8 @@ export type OrbitkaOrbitState = {
   opacities: number[];
   /** Scene radius of the orbit gap around the selected body; 0 = none. */
   gapRadius: number;
+  /** Id of the body whose orbit is lit by hover, or null. */
+  hovered: string | null;
 };
 
 export type OrbitkaTextureState = {

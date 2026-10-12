@@ -26,6 +26,10 @@ Progi: tekst 4,5:1 (AA, tekst zwykły), elementy UI i grafika 3:1 (WCAG 1.4.11).
 | Tekst | Pigułka podpisu (78%) nad czernią                                                  | `#090c16`          | **17,77:1** | 4,5  | ✅    |
 | Tekst | Pigułka podpisu nad tarczą Słońca #ffd27a                                          | `#40382e`          | **10,44:1** | 4,5  | ✅    |
 | Tekst | Pigułka podpisu nad tarczą Jowisza #e8d3b0                                         | `#3b393a`          | **10,47:1** | 4,5  | ✅    |
+| Tekst | Podpis w stanie hover (biel 8%) nad czernią                                        | `#1d1f29`          | **14,92:1** | 4,5  | ✅    |
+| Tekst | Podpis w stanie hover (biel 8%) nad tarczą Słońca #ffd27a                          | `#4f483f`          | **8,19:1**  | 4,5  | ✅    |
+| Tekst | Podpis w stanie hover (biel 8%) nad tarczą Jowisza #e8d3b0                         | `#4b494a`          | **8,12:1**  | 4,5  | ✅    |
+| UI    | Obrys podpisu w stanie hover (biel 70%) względem pigułki nad tarczą Słońca         | `#40382e`          | **6,56:1**  | 3,0  | ✅    |
 | Tekst | Tekst wyłączony #6f7891 na szkle (informacyjnie; WCAG zwalnia elementy nieaktywne) | `#0b0f1b`          | **4,34:1**  | —    | —     |
 | UI    | Fokus #8cc8ff względem szkła                                                       | `#0b0f1b`          | **10,76:1** | 3,0  | ✅    |
 | UI    | Fokus #8cc8ff względem akcentu (fokus na „Więcej”)                                 | `#ffc24b`          | **1,11:1**  | —    | —     |

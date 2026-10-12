@@ -22,6 +22,10 @@ import { eclipticToScene } from './coords.ts';
 export const ORBIT_SEGMENTS = 256;
 export const ORBIT_COLOR = 0x5b6b8c;
 export const ORBIT_OPACITY = 0.55;
+// A hovered body (list, rail or scene) lights its orbit: lighter and more
+// opaque than the other states, never yellow (yellow is selection).
+export const ORBIT_COLOR_HOVERED = 0xc9d6f2;
+export const ORBIT_OPACITY_HOVERED = 0.9;
 // ADR-010 point 10: no orbit line is drawn closer than 1.25 R to the line of
 // sight through the selected body's center.
 export const ORBIT_GAP_RADIUS_FACTOR = 1.25;
@@ -41,6 +45,8 @@ export type OrbitLines = {
   setBodyTrail: (id: string, phase: number, strength: number) => void;
   setOrbitLinesVisible: (visible: boolean) => void;
   setSelectedBody: (id: string | null) => void;
+  /** The orbit of the hovered body is lit; the selected orbit keeps its own look. */
+  setHoveredBody: (id: string | null) => void;
   /**
    * Cuts every orbit line where it passes in front of or behind the disc
    * centered at `center` (world space) with scene radius `radius`. `null`
@@ -203,9 +209,10 @@ export function computeOrbitPoints(
 function createOrbitMaterial(
   opacity: number,
   uniforms: OrbitGapUniforms,
+  color = ORBIT_COLOR,
 ): LineBasicMaterial {
   const material = new LineBasicMaterial({
-    color: ORBIT_COLOR,
+    color,
     transparent: true,
     opacity,
     depthWrite: false,
@@ -229,7 +236,12 @@ export function createOrbitLines(defs: readonly BodyDef[]): OrbitLines {
   const normal = createOrbitMaterial(ORBIT_OPACITY, gap);
   const dimmed = createOrbitMaterial(CAMERA_CONFIG.orbitOpacityDimmed, gap);
   const selected = createOrbitMaterial(CAMERA_CONFIG.orbitOpacitySelected, gap);
-  const materials = [normal, dimmed, selected];
+  const hovered = createOrbitMaterial(
+    ORBIT_OPACITY_HOVERED,
+    gap,
+    ORBIT_COLOR_HOVERED,
+  );
+  const materials = [normal, dimmed, selected, hovered];
   const lines: LineLoop[] = [];
   const trails = new Map<
     string,
@@ -242,6 +254,7 @@ export function createOrbitLines(defs: readonly BodyDef[]): OrbitLines {
   >();
   let disposed = false;
   let selectedId: string | null = null;
+  let hoveredId: string | null = null;
 
   const dispose = (): void => {
     if (disposed) {
@@ -271,13 +284,15 @@ export function createOrbitLines(defs: readonly BodyDef[]): OrbitLines {
       }
     }
 
+    const hoveredName =
+      hoveredId === null || hoveredId === 'sun' ? '' : `orbit-${hoveredId}`;
     for (const line of lines) {
-      if (!found) {
-        line.material = normal;
-      } else if (line.name === selectedName) {
+      if (found && line.name === selectedName) {
         line.material = selected;
+      } else if (line.name === hoveredName) {
+        line.material = hovered;
       } else {
-        line.material = dimmed;
+        line.material = found ? dimmed : normal;
       }
     }
   };
@@ -340,6 +355,13 @@ export function createOrbitLines(defs: readonly BodyDef[]): OrbitLines {
         return;
       }
       selectedId = id;
+      applyMaterials();
+    },
+    setHoveredBody(id: string | null): void {
+      if (disposed || id === hoveredId) {
+        return;
+      }
+      hoveredId = id;
       applyMaterials();
     },
     setGap(center: Vector3 | null, radius: number, camera: Camera): void {

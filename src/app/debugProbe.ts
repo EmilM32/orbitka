@@ -194,6 +194,7 @@ export function installDebugProbe({
         visible: orbitLines.group.visible ? 1 : 0,
         opacities,
         gapRadius: gap.mesh === null ? 0 : gap.radius * ORBIT_GAP_RADIUS_FACTOR,
+        hovered: selection.getHoveredId(),
       };
     },
   };

@@ -1068,3 +1068,53 @@ test('orbit does not cross the selected disc', async ({ page }, testInfo) => {
     (await page.evaluate(() => window.__orbitka?.getOrbitState()))?.gapRadius,
   ).toBe(0);
 });
+
+// EMI-250: hover links the list and the scene both ways. Hover does not change
+// the selection or the camera.
+test('hover on a list row lights its orbit; hover on a body lights its row', async ({
+  page,
+}) => {
+  await page.setViewportSize(VIEWPORT);
+  await page.goto('/?debug=1&days=0&paused=1');
+  await waitReady(page);
+  const orbit = async (): Promise<{
+    hovered: string | null;
+    saturn: number;
+    earth: number;
+  }> =>
+    page.evaluate(() => {
+      const state = window.__orbitka?.getOrbitState();
+      if (state === undefined) {
+        throw new Error('missing debug hook');
+      }
+      // Opacities run Mercury through Neptune.
+      return {
+        hovered: state.hovered,
+        earth: state.opacities[2] ?? -1,
+        saturn: state.opacities[5] ?? -1,
+      };
+    });
+  const before = await orbit();
+  expect(before.hovered).toBeNull();
+
+  await page.getByTestId('body-item-saturn').hover();
+  await expect.poll(async () => (await orbit()).hovered).toBe('saturn');
+  const lit = await orbit();
+  expect(lit.saturn).toBeGreaterThan(before.saturn);
+  expect(lit.earth).toBe(before.earth);
+  // Hover changes neither the selection nor the camera.
+  expect(await selectedId(page)).toBeNull();
+
+  await page.mouse.move(VIEWPORT.width / 2, 5);
+  await expect.poll(async () => (await orbit()).hovered).toBeNull();
+  expect((await orbit()).saturn).toBe(before.saturn);
+
+  // From the scene: park the pointer on Saturn, its row is hovered.
+  const saturn = await screenPoint(page, 'saturn');
+  requireVisible(saturn, 'saturn');
+  await page.mouse.move(saturn.x, saturn.y, { steps: 4 });
+  await expect.poll(async () => (await orbit()).hovered).toBe('saturn');
+  await expect(page.getByTestId('body-item-saturn')).toHaveClass(/is-hovered/u);
+  expect((await orbit()).saturn).toBeGreaterThan(before.saturn);
+  expect(await selectedId(page)).toBeNull();
+});

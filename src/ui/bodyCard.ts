@@ -36,8 +36,6 @@ export type BodyCardInteriorLayer = {
 
 export type BodyCardInterior = {
   atmosphere: boolean;
-  sourceName: string;
-  sourceUrl: string;
   layers: readonly BodyCardInteriorLayer[];
 };
 
@@ -168,10 +166,7 @@ export function createBodyCard(
   facts.append(accelerationRow.row, speedRow.row);
   const funFact = create('div', 'body-card-fun');
   const funText = create('p', 'body-card-fun-text');
-  const source = create('a', 'body-card-source');
-  source.target = '_blank';
-  source.rel = 'noopener noreferrer';
-  funFact.append(funText, source);
+  funFact.append(funText);
   const interior = create('section', 'body-card-interior');
   interior.hidden = true;
   interior.setAttribute('data-testid', 'body-card-interior');
@@ -181,15 +176,7 @@ export function createBodyCard(
   interiorThickness.textContent = i18n.t('interior.notice.thickness');
   const interiorSurface = create('p', 'body-card-interior-notice');
   interiorSurface.textContent = i18n.t('interior.notice.noSurface');
-  const interiorSource = create('a', 'body-card-source');
-  interiorSource.target = '_blank';
-  interiorSource.rel = 'noopener noreferrer';
-  interior.append(
-    interiorList,
-    interiorThickness,
-    interiorSurface,
-    interiorSource,
-  );
+  interior.append(interiorList, interiorThickness, interiorSurface);
   const interiorMissing = create('p', 'body-card-interior-missing');
   interiorMissing.hidden = true;
   interiorMissing.setAttribute('data-testid', 'body-card-interior-missing');
@@ -331,17 +318,6 @@ export function createBodyCard(
     rotationRow.value.textContent = formatDay(bodyFacts.dayHours, i18n);
 
     funText.textContent = entry.funFact.text;
-    // The catalog accepts https only; anything else is not rendered as a link.
-    if (entry.funFact.source.url.startsWith('https://')) {
-      source.hidden = false;
-      source.href = entry.funFact.source.url;
-      source.textContent = i18n.t('card.source', {
-        name: entry.funFact.source.name,
-      });
-    } else {
-      source.hidden = true;
-      source.removeAttribute('href');
-    }
     description.textContent = entry.description;
     setDescription(false);
 
@@ -533,10 +509,6 @@ export function createBodyCard(
       setExpanded(true);
     }
     interiorSurface.hidden = !entry.atmosphere;
-    interiorSource.href = entry.sourceUrl;
-    interiorSource.textContent = i18n.t('card.source', {
-      name: entry.sourceName,
-    });
     // Keep the buttons when only the highlight changes, so the keyboard
     // focus stays on the layer the student just pressed.
     if (layerListMatches(entry.layers)) {

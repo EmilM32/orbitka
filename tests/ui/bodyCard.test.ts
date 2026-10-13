@@ -141,14 +141,9 @@ test('jupiter card content', () => {
     'Obrót wokół osi': '9 h 56 min',
   });
   expect(text(card, '.body-card-fun-text')).toBe(content.jupiter?.funFact.text);
-  const link =
-    card.element.querySelector<HTMLAnchorElement>('.body-card-fun a');
-  expect(link?.href).toMatch(/^https:\/\//u);
-  expect(link?.target).toBe('_blank');
-  expect(link?.rel).toBe('noopener noreferrer');
-  expect(link?.textContent).toBe(
-    `Źródło: ${content.jupiter?.funFact.source.name ?? ''}`,
-  );
+  expect(card.element.querySelector('.body-card-fun a')).toBeNull();
+  expect(card.element.querySelector('.body-card-source')).toBeNull();
+  expect(card.element.textContent).not.toContain('Źródło:');
   expect(
     card.element.querySelector('.body-card-close')?.getAttribute('aria-label'),
   ).toBe('Zamknij kartę');
@@ -533,8 +528,6 @@ test('reduced motion shortens the swap fade to 150 ms', () => {
 const INTERIORS: Record<string, BodyCardInterior> = {
   earth: {
     atmosphere: false,
-    sourceName: 'USGS',
-    sourceUrl: 'https://example.test/earth',
     layers: [
       {
         id: 'crust',
@@ -556,8 +549,6 @@ const INTERIORS: Record<string, BodyCardInterior> = {
   },
   jupiter: {
     atmosphere: true,
-    sourceName: 'NASA',
-    sourceUrl: 'https://example.test/jupiter',
     layers: [
       {
         id: 'molecular',
@@ -622,6 +613,8 @@ test('cutaway legend follows the body and highlights a layer', () => {
   expect(card.isCutawayOpen()).toBe(true);
   expect(legend?.hidden).toBe(false);
   expect(legend?.textContent).toContain('Skorupa');
+  expect(legend?.textContent).not.toContain('Źródło:');
+  expect(legend?.querySelector('a')).toBeNull();
   expect(legend?.textContent).toContain(
     i18n.t('interior.layer.thickness', { km: i18n.formatNumber(35, 0) }),
   );

@@ -30,8 +30,6 @@ export function interiorCardViews(
     }
     views[entry.id] = {
       atmosphere: entry.atmosphere,
-      sourceName: entry.source.name,
-      sourceUrl: entry.source.url,
       layers: entry.layers.map((layer, index) => {
         const measure = layerMeasure(entry.layers, index);
         const layerCopy = copy.layers[layer.id];

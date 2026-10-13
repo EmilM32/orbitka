@@ -139,17 +139,6 @@
   margin: 0;
 }
 
-.body-card-source {
-  display: inline-block;
-  margin-top: var(--s-1);
-  color: var(--c-info);
-  font-size: var(--fs-sm);
-}
-
-.body-card-source[hidden] {
-  display: none;
-}
-
 .body-card-description {
   margin: 0;
   font-size: var(--fs-sm);

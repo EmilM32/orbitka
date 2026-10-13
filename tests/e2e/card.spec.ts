@@ -106,7 +106,8 @@ test('jupiter card at 1280', async ({ page }) => {
   );
   await expect(card).toContainText('Rok trwa11,9 roku');
   await expect(card).toContainText('Obrót wokół osi9 h 56 min');
-  await expect(card.locator('a[href^="https://"]')).toHaveCount(1);
+  // Sources live in the licenses section, not on the card.
+  await expect(card.locator('a[href^="https://"]')).toHaveCount(0);
 
   const box = await boxOf(page, '#body-card');
   expect(box.width).toBeCloseTo(320, 0);

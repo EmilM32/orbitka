@@ -173,16 +173,14 @@ async function studentPath(
   }
   await waitForQuiet(page);
 
-  // 3. The card with its facts and a sourced fun fact.
+  // 3. The card with its facts. The source is in the licenses section.
   const card = page.getByRole('region', { name: 'Jowisz' });
   await expect(card).toBeVisible();
   await expect(card.getByRole('heading', { level: 2 })).toHaveText('Jowisz');
   await expect(card).toContainText(JUPITER_GAUGE);
   await expect(fact(card, 'Rok trwa')).toHaveText(JUPITER_YEAR);
   await expect(fact(card, 'Obrót wokół osi')).toHaveText(JUPITER_ROTATION);
-  const source = card.getByRole('link');
-  await expect(source).toHaveCount(1);
-  await expect(source).toHaveAttribute('href', /^https:\/\//u);
+  await expect(card.getByRole('link')).toHaveCount(0);
 
   // 4. Jupiter in the middle of the free area. SPEC §3: at ≤ 1440 px the
   // open card folds the list into the rail.

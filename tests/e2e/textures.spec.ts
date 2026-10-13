@@ -134,6 +134,21 @@ test('attribution is visible', async ({ page }) => {
 
   await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   const sources = page.locator('#sources');
+  await expect(sources.getByText('Liczby z danych NASA.')).toBeVisible();
+  const factSheet = sources.getByRole('link', {
+    name: 'NASA Planetary Fact Sheet',
+  });
+  await expect(factSheet).toBeVisible();
+  await expect(factSheet).toHaveAttribute(
+    'href',
+    'https://nssdc.gsfc.nasa.gov/planetary/factsheet/',
+  );
+  const jupiter = sources.getByRole('link', { name: 'NASA Science: Jupiter' });
+  await expect(jupiter).toBeVisible();
+  await expect(jupiter).toHaveAttribute(
+    'href',
+    'https://science.nasa.gov/jupiter/',
+  );
   await expect(sources.getByText('Solar System Scope')).toBeVisible();
   const license = sources.getByRole('link', { name: 'licencja CC BY 4.0' });
   await expect(license).toBeVisible();

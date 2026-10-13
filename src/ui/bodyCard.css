@@ -325,7 +325,6 @@
 .body-card-interior {
   margin: 0;
   padding: 0.625rem 0 0;
-  border-top: var(--border);
 }
 
 .body-card-interior[hidden],

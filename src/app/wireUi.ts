@@ -20,6 +20,7 @@ import { createShortcutsDialog } from '@ui/shortcutsDialog.ts';
 import { createTimeControls } from '@ui/timeControls.ts';
 import { createViewControls } from '@ui/viewControls.ts';
 
+import { collectSourceCitations } from './sourceCitations.ts';
 import { createDisposables } from './disposables.ts';
 import { buildViewLink, copyText } from './viewLink.ts';
 import type { AppI18n } from './types.ts';
@@ -67,8 +68,11 @@ export function wireUi({
   stack.add(() => {
     pageHeader.remove();
   });
+  const citations = collectSourceCitations(bodyContent);
   const scaleNotice = createScaleNotice(pageHeader, i18n, {
     textures: TEXTURE_SOURCE,
+    funFacts: citations.funFacts,
+    cutaways: citations.cutaways,
   });
   stack.add(() => {
     scaleNotice.dispose();

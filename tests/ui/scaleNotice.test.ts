@@ -15,6 +15,19 @@ const SOURCES = {
     url: 'https://www.solarsystemscope.com/textures/',
     licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
   },
+  funFacts: [
+    {
+      name: 'NASA Planetary Fact Sheet',
+      url: 'https://nssdc.gsfc.nasa.gov/planetary/factsheet/',
+    },
+  ],
+  cutaways: [
+    {
+      bodyId: 'jupiter',
+      name: 'NASA Science: Jupiter',
+      url: 'https://science.nasa.gov/jupiter/',
+    },
+  ],
 };
 
 function setup() {
@@ -105,9 +118,10 @@ test('scaleNotice › opens a modal dialog', () => {
   expect(points[1]?.textContent).toBe(
     'Odległości są ściśnięte. Neptun krąży ok. 30 razy dalej od Słońca niż Ziemia, a na ekranie tylko ok. 5,5 raza dalej.',
   );
-  expect(view.dialog.querySelector('.scale-source')?.textContent).toBe(
-    'Liczby z danych NASA.',
-  );
+  expect(view.dialog.querySelector('.scale-source')).toBeNull();
+  expect(
+    view.dialog.querySelector('.scale-explanation-foot')?.textContent,
+  ).not.toContain('Liczby z danych NASA.');
   expect(view.confirm.textContent).toBe('Rozumiem');
   expect(view.confirm.classList.contains('o-btn--primary')).toBe(true);
   expect(view.dismiss.getAttribute('aria-label')).toBe('Zamknij');
@@ -130,25 +144,38 @@ test('scaleNotice › sources section', () => {
   expect(toggle.getAttribute('aria-controls')).toBe('sources');
   expect(toggle.getAttribute('aria-expanded')).toBe('false');
   expect(section.hidden).toBe(true);
-  // Right under "Liczby z danych NASA.".
-  expect(toggle.previousElementSibling?.textContent).toBe(
-    'Liczby z danych NASA.',
-  );
+  expect(
+    toggle.parentElement?.classList.contains('scale-explanation-foot'),
+  ).toBe(true);
 
   toggle.click();
   expect(toggle.getAttribute('aria-expanded')).toBe('true');
   expect(section.hidden).toBe(false);
-  const items = [...section.querySelectorAll('li')].map(
-    (item) => item.textContent,
-  );
-  expect(items[0]).toBe('Dane o planetach: NASA i JPL');
-  expect(items[1]).toContain(
+  const items = [...section.querySelectorAll(':scope > ul > li')];
+  expect(items[0]?.textContent).toBe('Liczby z danych NASA.');
+  expect(items[1]?.textContent).toBe('Dane o planetach: NASA i JPL');
+  expect(items[2]?.textContent).toBe('Ciekawostki: NASA Planetary Fact Sheet');
+  const cutawayItems = [
+    ...(items[3]?.querySelectorAll(':scope > ul > li') ?? []),
+  ];
+  expect(items[3]?.firstChild?.textContent).toBe('Przekroje wnętrz:');
+  expect(cutawayItems.map((item) => item.textContent)).toEqual([
+    'Jowisz: NASA Science: Jupiter',
+  ]);
+  expect(items[4]?.textContent).toContain(
     'Tekstury planet: Solar System Scope, licencja CC BY 4.0. Zmiany: zmniejszone i skompresowane do JPG.',
   );
-  expect(items[2]).toBe('Fonty: Inter i Space Grotesk (SIL OFL 1.1)');
-  expect(items[3]).toBe('Ikony: Lucide (ISC)');
+  expect(items[5]?.textContent).toBe(
+    'Fonty: Inter i Space Grotesk (SIL OFL 1.1)',
+  );
+  expect(items[6]?.textContent).toBe('Ikony: Lucide (ISC)');
   const links = [...section.querySelectorAll('a')];
   expect(links.map((link) => [link.textContent, link.href])).toEqual([
+    [
+      'NASA Planetary Fact Sheet',
+      'https://nssdc.gsfc.nasa.gov/planetary/factsheet/',
+    ],
+    ['NASA Science: Jupiter', 'https://science.nasa.gov/jupiter/'],
     ['Solar System Scope', 'https://www.solarsystemscope.com/textures/'],
     ['licencja CC BY 4.0', 'https://creativecommons.org/licenses/by/4.0/'],
   ]);

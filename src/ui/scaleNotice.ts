@@ -10,9 +10,13 @@ type AppI18n = I18n<Dictionary>;
 
 const POINTS = [1, 2, 3, 4] as const;
 
-/** Links for the sources and licenses section; main.ts passes them in. */
+/** Links for the sources and licenses section; the app wiring passes them in. */
 export type SourceLinks = {
   textures: { name: string; url: string; licenseUrl: string };
+  /** Fun-fact pages, one entry per address. */
+  funFacts: readonly { name: string; url: string }[];
+  /** Cutaway pages, one entry per body. */
+  cutaways: readonly { bodyId: string; name: string; url: string }[];
 };
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -76,6 +80,27 @@ function externalLink(href: string, text: string): HTMLAnchorElement {
   return link;
 }
 
+// The source name sits in the translated line. Link that occurrence, which is
+// the last one when the body name happens to contain the same words.
+function appendLinkedName(
+  parent: HTMLElement,
+  line: string,
+  name: string,
+  url: string,
+): void {
+  const at = line.lastIndexOf(name);
+  if (at < 0) {
+    throw new RangeError(
+      `appendLinkedName: parameter "line" must contain the source name, got ${JSON.stringify(line)}`,
+    );
+  }
+  parent.append(
+    line.slice(0, at),
+    externalLink(url, name),
+    line.slice(at + name.length),
+  );
+}
+
 // The CC BY 4.0 attribution for the textures (name, license, changes) and the
 // other sources, folded under a link-style button.
 function createSources(
@@ -97,8 +122,40 @@ function createSources(
   const list = document.createElement('ul');
   list.className = 'scale-sources';
 
+  const scaleNumbers = document.createElement('li');
+  scaleNumbers.textContent = i18n.t('scaleNotice.source');
+
   const data = document.createElement('li');
   data.textContent = i18n.t('sources.data');
+
+  const funFacts = links.funFacts.map((source) => {
+    const item = document.createElement('li');
+    appendLinkedName(
+      item,
+      i18n.t('sources.funFacts', { name: source.name }),
+      source.name,
+      source.url,
+    );
+    return item;
+  });
+
+  const cutaways =
+    links.cutaways.length === 0 ? null : document.createElement('li');
+  if (cutaways !== null) {
+    const cutawayList = document.createElement('ul');
+    for (const source of links.cutaways) {
+      const item = document.createElement('li');
+      const body = i18n.t(`bodies.${source.bodyId}.name`);
+      appendLinkedName(
+        item,
+        i18n.t('sources.cutaway', { body, name: source.name }),
+        source.name,
+        source.url,
+      );
+      cutawayList.append(item);
+    }
+    cutaways.append(i18n.t('sources.cutaways'), cutawayList);
+  }
 
   const { name, url, licenseUrl } = links.textures;
   const textures = document.createElement('li');
@@ -122,7 +179,11 @@ function createSources(
   const icons = document.createElement('li');
   icons.textContent = i18n.t('sources.icons');
 
-  list.append(data, textures, fonts, icons);
+  list.append(scaleNumbers, data, ...funFacts);
+  if (cutaways !== null) {
+    list.append(cutaways);
+  }
+  list.append(textures, fonts, icons);
   section.append(list);
   return { toggle, section };
 }
@@ -230,18 +291,12 @@ export function createScaleNotice(
 
   const foot = document.createElement('div');
   foot.className = 'scale-explanation-foot';
-  const source = document.createElement('p');
-  source.className = 'scale-source';
-  source.textContent = i18n.t('scaleNotice.source');
-  const credits = document.createElement('div');
-  credits.className = 'scale-credits';
-  credits.append(source, sources.toggle);
   const confirm = document.createElement('button');
   confirm.setAttribute('type', 'button');
   confirm.setAttribute('id', 'scale-close');
   confirm.className = 'o-btn o-btn--primary';
   confirm.textContent = i18n.t('scaleNotice.confirm');
-  foot.append(credits, confirm);
+  foot.append(sources.toggle, confirm);
 
   dialog.append(head, body, foot);
   parent.insertBefore(root, before ?? null);

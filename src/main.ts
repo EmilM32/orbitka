@@ -10,6 +10,7 @@ import { isWebGLUnavailable } from '@render/webglSupport.ts';
 import { createI18n } from '@ui/i18n.ts';
 import { showSceneUnavailable } from '@ui/sceneUnavailable.ts';
 import '@ui/layout.ts';
+import '@ui/phoneLayout.ts';
 
 function findCanvas(): HTMLCanvasElement {
   const canvas = document.querySelector<HTMLCanvasElement>('#viewport');

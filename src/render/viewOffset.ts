@@ -112,7 +112,8 @@ export function createViewOffsetRig(
     }
     const covered = insets.get();
     const nextX = clampHalf(covered.right, width);
-    const nextY = clampHalf(covered.bottom, height);
+    const nextY =
+      clampHalf(covered.bottom, height) - clampHalf(covered.top ?? 0, height);
     if (nextX === targetX && nextY === targetY) {
       return;
     }

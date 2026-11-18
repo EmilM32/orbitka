@@ -72,7 +72,7 @@ export function wireOverlays({
       i18n,
       storage: coachStorage,
       insets: viewInsets,
-      isTablet: () => uiRig.tabletQuery.matches,
+      isTablet: () => uiRig.drawerQuery.matches,
       leftEdge: () => uiRig.bodiesPanel.element.getBoundingClientRect().right,
       matchMedia: window.matchMedia.bind(window),
       reducedMotion,
@@ -90,6 +90,7 @@ export function wireOverlays({
   const layoutObserver = createLayoutObserver({
     target: timePanel,
     root: document.documentElement,
+    onHeightChange: uiRig.bodyCard.refreshInsets,
   });
   stack.add(() => {
     layoutObserver.dispose();
@@ -108,6 +109,8 @@ export function wireOverlays({
       uiRig.bodiesDrawer.openButton,
       uiRig.bodiesPanel.element,
       uiRig.viewControls.element,
+      document.getElementById('view-settings-panel'),
+      document.getElementById('time-options'),
       uiRig.bodyCard.element,
       timePanel,
       coachPanel?.element,

@@ -56,7 +56,7 @@ export function wireStartFrame(viewRig: ViewRig, uiRig: UiRig) {
     // selected) the list keeps the width it had, so selecting does not move
     // the start view.
     let left = EDGE_PX;
-    if (!uiRig.tabletQuery.matches) {
+    if (!uiRig.drawerQuery.matches) {
       const panel = uiRig.bodiesPanel;
       const right = panel.element.getBoundingClientRect().right;
       if (panel.getMode() === 'list' || listRight === 0) {

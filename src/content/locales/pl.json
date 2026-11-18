@@ -80,6 +80,8 @@
   "time.presets.ten-days": "10 dni/s",
   "time.presets.month": "1 miesiąc/s",
   "time.presets.year": "1 rok/s",
+  "time.tempo.reversed": "−{speed}",
+  "time.tempo.label": "Tempo symulacji: {speed}",
   "time.controls.label": "Sterowanie czasem",
   "time.pause.text": "Pauza",
   "time.pause.ariaLabel": "Pauza: zatrzymaj czas",

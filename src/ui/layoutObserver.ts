@@ -14,6 +14,7 @@ export type LayoutObserverOptions = {
   target: HTMLElement;
   root: HTMLElement;
   createObserver?: LayoutObserverFactory;
+  onHeightChange?(): void;
 };
 
 export type LayoutObserver = {
@@ -68,6 +69,7 @@ export function createLayoutObserver(
     }
 
     root.style.setProperty('--time-panel-height', `${Math.ceil(height)}px`);
+    options.onHeightChange?.();
   }
 
   if (factory === null) {

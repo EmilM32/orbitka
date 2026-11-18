@@ -226,7 +226,9 @@ export function createScaleNotice(
   whyButton.setAttribute('id', 'scale-why');
   whyButton.className = 'o-btn';
   whyButton.setAttribute('aria-haspopup', 'dialog');
-  whyButton.textContent = i18n.t('scaleNotice.why');
+  const whyText = document.createElement('span');
+  whyText.textContent = i18n.t('scaleNotice.why');
+  whyButton.append(whyText, createIcon('info'));
   whyButton.setAttribute('aria-label', i18n.t('scaleNotice.buttonLabel'));
   root.append(badge, whyButton);
 

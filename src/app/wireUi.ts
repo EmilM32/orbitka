@@ -2,7 +2,7 @@ import type { BodyContentCatalog } from '@content/bodyContent.ts';
 import { shouldShowRail } from '@core/bodiesRail.ts';
 import { presetIdForSpeed } from '@core/clock.ts';
 import type { AppStorage } from '@core/storage.ts';
-import { VIEW_CONFIG } from '@core/viewConfig.ts';
+import { PHONE_LAYOUT_QUERY, VIEW_CONFIG } from '@core/viewConfig.ts';
 import { bodies } from '@data/bodies.ts';
 import { TEXTURE_SOURCE } from '@render/textureStore.ts';
 import { createBodiesDrawer, type BodiesDrawer } from '@ui/bodiesDrawer.ts';
@@ -113,7 +113,7 @@ export function wireUi({
   });
   // The list folds into the rail beside an open card up to 1440 px; the
   // tablet drawer has no rail (SPEC §5.4).
-  const tabletListQuery = window.matchMedia(
+  const drawerQuery = window.matchMedia(
     `(max-width: ${VIEW_CONFIG.tabletMaxWidthPx}px)`,
   );
   const railWidthQuery = window.matchMedia(
@@ -121,7 +121,7 @@ export function wireUi({
   );
   const updateListMode = (): void => {
     const rail =
-      !tabletListQuery.matches &&
+      !drawerQuery.matches &&
       shouldShowRail({
         viewportWidthPx: window.innerWidth,
         hasSelection: selection.getSelectedId() !== null,
@@ -136,10 +136,10 @@ export function wireUi({
       }
     }),
   );
-  tabletListQuery.addEventListener('change', updateListMode);
+  drawerQuery.addEventListener('change', updateListMode);
   railWidthQuery.addEventListener('change', updateListMode);
   stack.add(() => {
-    tabletListQuery.removeEventListener('change', updateListMode);
+    drawerQuery.removeEventListener('change', updateListMode);
     railWidthQuery.removeEventListener('change', updateListMode);
   });
   const { quality, orbitLines, gravityGrid, forceArrows, cutaway } = sceneRig;
@@ -193,21 +193,22 @@ export function wireUi({
   stack.add(() => {
     viewControls.dispose();
   });
-  const tabletQuery = window.matchMedia(
-    `(min-width: ${VIEW_CONFIG.tabletMinWidthPx}px) and (max-width: ${VIEW_CONFIG.tabletMaxWidthPx}px)`,
-  );
   // After the canvas and before the view group in the Tab order (SPEC §8).
   const layerLabel = createLayerLabel(document.body);
   stack.add(() => {
     layerLabel.dispose();
   });
+  const phone = window.matchMedia(PHONE_LAYOUT_QUERY);
+  const scaleChip = pageHeader.querySelector('#scale-notice');
   const card = createBodyCard(document.body, {
     bodies,
     content: bodyContent,
     selection,
     insets: viewInsets,
     i18n,
-    isTablet: () => tabletQuery.matches,
+    isTablet: () => drawerQuery.matches,
+    topInset: () =>
+      phone.matches ? scaleChip?.getBoundingClientRect().bottom : undefined,
     before: viewControls.element,
     reducedMotion,
     focusOnClose: canvas,
@@ -266,7 +267,7 @@ export function wireUi({
     bodyCard: card,
     layerLabel,
     timeControls,
-    tabletQuery,
+    drawerQuery,
     dispose: stack.disposeAll,
   };
 }

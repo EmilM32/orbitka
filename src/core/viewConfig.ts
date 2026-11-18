@@ -32,3 +32,6 @@ export const VIEW_CONFIG = {
   selectionRingPaddingPx: 8,
   selectionRingMinRadiusPx: 12,
 } as const;
+
+// A short landscape phone needs the same compact controls as a narrow window.
+export const PHONE_LAYOUT_QUERY = `(width < ${VIEW_CONFIG.tabletMinWidthPx}px), (max-width: ${VIEW_CONFIG.tabletMaxWidthPx}px) and (max-height: 500px)`;

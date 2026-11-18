@@ -9,6 +9,7 @@ import {
   type Clock,
   type ClockState,
 } from '@core/clock.ts';
+import { PHONE_LAYOUT_QUERY } from '@core/viewConfig.ts';
 import { dateDistance } from '@core/dateDistance.ts';
 import {
   nearestPresetTick,
@@ -22,7 +23,7 @@ import { orbitalElementsAreApproximate } from '@data/elementValidity.ts';
 
 import { formatDateTimeAttr, formatDateWords } from './formatDate.ts';
 import { formatDistance } from './formatDistance.ts';
-import { formatSpeedSpoken } from './formatSpeed.ts';
+import { formatSpeed, formatSpeedSpoken } from './formatSpeed.ts';
 import { type Dictionary, type I18n } from './i18n.ts';
 import { createIcon } from './icons.ts';
 import { createTooltip } from './tooltip.ts';
@@ -64,6 +65,14 @@ type PresetCopy = {
   spoken: string;
   aria: string;
 };
+
+function timeButton(testId: string, className: string): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.dataset.testid = testId;
+  button.className = className;
+  return button;
+}
 
 function inRange(days: number): boolean {
   return Number.isFinite(days) && Math.abs(days) <= DAYS_LIMIT;
@@ -134,10 +143,10 @@ export function createTimeControls(
 
   // The one yellow control of the panel (SPEC §5.8). The label is for screen
   // readers; the round button shows the icon only, as in the FINAL mockups.
-  const pauseButton = document.createElement('button');
-  pauseButton.setAttribute('type', 'button');
-  pauseButton.setAttribute('data-testid', 'time-pause');
-  pauseButton.className = 'o-btn o-btn--primary time-play';
+  const pauseButton = timeButton(
+    'time-pause',
+    'o-btn o-btn--primary time-play',
+  );
   const pauseLabel = document.createElement('span');
   pauseLabel.className = 'visually-hidden';
   let pauseIcon: SVGSVGElement | null = null;
@@ -146,11 +155,8 @@ export function createTimeControls(
   const readout = document.createElement('div');
   readout.className = 'time-readout';
 
-  const accuracy = document.createElement('button');
-  accuracy.setAttribute('type', 'button');
+  const accuracy = timeButton('time-accuracy', 'time-accuracy');
   accuracy.setAttribute('id', 'time-accuracy');
-  accuracy.setAttribute('data-testid', 'time-accuracy');
-  accuracy.className = 'time-accuracy';
   const accuracyIcon = document.createElement('span');
   accuracyIcon.setAttribute('aria-hidden', 'true');
   accuracyIcon.textContent = '\u2248';
@@ -169,10 +175,7 @@ export function createTimeControls(
   const dateRow = document.createElement('div');
   dateRow.className = 'time-date-row';
 
-  const todayButton = document.createElement('button');
-  todayButton.setAttribute('type', 'button');
-  todayButton.setAttribute('data-testid', 'time-today');
-  todayButton.className = 'o-btn o-btn--ghost time-today';
+  const todayButton = timeButton('time-today', 'o-btn o-btn--ghost time-today');
   todayButton.textContent = i18n.t('time.today.text');
   todayButton.setAttribute('aria-label', i18n.t('time.today.ariaLabel'));
   todayButton.setAttribute('data-visible', 'false');
@@ -199,12 +202,9 @@ export function createTimeControls(
   const presetButtons = new Map<SpeedPresetId, HTMLButtonElement>();
   const presetButtonList: HTMLButtonElement[] = [];
   for (const preset of PRESET_BUTTONS) {
-    const button = document.createElement('button');
-    button.setAttribute('type', 'button');
+    const button = timeButton(preset.testId, 'o-btn time-preset');
     button.setAttribute('role', 'radio');
     button.setAttribute('aria-checked', 'false');
-    button.className = 'o-btn time-preset';
-    button.setAttribute('data-testid', preset.testId);
     button.setAttribute('data-preset', preset.id);
     button.textContent = presetCopy[preset.id].visible;
     button.setAttribute('aria-label', presetCopy[preset.id].aria);
@@ -213,10 +213,10 @@ export function createTimeControls(
   }
   presetGroup.append(...presetButtonList);
 
-  const reverseButton = document.createElement('button');
-  reverseButton.setAttribute('type', 'button');
-  reverseButton.setAttribute('data-testid', 'time-reverse');
-  reverseButton.className = 'o-btn o-btn--outline o-toggle time-reverse';
+  const reverseButton = timeButton(
+    'time-reverse',
+    'o-btn o-btn--outline o-toggle time-reverse',
+  );
   const reverseText = document.createElement('span');
   reverseText.textContent = i18n.t('time.reverse.text');
   reverseButton.append(createIcon('reverse'), reverseText);
@@ -258,21 +258,21 @@ export function createTimeControls(
   live.setAttribute('class', 'visually-hidden');
   live.setAttribute('aria-live', 'polite');
 
-  section.append(
-    pauseButton,
-    readout,
-    rowBreak,
-    presetGroup,
-    reverseButton,
-    sliderLabel,
-    sliderWrap,
-    live,
-  );
+  const tempo = timeButton('time-tempo', 'o-btn o-btn--outline time-tempo');
+  tempo.setAttribute('aria-expanded', 'false');
+  tempo.setAttribute('aria-controls', 'time-options');
+  const tempoText = document.createElement('span');
+  tempo.append(tempoText, createIcon('chevron'));
+  const options = document.createElement('div');
+  options.id = 'time-options';
+  const phone = window.matchMedia?.(PHONE_LAYOUT_QUERY);
+  section.append(pauseButton, readout, rowBreak, live);
   parent.insertBefore(section, before ?? null);
 
   const controls: readonly HTMLElement[] = [
     pauseButton,
     ...presetButtonList,
+    tempo,
     reverseButton,
     todayButton,
     slider,
@@ -281,6 +281,74 @@ export function createTimeControls(
   let disposed = false;
 
   const abort = new AbortController();
+  function closeOptions(): void {
+    options.hidden = true;
+    tempo.setAttribute('aria-expanded', 'false');
+  }
+  function arrangeControls(): void {
+    const active = document.activeElement;
+    closeOptions();
+    if (phone?.matches) {
+      options.append(
+        presetGroup,
+        reverseButton,
+        todayButton,
+        sliderLabel,
+        sliderWrap,
+      );
+      readout.after(tempo, options);
+    } else {
+      rowBreak.after(presetGroup, reverseButton, sliderLabel, sliderWrap);
+      dateRow.append(todayButton);
+      options.remove();
+      tempo.remove();
+    }
+    if (
+      active instanceof HTMLElement &&
+      (active === tempo || section.contains(active))
+    ) {
+      if (options.contains(active)) tempo.focus();
+      else if (!active.isConnected) pauseButton.focus();
+      else active.focus();
+    }
+  }
+  arrangeControls();
+  const listenerOptions = { signal: abort.signal };
+  phone?.addEventListener('change', arrangeControls, listenerOptions);
+  tempo.addEventListener(
+    'click',
+    () => {
+      if (!ready) return;
+      options.hidden = !options.hidden;
+      tempo.setAttribute('aria-expanded', String(!options.hidden));
+    },
+    listenerOptions,
+  );
+  section.addEventListener(
+    'keydown',
+    (event) => {
+      if (event.key === 'Escape' && !options.hidden) {
+        event.stopPropagation();
+        closeOptions();
+        tempo.focus();
+      }
+    },
+    listenerOptions,
+  );
+  document.addEventListener(
+    'click',
+    (event) => {
+      if (
+        !options.hidden &&
+        event.target instanceof Node &&
+        !section.contains(event.target)
+      ) {
+        closeOptions();
+      }
+    },
+    listenerOptions,
+  );
+
   pauseButton.addEventListener(
     'click',
     () => {
@@ -288,7 +356,7 @@ export function createTimeControls(
         clock.togglePause();
       }
     },
-    { signal: abort.signal },
+    listenerOptions,
   );
   for (const preset of PRESET_BUTTONS) {
     presetButtons.get(preset.id)?.addEventListener(
@@ -298,7 +366,7 @@ export function createTimeControls(
           clock.applyPreset(preset.id);
         }
       },
-      { signal: abort.signal },
+      listenerOptions,
     );
   }
   // Radiogroup pattern: the arrows move between the presets and apply them.
@@ -330,7 +398,7 @@ export function createTimeControls(
       clock.applyPreset(next.id);
       presetButtons.get(next.id)?.focus();
     },
-    { signal: abort.signal },
+    listenerOptions,
   );
   function goToToday(): void {
     if (!ready || disposed) {
@@ -343,7 +411,7 @@ export function createTimeControls(
       pauseButton.focus();
     }
   }
-  todayButton.addEventListener('click', goToToday, { signal: abort.signal });
+  todayButton.addEventListener('click', goToToday, listenerOptions);
   reverseButton.addEventListener(
     'click',
     () => {
@@ -351,7 +419,7 @@ export function createTimeControls(
         clock.setReversed(!clock.reversed);
       }
     },
-    { signal: abort.signal },
+    listenerOptions,
   );
 
   let lastDateText = '';
@@ -641,6 +709,24 @@ export function createTimeControls(
       lastAwayFromToday = awayFromToday;
     }
 
+    if (
+      lastState?.speed !== state.speed ||
+      lastState.reversed !== state.reversed ||
+      lastState.presetId !== state.presetId
+    ) {
+      const preset = presetById(state.presetId ?? '');
+      const speed =
+        preset === null
+          ? formatSpeed(state.speed, i18n)
+          : presetCopy[preset].visible;
+      tempoText.textContent = state.reversed
+        ? i18n.t('time.tempo.reversed', { speed })
+        : speed;
+      tempo.setAttribute(
+        'aria-label',
+        i18n.t('time.tempo.label', { speed: tempoText.textContent }),
+      );
+    }
     const valueText = formatSpeedSpoken(
       state.speed,
       state.reversed,

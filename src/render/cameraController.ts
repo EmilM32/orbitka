@@ -272,7 +272,10 @@ export function createCameraController(
 
       const previousStart = currentStart();
       aspect = nextAspect;
-      pose.distance *= currentStart() / previousStart;
+      // A selected body's zoom is relative to its radius. Only the overview
+      // scales with the size of the outermost orbit on screen.
+      if (displayRadius === null)
+        pose.distance *= currentStart() / previousStart;
       recomputeLimits();
       camera.aspect = aspect;
       camera.updateProjectionMatrix();
@@ -289,7 +292,7 @@ export function createCameraController(
       if (nextStart === previousStart) {
         return;
       }
-      pose.distance *= nextStart / previousStart;
+      if (displayRadius === null) pose.distance *= nextStart / previousStart;
       recomputeLimits();
       syncCamera();
     },

@@ -2,7 +2,7 @@
 // (ADR-009 annex, EMI-219). The card writes it; the render layer moves the
 // camera frame so the selected body stays in the middle of the free area.
 
-export type ViewInsets = { right: number; bottom: number };
+export type ViewInsets = { right: number; bottom: number; top?: number };
 
 export type ViewInsetsStore = {
   get(): Readonly<ViewInsets>;
@@ -10,7 +10,7 @@ export type ViewInsetsStore = {
   subscribe(listener: (insets: Readonly<ViewInsets>) => void): () => void;
 };
 
-function requireInset(name: 'right' | 'bottom', value: number): void {
+function requireInset(name: keyof ViewInsets, value: number): void {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
     throw new RangeError(
       `viewInsets.set: parameter "insets.${name}" must be finite and >= 0, got ${String(value)}`,
@@ -29,9 +29,15 @@ export function createViewInsets(): ViewInsetsStore {
     set(insets) {
       requireInset('right', insets.right);
       requireInset('bottom', insets.bottom);
-      if (insets.right === current.right && insets.bottom === current.bottom) {
+      requireInset('top', insets.top ?? 0);
+      if (
+        insets.right === current.right &&
+        insets.bottom === current.bottom &&
+        insets.top === current.top
+      ) {
         return;
       }
+      current.top = insets.top;
       current.right = insets.right;
       current.bottom = insets.bottom;
       // Every listener runs even if one throws; the first error is rethrown.

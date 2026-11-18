@@ -364,12 +364,12 @@ export function createCameraDirector(
     holdPosition();
   }
 
-  // Under reduced motion the card enters in the same event as the jump, after
-  // it. While the user has not zoomed, the body frame follows the new area.
+  // On a phone the sheet can occupy most of the scene after a flight.
+  // A reduced-motion jump also precedes the card. Reframe until the user zooms.
   function onInsetsChange(): void {
     if (
       disposed ||
-      !reducedMotion.matches ||
+      (!reducedMotion.matches && insets.get().top === undefined) ||
       followBody === null ||
       isFlightActive(flight)
     ) {
@@ -510,7 +510,12 @@ export function createCameraDirector(
       return 1;
     }
     const covered = insets.get();
-    return freeAreaDistanceFactor(width, height, covered.right, covered.bottom);
+    return freeAreaDistanceFactor(
+      width,
+      height,
+      covered.right,
+      covered.bottom + (covered.top ?? 0),
+    );
   }
 
   function publishActive(kind: number, progress: number): void {

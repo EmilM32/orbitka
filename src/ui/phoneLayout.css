@@ -1,0 +1,348 @@
+.phone-handle-label,
+#scale-why .icon {
+  display: none;
+}
+
+/* Keep this condition in sync with PHONE_LAYOUT_QUERY. */
+@media (width < 768px), (max-width: 1024px) and (max-height: 500px) {
+  :root {
+    --phone-left: max(8px, env(safe-area-inset-left));
+    --phone-right: max(8px, env(safe-area-inset-right));
+    --phone-bottom: max(8px, env(safe-area-inset-bottom));
+    --phone-top: max(6px, env(safe-area-inset-top));
+    --phone-header: calc(var(--phone-top) + 50px);
+    --phone-view-width: 5.5rem;
+    --phone-sheet-bottom: calc(
+      var(--phone-bottom) + var(--time-panel-height) + 8px
+    );
+  }
+
+  html,
+  body,
+  #viewport {
+    height: 100dvh;
+  }
+
+  .topbar {
+    top: var(--phone-top);
+    left: var(--phone-left);
+    height: 50px;
+    padding: 0 4px;
+  }
+  .brand {
+    gap: 4px;
+    font-size: 1.125rem;
+  }
+  .brand .icon {
+    width: 1.4rem;
+    height: 1.4rem;
+  }
+  #view-controls {
+    top: var(--phone-top);
+    right: var(--phone-right);
+    width: var(--phone-view-width);
+  }
+  #view-controls .view-settings {
+    width: 100%;
+    padding: 0;
+    gap: 4px;
+  }
+  #view-controls.has-panel {
+    z-index: var(--z-tooltip);
+  }
+  #view-controls .view-settings-panel {
+    box-sizing: border-box;
+    width: min(21rem, calc(100vw - var(--phone-left) - var(--phone-right)));
+    min-width: 0;
+    max-height: calc(100dvh - var(--phone-header) - var(--phone-bottom) - 8px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: var(--c-surface-strong);
+  }
+  #view-controls .view-settings-panel > * {
+    flex-shrink: 0;
+  }
+  .phone-view-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    padding-bottom: 8px;
+    border-bottom: var(--border);
+  }
+  .phone-view-actions :is(.view-reset, .view-orbits, .view-gravity) {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+  .phone-view-actions .o-toggle__switch {
+    margin-left: auto;
+  }
+  #view-controls .view-reset > span {
+    display: inline;
+  }
+  #view-controls .view-quality {
+    font-size: 1rem;
+  }
+
+  #bodies-drawer-open {
+    top: var(--phone-top);
+    right: calc(var(--phone-right) + var(--phone-view-width) + 6px);
+    left: auto;
+    width: auto;
+    height: 50px;
+    padding-inline: 8px;
+    gap: 5px;
+  }
+  #scale-notice {
+    top: calc(var(--phone-header) + 4px);
+    left: var(--phone-left);
+    max-width: none;
+    padding: 0 0 0 12px;
+    gap: 0;
+  }
+  #scale-why {
+    padding: 0;
+    background: transparent;
+  }
+  #scale-why span {
+    display: none;
+  }
+  #scale-why .icon {
+    display: block;
+  }
+  #bodies-drawer:not([hidden]) {
+    top: calc(var(--phone-header) + 4px);
+    left: var(--phone-left);
+    max-height: calc(100dvh - var(--phone-header) - var(--phone-bottom) - 8px);
+    overscroll-behavior: contain;
+  }
+
+  #time-controls {
+    left: var(--phone-left);
+    right: var(--phone-right);
+    bottom: var(--phone-bottom);
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 6px;
+  }
+  #time-controls .time-play {
+    width: var(--hit);
+    height: var(--hit);
+  }
+  /* Keep the warning inside the dock when the simulated date leaves its
+     accuracy range. A floating chip would cover the sheet or the training. */
+  .time-accuracy {
+    position: static;
+    max-width: 100%;
+    min-height: var(--hit);
+    padding: 4px 6px;
+    gap: 4px;
+    white-space: normal;
+  }
+  .time-readout {
+    width: auto;
+  }
+  #sim-date,
+  #sim-speed {
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  #sim-date {
+    font-size: 0.9375rem;
+  }
+  #sim-speed {
+    font-size: 0.75rem;
+  }
+  .time-tempo {
+    gap: 4px;
+    padding-inline: 8px;
+    font-size: 0.8125rem;
+  }
+  .time-tempo .icon {
+    width: 1em;
+    transform: rotate(180deg);
+  }
+  .time-tempo[aria-expanded='true'] .icon {
+    transform: none;
+  }
+  .time-break {
+    display: none;
+  }
+  #time-options:not([hidden]) {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    right: 0;
+    left: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 8px;
+    max-height: calc(
+      100dvh - var(--phone-sheet-bottom) - var(--phone-header) - 24px
+    );
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    color: var(--c-text);
+    background: var(--c-surface-strong);
+    border: var(--border);
+    border-radius: var(--radius-panel);
+  }
+  #time-options .time-presets {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  #time-options .time-slider {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+  #time-options .time-today {
+    justify-self: end;
+  }
+
+  #coach.is-tablet {
+    right: var(--phone-right);
+    left: var(--phone-left);
+    bottom: var(--phone-sheet-bottom);
+    z-index: var(--z-card);
+  }
+  .coach {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 0 8px;
+    padding: 8px 10px;
+  }
+  .coach-head {
+    display: contents;
+  }
+  #coach-title {
+    grid-area: 1 / 1;
+    align-self: center;
+    font-size: 0.8125rem;
+  }
+  .coach-bars {
+    display: none;
+  }
+  .coach-counter {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .coach-skip {
+    grid-column: 3;
+    grid-row: 1 / 3;
+    align-self: center;
+  }
+  .coach-steps {
+    grid-column: 1 / 3;
+    grid-row: 2;
+  }
+  .coach-step {
+    padding: 0;
+    border: 0;
+  }
+  .coach-step:not(.is-current),
+  .coach-tick {
+    display: none;
+  }
+  .coach-step.is-current {
+    background: transparent;
+  }
+  .coach-step-title,
+  .coach-step-hint {
+    white-space: normal;
+  }
+  body:has(
+      #bodies-drawer:not([hidden]),
+      #body-card:not([hidden]),
+      #time-options:not([hidden]),
+      #view-controls.has-panel
+    )
+    #coach.is-tablet:not(.has-toast) {
+    visibility: hidden;
+  }
+
+  #body-card.is-sheet {
+    bottom: var(--phone-sheet-bottom);
+    right: var(--phone-right);
+    left: var(--phone-left);
+    grid-template-areas: 'head handle';
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    height: auto;
+    padding: 8px 12px;
+  }
+  #body-card.is-sheet:not(.is-expanded)
+    :is(.body-card-scroll, .body-card-actions) {
+    display: none;
+  }
+  #body-card.is-sheet .body-card-handle {
+    position: static;
+    grid-area: handle;
+    width: auto;
+    height: var(--hit);
+    padding: 0 10px;
+    transform: none;
+    color: var(--c-text);
+    font: var(--fw-strong) var(--fs-sm) / 1 var(--font-ui);
+    border: var(--border);
+    border-radius: var(--radius-control);
+  }
+  #body-card.is-sheet .body-card-handle::before {
+    display: none;
+  }
+  .phone-handle-label {
+    display: inline;
+  }
+  #body-card.is-sheet.is-expanded {
+    height: min(
+      56dvh,
+      calc(100dvh - var(--phone-sheet-bottom) - var(--phone-header) - 56px)
+    );
+    grid-template-areas: 'head handle' 'scroll scroll' 'actions actions';
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+  #body-card.is-sheet .body-card-close {
+    display: none;
+  }
+  #body-card.is-sheet .body-card-title {
+    font-size: 1.25rem;
+  }
+  #body-card.is-sheet .body-card-kind {
+    margin-top: 2px;
+  }
+  #body-card.is-sheet.is-expanded .body-card-scroll {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  #body-card.is-sheet.is-expanded .body-card-actions {
+    justify-self: stretch;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  #body-card.is-sheet .body-card-actions .o-btn {
+    flex: 1 1 auto;
+    padding-inline: 6px;
+    font-size: 0.875rem;
+  }
+  #scale-explanation,
+  #shortcuts-dialog {
+    max-height: calc(100dvh - var(--phone-top) - var(--phone-bottom) - 8px);
+    max-width: calc(100vw - var(--phone-left) - var(--phone-right));
+  }
+}
+
+@media (min-width: 540px) and (max-width: 1024px) and (max-height: 500px) {
+  #scale-notice {
+    top: var(--phone-top);
+    left: calc(var(--phone-left) + 7.25rem);
+  }
+  #body-card.is-sheet.is-expanded {
+    --side-sheet: 1;
+    top: calc(var(--phone-header) + 4px);
+    left: auto;
+    width: min(50vw, 26rem);
+    height: auto;
+  }
+}

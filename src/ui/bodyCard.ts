@@ -58,6 +58,7 @@ export type BodyCardOptions = {
   insets: ViewInsetsStore;
   i18n: AppI18n;
   isTablet(): boolean;
+  topInset?(): number | undefined;
   before?: Node | null;
   /** Without motion the card fades in at once instead of after the flight. */
   reducedMotion?: { readonly matches: boolean };
@@ -72,6 +73,7 @@ export type BodyCardOptions = {
 
 export type BodyCard = {
   readonly element: HTMLElement;
+  refreshInsets(): void;
   show(id: string): void;
   hide(): void;
   isCutawayOpen(): boolean;
@@ -131,6 +133,9 @@ export function createBodyCard(
   handle.setAttribute('aria-expanded', 'false');
   handle.setAttribute('aria-controls', 'body-card');
   handle.setAttribute('data-testid', 'body-card-handle');
+
+  const handleText = create('span', 'phone-handle-label');
+  handle.append(handleText);
 
   const head = create('header', 'body-card-head');
   const title = create('h2', 'body-card-title');
@@ -237,15 +242,19 @@ export function createBodyCard(
   let suppressClick = false;
 
   // The sheet changes height when it opens; the insets follow it.
+  // Measure with the renderer's ResizeObserver cycle. A window resize event
+  // can already see the rotated card while the camera still has the old size.
   const observer =
     typeof ResizeObserver === 'undefined'
       ? null
-      : new ResizeObserver(() => {
-          writeInsets();
-        });
-  observer?.observe(element);
+      : new ResizeObserver(onWindowResize);
+  if (observer) {
+    observer.observe(element);
+    observer.observe(parent);
+  } else {
+    window.addEventListener('resize', onWindowResize);
+  }
   const unsubscribe = selection.subscribe(onSelection);
-  window.addEventListener('resize', onWindowResize);
   close.addEventListener('click', onCloseClick);
   cutawayButton.addEventListener('click', onCutawayClick);
   system.addEventListener('click', onCloseClick);
@@ -264,6 +273,7 @@ export function createBodyCard(
 
   return {
     element,
+    refreshInsets: writeInsets,
     show,
     hide,
     isCutawayOpen,
@@ -714,10 +724,11 @@ export function createBodyCard(
     expanded = sheet && next;
     element.classList.toggle('is-expanded', expanded);
     handle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-    handle.setAttribute(
-      'aria-label',
-      i18n.t(expanded ? 'card.sheet.collapse' : 'card.sheet.expand'),
+    const handleLabel = i18n.t(
+      expanded ? 'card.sheet.collapse' : 'card.sheet.expand',
     );
+    handle.setAttribute('aria-label', handleLabel);
+    handleText.textContent = handleLabel;
     writeInsets();
   }
 
@@ -740,16 +751,29 @@ export function createBodyCard(
     }
     // Layout box, not getBoundingClientRect: the entrance slide must not
     // leak into the insets (offsetLeft and offsetTop ignore transforms).
-    if (sheet) {
+    // A short landscape viewport opens details beside the scene.
+    const sideSheet =
+      sheet &&
+      expanded &&
+      getComputedStyle(element).getPropertyValue('--side-sheet').trim() === '1';
+    const top = options.topInset?.();
+    if (sheet && !sideSheet) {
       insets.set({
+        top,
         right: 0,
         bottom: Math.max(0, window.innerHeight - element.offsetTop),
       });
       return;
     }
     insets.set({
+      top,
       right: Math.max(0, window.innerWidth - element.offsetLeft + CARD_GAP_PX),
-      bottom: 0,
+      bottom: sideSheet
+        ? Math.max(
+            0,
+            window.innerHeight - element.offsetTop - element.offsetHeight,
+          )
+        : 0,
     });
   }
 }

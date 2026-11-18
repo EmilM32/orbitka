@@ -1,5 +1,6 @@
 import './viewControls.css';
 
+import { PHONE_LAYOUT_QUERY } from '@core/viewConfig.ts';
 import { CAMERA_CONFIG } from '@core/cameraConfig.ts';
 import { parseQualityLevel, type QualityLevel } from '@core/quality.ts';
 import { type Selection } from '@core/selection.ts';
@@ -181,19 +182,15 @@ export function createViewControls(
   arrowsHint.id = 'view-gravity-arrows-hint';
   arrowsHint.className = 'view-quality-hint view-gravity-arrows-hint';
   arrowsHint.textContent = i18n.t('view.gravityArrows.hint');
-  const shortcuts = document.createElement('button');
-  shortcuts.type = 'button';
+  const shortcuts = button('view-shortcuts');
   shortcuts.className = 'o-btn o-btn--outline view-shortcuts';
-  shortcuts.setAttribute('data-testid', 'view-shortcuts');
   shortcuts.setAttribute('aria-haspopup', 'dialog');
   shortcuts.append(
     createIcon('keyboard'),
     label(i18n.t('view.shortcuts.text')),
   );
-  const copyLink = document.createElement('button');
-  copyLink.type = 'button';
+  const copyLink = button('view-copy-link');
   copyLink.className = 'o-btn o-btn--outline view-copy-link';
-  copyLink.setAttribute('data-testid', 'view-copy-link');
   copyLink.append(createIcon('link'), label(i18n.t('view.copyLink.text')));
   const copyStatus = document.createElement('p');
   copyStatus.className = 'view-copy-status';
@@ -218,17 +215,37 @@ export function createViewControls(
     select.setAttribute('aria-describedby', hint.id);
     panel.append(hint);
   }
-  element.append(
-    reset,
-    orbits,
-    gravity,
-    zoomOut,
-    zoomIn,
-    fullscreen,
-    settings,
-    panel,
-  );
+  element.append(settings, panel);
 
+  const phone = window.matchMedia?.(PHONE_LAYOUT_QUERY);
+  const viewActions = document.createElement('div');
+  viewActions.className = 'phone-view-actions';
+  const viewLabel = label(i18n.t('view.group.label'));
+  const primary = [reset, orbits, gravity, zoomOut, zoomIn, fullscreen];
+
+  function arrangeControls(): void {
+    const active = document.activeElement;
+    const compact = phone?.matches === true;
+    setPanelOpen(false, false);
+    if (compact) {
+      viewActions.append(...primary);
+      panel.prepend(viewActions);
+      settings.append(viewLabel);
+    } else {
+      settings.before(...primary);
+      viewActions.remove();
+      viewLabel.remove();
+    }
+    settings.setAttribute(
+      'aria-label',
+      i18n.t(compact ? 'view.group.label' : 'view.settings.ariaLabel'),
+    );
+    if (active instanceof HTMLElement && element.contains(active)) {
+      (panel.contains(active) ? settings : active).focus();
+    }
+  }
+  arrangeControls();
+  phone?.addEventListener('change', arrangeControls);
   element.addEventListener('click', onClick);
   element.addEventListener('keydown', onKeyDown);
   select.addEventListener('change', onSelectChange);
@@ -376,6 +393,9 @@ export function createViewControls(
       return;
     }
     if (testId === 'view-reset') {
+      if (phone?.matches) {
+        setPanelOpen(false, true);
+      }
       selection.showSystem();
       return;
     }
@@ -441,6 +461,7 @@ export function createViewControls(
         return;
       }
       disposed = true;
+      phone?.removeEventListener('change', arrangeControls);
       document.removeEventListener('pointerdown', onOutsidePointer, true);
       document.removeEventListener('fullscreenchange', syncFullscreen);
       element.removeEventListener('click', onClick);
